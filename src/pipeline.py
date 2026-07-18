@@ -53,6 +53,7 @@ from .normalization.normalizer import (
 from .orderflow.absorption import AbsorptionDetector
 from .orderflow.cvd import CvdCalculator
 from .orderflow.multi_timeframe import MultiTimeframeCandleAggregator
+from .orderflow.divergence import CvdDivergenceDetector
 from .orderflow.trend import EmaTrendDetector, apply_trend_filter
 from .orderflow.flow_detector import (
     ExhaustionDetector,
@@ -229,6 +230,7 @@ class ReplayPipeline:
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
         self.trend_state = None
+        self.divergence = None
 
     @classmethod
     def from_config(
@@ -275,6 +277,7 @@ class ReplayPipeline:
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
         trend_detector = EmaTrendDetector()
+        divergence_detector = CvdDivergenceDetector()
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -322,6 +325,9 @@ class ReplayPipeline:
             fp_closed = footprint.process_trade(normalized)
             absorption.observe_trade(normalized)
             if cvd_result.closed_candle is not None:
+                detected_divergence = divergence_detector.update(cvd_result.closed_candle)
+                if detected_divergence is not None:
+                    self.divergence = detected_divergence
                 storage.add_candle(candle_to_row(cvd_result.closed_candle))
                 if fp_closed is None:
                     logger.warning(
@@ -630,6 +636,7 @@ class LivePipeline:
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
         self.trend_state = None
+        self.divergence = None
         self.mt5_enabled = mt5_enabled
         self.mt5_bind_address = mt5_bind_address
         self.mt5_port = mt5_port
@@ -766,6 +773,7 @@ class LivePipeline:
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
         trend_detector = EmaTrendDetector()
+        divergence_detector = CvdDivergenceDetector()
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -897,6 +905,9 @@ class LivePipeline:
             if _ta is not None:
                 _emit_flow(_ta)
             if cvd_result.closed_candle is not None:
+                detected_divergence = divergence_detector.update(cvd_result.closed_candle)
+                if detected_divergence is not None:
+                    self.divergence = detected_divergence
                 storage.add_candle(candle_to_row(cvd_result.closed_candle))
                 if fp_closed is None:
                     logger.warning(

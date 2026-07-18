@@ -120,6 +120,7 @@ async def lifespan(app: FastAPI):
                 bc.signal_result,
                 bc.module_scores,
                 bc.absorption_result,
+                getattr(pipeline, "divergence", None),
             ))
 
     def on_liquidation_cb(liq):

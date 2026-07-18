@@ -221,6 +221,30 @@ def test_on_analysis_payload_shape():
     assert p["expected_rr"] is None
     assert p["market_state"] == "BULL"
     assert p["signal"] == "BUY"
+    assert p["divergence"] is None
+
+
+def test_on_analysis_includes_divergence_direction():
+    broker = _make_broker()
+    sent = []
+
+    async def fake_send_text(text):
+        import json
+        sent.append(json.loads(text))
+
+    fake_ws = MagicMock()
+    fake_ws.send_text = AsyncMock(side_effect=fake_send_text)
+    analysis_result = MagicMock(
+        analysis_time=_utc("2024-01-01T12:00:00"), market_state="BULL",
+        risk_level="LOW", reasons=(),
+    )
+    signal_result = MagicMock(signal="BUY", confidence=Decimal("0.75"), composite=None, reasons=[])
+    divergence = MagicMock(direction="BULLISH")
+
+    async def run():
+        await broker.register(fake_ws)
+        await broker.on_analysis(analysis_result, signal_result, {}, None, divergence)
+
 
 
 # ── test 9: FLOW hook IMBALANCE fires BUY+SELL events ────────────────────────

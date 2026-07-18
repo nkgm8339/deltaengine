@@ -227,7 +227,7 @@ class PushBroker:
             "orderbook": book,
         }))
 
-    async def on_analysis(self, analysis_result, signal_result, module_scores, absorption_result) -> None:
+    async def on_analysis(self, analysis_result, signal_result, module_scores, absorption_result, divergence=None) -> None:
         now = analysis_result.analysis_time
         scores: dict[str, Optional[Decimal]] = {
             "cvd": module_scores.get("cvd"),
@@ -258,6 +258,7 @@ class PushBroker:
             "veto": veto,
             "reasons": list(analysis_result.reasons),
             "expected_rr": None,
+            "divergence": divergence.direction if divergence is not None else None,
         }))
 
     async def on_flow_event(self, ev) -> None:

@@ -113,6 +113,8 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 #vetobadge{display:none;margin-bottom:8px;padding:3px 8px;border-radius:5px;text-align:center;
   font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--warn);
   background:rgba(255,196,0,.1);border:1px solid rgba(255,196,0,.35)}
+#divergence{display:none;margin-bottom:8px;padding:3px 8px;border-radius:5px;text-align:center;
+  font-size:10px;font-weight:700;letter-spacing:.1em}
 .srow{margin-bottom:6px}
 .srow .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
 .srow .name{font-size:12px;font-weight:600;letter-spacing:.08em}
@@ -324,6 +326,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
             <span style="font-size:11px;color:var(--sub)">CONF <b id="whyconf" style="font-size:14px;color:var(--text)">—</b></span>
           </div>
           <div id="vetobadge"></div>
+          <div id="divergence"></div>
           <div id="scores"></div>
           <div id="whyfoot">
             <div class="mchip"><div class="k">RISK</div><div class="v dash" id="risk">—</div></div>
@@ -649,6 +652,12 @@ function renderAnalysis(){
   if(a.veto&&a.veto!=="NONE"){vb.style.display="block";vb.textContent="⚠ "+a.veto;}else vb.style.display="none";
   const sc=a.scores||{};
   // CVD row: show "UNREF" when the server reports cvd_unref (cvd_slope_ref uncalibrated).
+  const dv=$("divergence");
+  if(a.divergence==="BULLISH"||a.divergence==="BEARISH"){
+    const dc=a.divergence==="BULLISH"?BUY:SELL;
+    dv.style.display="block"; dv.textContent=`DIVERGENCE: ${a.divergence}`;
+    dv.style.color=dc; dv.style.background=dc+"18"; dv.style.border=`1px solid ${dc}55`;
+  }else dv.style.display="none";
   const cvdRow=a.cvd_unref
     ?`<div class="srow"><div class="top"><span class="name" style="color:${TXT}">CVD</span>
        <span class="val" style="color:${WARN}">UNREF</span></div>
