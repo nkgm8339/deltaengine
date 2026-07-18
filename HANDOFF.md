@@ -16,23 +16,10 @@
 | `f2c69fe` | 順張りフィルター。UPはBUYのみ、DOWNはSELLのみ、RANGE/WARMUPはWAIT |
 | `eb48d28` | 1分確定足の価格/CVD通常ダイバージェンス検出器 |
 
-## 未完了（未コミット）
+| `deecd48` | CVDダイバージェンスをANALYSIS配信し、Web UIの「SIGNAL — WHY」に表示 |
+## 次に仕様決定が必要な項目
 
-ダイバージェンスを画面へ送る接続を途中まで追加している。以下の3ファイルが変更中。
+ダイバージェンスをシグナル評価へ反映するかを決める。
 
-- `src/pipeline.py`
-  - 1分確定足ごとに `CvdDivergenceDetector` を更新し、最新結果を `pipeline.divergence` に保持する変更。
-- `webapp/main.py`
-  - `pipeline.divergence` を `PushBroker.on_analysis()` へ渡す変更。
-- `webapp/push_broker.py`
-  - `ANALYSIS` ペイロードに `divergence: "BULLISH" | "BEARISH" | null` を含める変更。
-
-現時点では **UI表示は未実装**。アプリ画面にはダイバージェンス文言は出ない。
-
-## 再開時の推奨手順
-
-1. 未コミットの3ファイルを確認し、`python -m py_compile src/pipeline.py webapp/main.py webapp/push_broker.py` と関連テストを実行する。
-2. `webapp/static/index.html` の「SIGNAL — WHY」欄に `DIVERGENCE: BULLISH / BEARISH` を表示する欄を追加する。
-3. UIで表示されることを確認し、未コミット分を独立コミットする。
-4. ダイバージェンスをシグナルの加点／警戒に使うかは、ユーザーと仕様を決めてから別段階で実装する。
+- `BULLISH` をBUYの加点／SELLの警戒に使うか
 
