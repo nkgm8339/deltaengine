@@ -53,7 +53,7 @@ from .normalization.normalizer import (
 from .orderflow.absorption import AbsorptionDetector
 from .orderflow.cvd import CvdCalculator
 from .orderflow.multi_timeframe import MultiTimeframeCandleAggregator
-from .orderflow.trend import EmaTrendDetector
+from .orderflow.trend import EmaTrendDetector, apply_trend_filter
 from .orderflow.flow_detector import (
     ExhaustionDetector,
     FlowEvent,
@@ -333,7 +333,7 @@ class ReplayPipeline:
                         cvd_result.closed_candle, fp_closed,
                         imbalance_detector, signal_engine, storage,
                         self.cvd_slope_ref, self.signal_stack_ref,
-                        volume_ref, absorption, analysis_engine,
+                        volume_ref, absorption, analysis_engine, trend_state=self.trend_state,
                     )  # return value unused in replay
                     analysis_count += 1
 
@@ -363,7 +363,7 @@ class ReplayPipeline:
                     final_candle, final_fp,
                     imbalance_detector, signal_engine, storage,
                     self.cvd_slope_ref, self.signal_stack_ref,
-                    volume_ref, absorption, analysis_engine,
+                    volume_ref, absorption, analysis_engine, trend_state=self.trend_state,
                 )  # return value unused in replay
                 analysis_count += 1
         storage.close()
@@ -407,6 +407,7 @@ def _evaluate_and_store(
     flow_events: Optional[list] = None,
     on_webapp_flow_event: Optional[Callable] = None,
     imbalance_fire_state: Optional[dict] = None,
+    trend_state: Any = None,
 ) -> _BarCloseResult:
     """Shared bar-close: volume_ref update -> Imbalance -> Signal -> Analysis -> storage.
 
@@ -462,6 +463,7 @@ def _evaluate_and_store(
         absorption_result=absorption_result,
         flow_events=flow_events,
     )
+    signal_result = apply_trend_filter(signal_result, trend_state)
     storage.add_signal(signal_to_row(candle.bar_time, candle.symbol, signal_result))
 
     analysis_input = AnalysisInput(
@@ -915,7 +917,7 @@ class LivePipeline:
                         cvd_result.closed_candle, fp_closed,
                         imbalance_detector, signal_engine, storage,
                         self.cvd_slope_ref, self.signal_stack_ref,
-                        volume_ref, absorption, analysis_engine,
+                        volume_ref, absorption, analysis_engine, trend_state=self.trend_state,
                         flow_events=list(flow_event_buffer),
                         on_webapp_flow_event=self.on_webapp_flow_event,
                         imbalance_fire_state=self._imbalance_fire_state,
@@ -1056,7 +1058,7 @@ class LivePipeline:
                         final_candle, final_fp,
                         imbalance_detector, signal_engine, storage,
                         self.cvd_slope_ref, self.signal_stack_ref,
-                        volume_ref, absorption, analysis_engine,
+                        volume_ref, absorption, analysis_engine, trend_state=self.trend_state,
                         flow_events=list(flow_event_buffer),
                         on_webapp_flow_event=self.on_webapp_flow_event,
                         imbalance_fire_state=self._imbalance_fire_state,

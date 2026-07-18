@@ -35,3 +35,25 @@ def test_trend_detects_downtrend() -> None:
 def test_trend_rejects_other_timeframe() -> None:
     with pytest.raises(ValueError, match="expected 15m"):
         EmaTrendDetector().update(_candle("100", "5m"))
+
+
+def _signal(signal: str):
+    from src.orderflow.signal import SignalResult
+    return SignalResult(Decimal("70"), Decimal("0.7"), signal, ())
+
+
+def test_filter_allows_only_signals_aligned_with_trend() -> None:
+    from src.orderflow.trend import TrendState, apply_trend_filter
+    up = TrendState("15m", "UP", Decimal("100"), Decimal("99"), Decimal("98"), 50)
+    down = TrendState("15m", "DOWN", Decimal("100"), Decimal("101"), Decimal("102"), 50)
+    assert apply_trend_filter(_signal("BUY"), up).signal == "BUY"
+    assert apply_trend_filter(_signal("SELL"), down).signal == "SELL"
+    assert apply_trend_filter(_signal("SELL"), up).signal == "WAIT"
+    assert apply_trend_filter(_signal("BUY"), down).signal == "WAIT"
+
+
+def test_filter_blocks_signal_until_trend_is_ready() -> None:
+    from src.orderflow.trend import apply_trend_filter
+    filtered = apply_trend_filter(_signal("BUY"), None)
+    assert filtered.signal == "WAIT"
+    assert "TREND_FILTER_WARMUP" in filtered.reasons

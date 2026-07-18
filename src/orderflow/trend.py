@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 
 from .cvd import Candle
+from .signal import SignalResult
+
+
+REASON_TREND_FILTER = "TREND_FILTER"
 
 
 @dataclass(frozen=True)
@@ -61,3 +65,18 @@ class EmaTrendDetector:
             ema_slow=self._ema_slow,
             samples=self._samples,
         )
+
+
+def apply_trend_filter(signal_result: SignalResult, trend_state: TrendState | None) -> SignalResult:
+    """Allow only signals aligned with the confirmed 15-minute trend."""
+    direction = trend_state.direction if trend_state is not None else "WARMUP"
+    permitted = (direction == "UP" and signal_result.signal == "BUY") or (
+        direction == "DOWN" and signal_result.signal == "SELL"
+    )
+    if signal_result.signal == "WAIT" or permitted:
+        return signal_result
+    return replace(
+        signal_result,
+        signal="WAIT",
+        reasons=signal_result.reasons + (f"{REASON_TREND_FILTER}_{direction}",),
+    )
