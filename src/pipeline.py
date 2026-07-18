@@ -53,6 +53,7 @@ from .normalization.normalizer import (
 from .orderflow.absorption import AbsorptionDetector
 from .orderflow.cvd import CvdCalculator
 from .orderflow.multi_timeframe import MultiTimeframeCandleAggregator
+from .orderflow.trend import EmaTrendDetector
 from .orderflow.flow_detector import (
     ExhaustionDetector,
     FlowEvent,
@@ -227,6 +228,7 @@ class ReplayPipeline:
         self.absorption_volume_ref_bars = absorption_volume_ref_bars
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
+        self.trend_state = None
 
     @classmethod
     def from_config(
@@ -272,6 +274,7 @@ class ReplayPipeline:
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
+        trend_detector = EmaTrendDetector()
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -312,7 +315,10 @@ class ReplayPipeline:
             storage.add_trade(trade_to_row(normalized))
             cvd_result = cvd.process(normalized)
             if cvd_result.accepted:
-                self.higher_timeframe_candles.update(higher_timeframes.process(normalized))
+                closed_higher = higher_timeframes.process(normalized)
+                self.higher_timeframe_candles.update(closed_higher)
+                if "15m" in closed_higher:
+                    self.trend_state = trend_detector.update(closed_higher["15m"])
             fp_closed = footprint.process_trade(normalized)
             absorption.observe_trade(normalized)
             if cvd_result.closed_candle is not None:
@@ -621,6 +627,7 @@ class LivePipeline:
         self.absorption_volume_ref_bars = absorption_volume_ref_bars
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
+        self.trend_state = None
         self.mt5_enabled = mt5_enabled
         self.mt5_bind_address = mt5_bind_address
         self.mt5_port = mt5_port
@@ -756,6 +763,7 @@ class LivePipeline:
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
+        trend_detector = EmaTrendDetector()
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -856,7 +864,10 @@ class LivePipeline:
                 self.on_trade(normalized)
             cvd_result = cvd.process(normalized)
             if cvd_result.accepted:
-                self.higher_timeframe_candles.update(higher_timeframes.process(normalized))
+                closed_higher = higher_timeframes.process(normalized)
+                self.higher_timeframe_candles.update(closed_higher)
+                if "15m" in closed_higher:
+                    self.trend_state = trend_detector.update(closed_higher["15m"])
             fp_closed = footprint.process_trade(normalized)
             prev_abs = absorption.events_detected
             absorption.observe_trade(normalized)
