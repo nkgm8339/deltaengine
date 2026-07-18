@@ -52,6 +52,7 @@ from .normalization.normalizer import (
 )
 from .orderflow.absorption import AbsorptionDetector
 from .orderflow.cvd import CvdCalculator
+from .orderflow.multi_timeframe import MultiTimeframeCandleAggregator
 from .orderflow.flow_detector import (
     ExhaustionDetector,
     FlowEvent,
@@ -224,6 +225,8 @@ class ReplayPipeline:
         self.absorption_price_stall_ticks = absorption_price_stall_ticks
         self.absorption_volume_multiplier = absorption_volume_multiplier
         self.absorption_volume_ref_bars = absorption_volume_ref_bars
+        # Latest closed 5m/15m candles; used by the trend filter in the next phase.
+        self.higher_timeframe_candles: dict = {}
 
     @classmethod
     def from_config(
@@ -268,6 +271,7 @@ class ReplayPipeline:
         raws = ReplaySource(data_path).read_all()
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
+        higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -307,6 +311,8 @@ class ReplayPipeline:
             nonlocal analysis_count
             storage.add_trade(trade_to_row(normalized))
             cvd_result = cvd.process(normalized)
+            if cvd_result.accepted:
+                self.higher_timeframe_candles.update(higher_timeframes.process(normalized))
             fp_closed = footprint.process_trade(normalized)
             absorption.observe_trade(normalized)
             if cvd_result.closed_candle is not None:
@@ -613,6 +619,8 @@ class LivePipeline:
         self.absorption_price_stall_ticks = absorption_price_stall_ticks
         self.absorption_volume_multiplier = absorption_volume_multiplier
         self.absorption_volume_ref_bars = absorption_volume_ref_bars
+        # Latest closed 5m/15m candles; used by the trend filter in the next phase.
+        self.higher_timeframe_candles: dict = {}
         self.mt5_enabled = mt5_enabled
         self.mt5_bind_address = mt5_bind_address
         self.mt5_port = mt5_port
@@ -747,6 +755,7 @@ class LivePipeline:
         )
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
+        higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -846,6 +855,8 @@ class LivePipeline:
             if self.on_trade is not None:
                 self.on_trade(normalized)
             cvd_result = cvd.process(normalized)
+            if cvd_result.accepted:
+                self.higher_timeframe_candles.update(higher_timeframes.process(normalized))
             fp_closed = footprint.process_trade(normalized)
             prev_abs = absorption.events_detected
             absorption.observe_trade(normalized)
