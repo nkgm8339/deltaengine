@@ -1,0 +1,9 @@
+# Generated data must not be committed (DirectoryStructure_v3.0 §3)
+/data/parquet/
+/data/duckdb/
+/logs/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

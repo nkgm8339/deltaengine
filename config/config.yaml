@@ -1,0 +1,128 @@
+# Order Flow Analysis Platform — configuration
+# Canonical schema: docs/40_Reference/YAMLReference_v3.1.md §2
+# Format: UTF-8, two-space indent, snake_case keys. Unknown keys fail startup (E1002).
+
+system:
+  timezone: UTC
+  log_level: INFO
+
+market:
+  symbol: BTCUSDT
+  exchange: BINANCE
+  bar_timeframe: 1m
+
+websocket:
+  url: "wss://fstream.binance.com/ws"
+  reconnect: true
+  reconnect_delay_sec: 5
+  reconnect_max_retries: 0
+  heartbeat_sec: 30
+  connect_timeout_sec: 10
+  subscribe_streams:
+    - "btcusdt@trade"
+    - "btcusdt@depth@100ms"
+    - "btcusdt@forceOrder"
+
+normalizer:
+  exchange_profile: binance
+  dedup_window: 10000
+  reorder_tolerance_ms: 500
+
+queue:
+  default_depth: 10000
+  overflow_policy: drop_oldest_log
+
+database:
+  parquet_path: data/parquet
+  duckdb_path: data/duckdb/orderflow.duckdb
+  batch_size: 1000
+  flush_interval_sec: 5
+
+signal:
+  enabled: true
+  weight:
+    cvd: 1.0
+    footprint: 1.0
+    imbalance: 1.0
+    flow: 1.0
+  confidence_threshold: 0.6
+  cvd_slope_ref: 65.203
+  stack_ref: 3
+  absorption_veto_threshold: 0.5
+  evaluation_window: 1 bar
+
+imbalance:
+  ratio_threshold: 3.0
+  min_volume: 0.5
+  ratio_cap: 10.0
+  stack_count: 3
+
+absorption:
+  window_sec: 10
+  price_stall_ticks: 1
+  volume_multiplier: 2.0
+  volume_ref_bars: 20
+
+mt5:
+  enabled: false
+  # Docker コンテナ内で MT5 連動する場合は 0.0.0.0 に変更すること
+  # （compose 側で 127.0.0.1:5555 にのみ公開するためホスト外へは露出しない）
+  bind_address: 127.0.0.1
+  port: 5555
+  max_clients: 3
+  heartbeat_interval_sec: 5
+  max_buffer_messages: 1000
+
+webapp:
+  enabled: true
+  host: 0.0.0.0
+  port: 8080
+  depth_levels: 15
+  flow_window_sec: 60
+  alert_threshold: 0.85
+  confluence:
+    score_threshold: 40
+    strength_threshold: 0.5
+  oi_poll_interval_sec: 10
+  bar_update_interval_sec: 1
+
+ai:
+  enabled: false
+  confidence_threshold: 0.70
+
+replay:
+  enabled: false
+  data_path: null
+  speed: 1.0
+
+calibration:
+  cvd_slope_ref: null
+
+flow_detector:
+  large_trade_min_qty: "5.0"
+  sweep_window_ms: 500
+  sweep_min_qty: "8.0"
+  sweep_min_levels: 3
+  sweep_cooldown_ms: 2000
+  exhaustion_ratio: "0.25"
+  ua_min_vol: "2.0"
+  tape_window_ms: 5000
+  tape_emit_interval_ms: 1000
+  tape_pause_threshold_ms: 3000
+
+monitor:
+  enabled: true
+  interval_sec: 5
+  log_dir: data/monitor
+  bar_missing_tolerance_sec: 90
+  latency_yellow_ms: 2000
+  latency_red_ms: 10000
+  memory_yellow_mb: 900
+  memory_red_mb: 1500
+  window_min: 15
+  reconnect_yellow: 1
+  reconnect_red: 3
+  gap_yellow: 1
+  gap_red: 5
+  exception_yellow: 1
+  exception_red: 3

@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeltaEngine Command Center</title>
+<style>
+:root{
+  --bg:#080916;--panel:#121733;--panel2:#192048;--line:#3A477F;
+  --buy:#39F89D;--sell:#FF365F;--warn:#FFE35D;--info:#A66BFF;
+  --dis:#A3AED9;--text:#F6F7FF;--sub:#C5CDF5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);overflow:auto;
+  font-family:'SF Mono','Cascadia Code','Roboto Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;font-size:12px;user-select:none;overflow:hidden}
+#appgrid{display:flex;flex-direction:column;gap:6px;height:100vh;min-width:1180px;min-height:640px;padding:6px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  display:flex;flex-direction:column;overflow:hidden}
+.phead{display:flex;align-items:center;justify-content:space-between;
+  padding:5px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
+.ptitle{font-size:11px;font-weight:600;letter-spacing:.15em;color:var(--sub)}
+.hint{font-size:9px;letter-spacing:.1em;color:var(--dis)}
+.dash{color:var(--dis)}
+/* top bar */
+#topbar{display:flex;align-items:center;gap:18px;padding:0 16px;height:48px;flex-shrink:0;white-space:nowrap;overflow:hidden}
+#price{font-size:22px;font-weight:700;line-height:48px;flex-shrink:0}
+#chg{font-size:13px;font-weight:600}
+#sigchip{display:flex;align-items:center;gap:8px;padding:4px 12px;border-radius:6px;
+  border:1px solid var(--line)}
+#sigchip b{font-size:15px;letter-spacing:.15em}
+.kv{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.kv .k{font-size:9px;letter-spacing:.15em;color:var(--dis)}
+.kv .v{font-size:13px;font-weight:600}
+#live{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;
+  font-size:10px;font-weight:600}
+#devbtn{background:none;border:none;color:var(--dis);cursor:pointer;font-size:15px;padding:6px}
+#devbtn.on{color:var(--info)}
+/* main */
+#main{display:flex;gap:6px;flex:1;min-height:0}
+#left{width:256px;flex-shrink:0}
+#center{flex:2.2;display:flex;flex-direction:column;gap:6px;min-width:0}
+#right{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+/* order book */
+#bookbody{flex:1;display:flex;flex-direction:column;justify-content:center;
+  padding:4px 6px;overflow:hidden}
+.brow{position:relative;display:flex;align-items:center;gap:6px;flex:1;min-height:17px;
+  border-radius:3px;margin:1px 0;padding:0 6px;transition:background .3s}
+.brow .cum{position:absolute;left:0;top:0;bottom:0;pointer-events:none}
+.brow span{position:relative;z-index:1}
+.brow .qty{margin-left:auto;font-weight:600}
+.brow .sig{width:44px;text-align:right;font-size:10px;color:var(--dis)}
+#mid{display:flex;align-items:center;justify-content:center;gap:8px;margin:3px 0;
+  padding:4px;border-radius:5px;background:var(--panel2);border:1px solid var(--line)}
+#mid b{font-size:13px}
+/* footprint */
+#fphead,#fprow-template{display:flex;align-items:center}
+#fpcols{display:flex;padding:4px 12px;font-size:9px;letter-spacing:.15em;color:var(--dis);
+  border-bottom:1px solid var(--line);flex-shrink:0}
+#fpbody{flex:1;display:flex;flex-direction:column;justify-content:flex-start;padding:0 12px;overflow:hidden}
+.fprow{display:flex;align-items:center;flex-shrink:0;padding:2px 0;border-radius:4px}
+.fp-more{flex-shrink:0;text-align:center;color:var(--dis);font-size:9px;letter-spacing:.1em;padding:2px 0}
+.fprow.va{background:rgba(255,196,0,.025)}
+.fprow.poc{background:rgba(255,196,0,.08)}
+.fprow.vah{border-top:1px dashed rgba(255,196,0,.4)}
+.fprow.val{border-bottom:1px dashed rgba(255,196,0,.4)}
+.fp-price{width:110px;flex-shrink:0;display:flex;align-items:center;gap:5px;color:var(--sub)}
+.badge{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px}
+.badge.poc{background:var(--warn);color:var(--bg)}
+.badge.va{border:1px solid var(--warn);color:var(--warn)}
+.fp-side{flex:1;display:flex;align-items:center;gap:5px}
+.fp-side.bid{justify-content:flex-end;padding-right:8px}
+.fp-side.ask{padding-left:8px}
+.fp-bar{height:11px;border-radius:2px;transition:width .3s}
+.fp-x{width:26px;text-align:center;color:var(--line)}
+.fp-delta{width:60px;flex-shrink:0;text-align:right;font-weight:600}
+.fp-sig{width:44px;flex-shrink:0;text-align:center;font-size:11px}
+.ctl{display:flex;align-items:center;gap:3px}
+.ctl button{background:none;border:none;color:var(--sub);cursor:pointer;padding:3px;font-size:12px}
+.ctl button.lock{color:var(--warn)}
+.ctl .idx{font-size:9px;color:var(--dis);width:52px;text-align:center}
+/* flow */
+#flowpanel{height:160px;flex-shrink:0}
+#flowbody{flex:1;overflow-y:auto;padding:2px 12px}
+.frow{display:flex;align-items:center;gap:10px;padding:3px 0;border-bottom:1px solid var(--line)}
+.fcat{width:96px;text-align:center;font-size:9px;font-weight:700;letter-spacing:.08em;
+  padding:2px 5px;border-radius:4px}
+.fside{width:38px;font-weight:800}
+.fdet{font-size:9px;color:var(--dis)}
+.fblocks{margin-left:auto;letter-spacing:-1px;font-size:11px}
+.fstr{width:38px;text-align:right;font-weight:600}
+.legend{display:flex;gap:9px;font-size:8px;letter-spacing:.08em;color:var(--dis);align-items:center}
+.legend i{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px}
+/* right */
+#mstate{padding:12px;display:flex}
+#mschip{flex:1;display:flex;align-items:center;justify-content:center;padding:9px;
+  border-radius:6px;font-size:17px;font-weight:900;letter-spacing:.15em;transition:all .3s}
+#confl{padding:9px 14px}
+#confstars{text-align:center;font-size:20px;letter-spacing:.2em;color:var(--warn);margin-bottom:7px}
+#confgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.cchip{display:flex;flex-direction:column;align-items:center;padding:4px 0;border-radius:5px;
+  background:var(--panel2);border:1px solid var(--line)}
+.cchip.on{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3)}
+.cchip b{font-size:12px;color:var(--dis)}
+.cchip.on b{color:var(--buy)}
+.cchip span{font-size:7px;letter-spacing:.06em;color:var(--dis);margin-top:2px}
+.cchip.on span{color:var(--text)}
+#whypanel{flex:1}
+#whybody{padding:10px 16px;display:flex;flex-direction:column;flex:1}
+#whytop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+#whysig{font-size:21px;font-weight:900;letter-spacing:.12em}
+#vetobadge{display:none;margin-bottom:8px;padding:3px 8px;border-radius:5px;text-align:center;
+  font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--warn);
+  background:rgba(255,196,0,.1);border:1px solid rgba(255,196,0,.35)}
+.srow{margin-bottom:11px}
+.srow .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.srow .name{font-size:12px;font-weight:600;letter-spacing:.08em}
+.srow .val{font-size:18px;font-weight:900}
+.srow .track{height:9px;border-radius:99px;background:var(--line);overflow:hidden}
+.srow .fill{height:100%;border-radius:99px;transition:width .5s}
+#whydivider{height:1px;background:var(--line);margin:2px 0 11px}
+#whyfoot{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;text-align:center}
+.mchip{padding:5px 0;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
+.mchip .k{font-size:8px;letter-spacing:.15em;color:var(--dis)}
+.mchip .v{font-size:11px;font-weight:700}
+/* bottom */
+#bottom{height:128px;flex-shrink:0}
+#tabs{display:flex;gap:3px}
+#tabs button{background:none;border:none;color:var(--sub);cursor:pointer;
+  font-size:9px;font-weight:700;letter-spacing:.15em;padding:2px 9px;border-radius:4px;
+  font-family:inherit}
+#tabs button.on{color:var(--bg)}
+#chartwrap{flex:1;padding:3px 8px}
+#chart{width:100%;height:100%}
+/* overlays */
+#toasts{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast{display:flex;align-items:center;gap:9px;padding:8px 16px;border-radius:8px;
+  font-size:13px;font-weight:700;letter-spacing:.06em;background:rgba(17,22,31,.96);
+  backdrop-filter:blur(8px);animation:drop .2s ease-out}
+@keyframes drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+/* ALERTS history: normal-flow panel in the right column (below SIGNAL — WHY).
+   No longer position:fixed so it can't overlap other panels. */
+#alerthist{border-radius:8px;background:var(--panel);border:1px solid var(--line);
+  overflow:hidden;display:none;flex-shrink:0}
+#alerthist .ah-head{padding:5px 12px;border-bottom:1px solid var(--line);
+  font-size:9px;font-weight:700;letter-spacing:.15em;color:var(--sub)}
+#alertrows{max-height:150px;overflow-y:auto;padding:2px 12px}
+.arow{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:10px;
+  border-bottom:1px solid var(--line)}
+.arow i{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.arow .as{margin-left:auto;color:var(--sub)}
+#devov{position:fixed;bottom:14px;left:14px;z-index:60;border-radius:8px;padding:11px 15px;
+  background:rgba(17,22,31,.95);border:1px solid var(--info);backdrop-filter:blur(8px);
+  display:none;font-size:11px}
+#devov .dh{font-weight:700;letter-spacing:.15em;color:var(--info);margin-bottom:7px}
+#devgrid{display:grid;grid-template-columns:1fr 1fr;gap:3px 22px}
+#devgrid div{display:flex;justify-content:space-between;gap:14px}
+#devgrid .k{color:var(--dis)}
+#banner{position:fixed;top:0;left:0;right:0;z-index:100;display:none;padding:5px;text-align:center;
+  font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--warn);
+  background:rgba(255,196,0,.12);border-bottom:1px solid var(--warn)}
+/* Command Center visual system: high-energy, high-contrast, readable data UI */
+body{
+  background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 27%),radial-gradient(circle at 89% 22%,#00DFFF29,transparent 30%),var(--bg);
+  font-family:"Segoe UI",Meiryo,sans-serif;
+}
+#appgrid{gap:12px;padding:12px;min-width:1180px;min-height:680px}
+.panel{background:linear-gradient(145deg,#171C3BF2,#0D1024F2);border-color:#3A477F;border-radius:13px;box-shadow:0 13px 32px #0008,inset 0 1px #FFFFFF12}
+.phead{min-height:37px;padding:5px 14px;border-bottom-color:#3A477F;background:#151A38AA}
+.ptitle{color:#C5CDF5;font-weight:800}.hint{color:#A3AED9}.dash{color:#A3AED9}
+#topbar{height:70px;gap:22px;padding:0 22px;background:linear-gradient(105deg,#121733,#1A1740 56%,#102C51)}
+#sym{color:#23DFFF!important;font-size:12px!important;font-weight:900!important;letter-spacing:.15em!important}
+#price,#chg,.kv .v,.brow,.fprow,.frow,#chartlast,.mchip .v{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#price{font-size:35px;letter-spacing:-.045em;line-height:1;text-shadow:0 0 20px #23DFFF60}
+#chg{padding:8px 12px;border:1px solid #39F89DBB;border-radius:8px;background:linear-gradient(105deg,#0D5F5B,#1FAE79 58%,#B9E657);color:#F5FFF8;box-shadow:inset 0 1px #FFFFFF44,0 0 18px #39F89D45}
+#sigchip{border-color:#C8FF74;background:linear-gradient(105deg,#33DCA2,#75F36A 55%,#EDFF70);box-shadow:inset 0 1px #FFFFFF8C,0 0 23px #39F89D8C}
+#sigchip b,#conftop{color:#07140E!important;font-weight:950}
+.kv .k{color:#A3AED9}.kv .v{font-size:14px;color:#F6F7FF}
+#live{border-color:#39F89DBB!important;background:linear-gradient(105deg,#155B54,#228F69)!important;color:#E9FFF3!important;box-shadow:0 0 14px #39F89D40}
+#devbtn{color:#C5CDF5}#devbtn.on{color:#FFE35D}
+#main,#center,#right{gap:12px}#left{width:266px}#right{width:333px}
+#flowpanel{height:178px}#bottom{height:166px}
+#bookbody{padding:7px 10px}.brow{border-radius:5px;font-weight:750}.brow .qty{color:#D8DEFC}.brow .sig{color:#C5CDF5}
+#mid{color:#161004;border-color:#FFE35D;background:#D6A928;box-shadow:0 0 14px #FFE35D38}
+#mid b{color:#161004!important}
+#fpcols{border-bottom-color:#3A477F;color:#A3AED9}.fprow{border-radius:5px}.fprow.poc{background:linear-gradient(90deg,#A66BFF24,#FF4FA326);border-left:3px solid #A66BFF}.fprow.va{background:#FFE35D12}
+.fp-price{color:#CDD4FF}.fp-bar{box-shadow:0 0 9px currentColor}.badge.poc{background:#D6A928;color:#161004}.badge.va{border-color:#FFE35D;color:#FFF08A}
+.ctl button{color:#C5CDF5}.ctl button.lock{color:#FFE35D}
+#flowbody{padding:7px 14px}.frow{gap:10px;border-bottom-color:#2A315D;font-weight:800}.fcat{border-radius:4px;font-weight:900}.legend{color:#C5CDF5}
+#mschip{color:#FFF9FF!important;background:linear-gradient(100deg,#4A319B,#9A57F6 48%,#EF70DF)!important;border-color:#C98BFF!important;box-shadow:inset 0 1px #FFFFFF74,0 0 22px #A66BFF99;font-size:19px}
+.cchip{border-color:#56629B;background:linear-gradient(145deg,#1D2448,#101530);color:#C7D0FB}.cchip.on{border-color:#8EFFB8;background:linear-gradient(145deg,#17635A,#1AA465 52%,#79CF51);box-shadow:inset 0 1px #FFFFFF4B,0 0 13px #39F89D55}.cchip.on b,.cchip.on span{color:#EAFFC9}
+#confstars{color:#FFF08A;text-shadow:0 0 10px #FFE35D78}.srow .track{background:#252D57}.srow .fill{box-shadow:0 0 12px currentColor}
+.mchip{background:linear-gradient(145deg,#1D2448,#101530);border-color:#56629B}.mchip .k{color:#C5CDF5}
+#tabs button{color:#D3DBFF;border-radius:5px}#tabs button.on{color:#F8FBFF;background:linear-gradient(105deg,#1375B5,#16B6D8 52%,#A66BFF);box-shadow:inset 0 1px #FFFFFF66,0 0 13px #23DFFF88}
+#chartwrap{background:repeating-linear-gradient(0deg,transparent 0 29px,#2D356020 30px),repeating-linear-gradient(90deg,transparent 0 72px,#2D356020 73px)}
+.toast,#devov,#hpop{border-color:#56629B!important;background:linear-gradient(145deg,#1B2146F5,#0E1230F5)!important;box-shadow:0 13px 32px #0008}
+</style>
+</head>
+<body>
+<div id="banner"></div>
+<div id="toasts"></div>
+<div id="appgrid">
+
+  <div id="topbar" class="panel">
+    <span style="font-size:13px;font-weight:700;letter-spacing:.15em;color:var(--sub)" id="sym">—</span>
+    <span id="price" class="dash">—</span>
+    <span id="chg" class="dash">—</span>
+    <span id="sigchip"><b id="sigtop" class="dash">—</b><span id="conftop" style="font-size:11px;color:var(--sub)">—</span></span>
+    <span style="flex:1"></span>
+    <span class="kv"><span class="k">ATR(14)</span><span class="v dash" id="atr">—</span></span>
+    <span class="kv"><span class="k">SPREAD</span><span class="v" id="spread">—</span></span>
+    <span class="kv"><span class="k">LATENCY</span><span class="v" id="lat">—</span></span>
+    <span class="kv"><span class="k">FPS</span><span class="v" id="fps">—</span></span>
+    <span id="live" style="color:var(--dis);border:1px solid var(--line)">CONNECTING</span>
+    <span id="hdot" title="System Health (SelfMonitor)" style="cursor:pointer;font-size:15px;color:var(--dis);padding:4px">●</span>
+    <button id="devbtn" title="Developer Overlay">🐛</button>
+    <span id="appver" title="App Version (from CHANGELOG)" style="font-size:10px;letter-spacing:.1em;color:var(--dis)">—</span>
+  </div>
+
+  <div id="hpop" style="display:none;position:absolute;top:56px;right:12px;z-index:60;width:300px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span class="ptitle">SYSTEM HEALTH</span><b id="hstate" class="dash">—</b></div>
+    <div id="hchecks"></div>
+    <div id="hfoot" style="margin-top:6px;font-size:9px;color:var(--dis)">—</div>
+  </div>
+
+  <div id="main">
+    <div id="left" class="panel">
+      <div class="phead"><span class="ptitle">ORDER BOOK</span><span class="hint">QTY / Σ DEPTH</span></div>
+      <div id="bookbody"><div class="dash" style="text-align:center">—</div></div>
+    </div>
+
+    <div id="center">
+      <div class="panel" style="flex:1">
+        <div class="phead">
+          <span class="ptitle" id="fptitle">FOOTPRINT</span>
+          <span class="ctl">
+            <button id="prevbar">◀</button><span class="idx" id="baridx">—/—</span><button id="nextbar">▶</button>
+            <span style="width:1px;height:14px;background:var(--line);margin:0 4px"></span>
+            <button id="zin">＋</button><button id="zout">－</button>
+            <button id="plock" class="lock">🔒</button>
+          </span>
+        </div>
+        <div id="fpcols">
+          <span style="width:110px">PRICE</span><span style="flex:1;text-align:right;padding-right:8px">BID</span>
+          <span style="width:26px"></span><span style="flex:1;padding-left:8px">ASK</span>
+          <span style="width:60px;text-align:right">DELTA</span><span style="width:44px;text-align:center">SIG</span>
+        </div>
+        <div id="fpbody"><div class="dash" style="text-align:center">—</div></div>
+      </div>
+
+      <div id="flowpanel" class="panel">
+        <div class="phead">
+          <span class="ptitle">FLOW EVENTS</span>
+          <span class="legend" id="flowlegend"></span>
+        </div>
+        <div id="flowbody"></div>
+      </div>
+    </div>
+
+    <div id="right">
+      <div class="panel">
+        <div class="phead"><span class="ptitle">MARKET STATE</span><span class="hint">FROM SIGNALENGINE</span></div>
+        <div id="mstate"><div id="mschip" class="dash">—</div></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><span class="ptitle">CONFLUENCE</span></div>
+        <div id="confl">
+          <div id="confstars" class="dash">—</div>
+          <div id="confgrid"></div>
+        </div>
+      </div>
+      <div id="whypanel" class="panel">
+        <div class="phead"><span class="ptitle">SIGNAL — WHY</span></div>
+        <div id="whybody">
+          <div id="whytop">
+            <span id="whysig" class="dash">—</span>
+            <span style="font-size:11px;color:var(--sub)">CONF <b id="whyconf" style="font-size:14px;color:var(--text)">—</b></span>
+          </div>
+          <div id="vetobadge"></div>
+          <div id="scores"></div>
+          <div id="whyfoot">
+            <div class="mchip"><div class="k">RISK</div><div class="v dash" id="risk">—</div></div>
+            <div class="mchip"><div class="k">EXP. RR</div><div class="v dash" id="rr">—</div></div>
+            <div class="mchip"><div class="k">VETO</div><div class="v dash" id="veto">—</div></div>
+          </div>
+        </div>
+      </div>
+      <div id="alerthist"><div class="ah-head">🕘 ALERTS</div><div id="alertrows"></div></div>
+    </div>
+  </div>
+
+  <div id="bottom" class="panel">
+    <div class="phead">
+      <span id="tabs"></span>
+      <span style="display:flex;align-items:center;gap:12px">
+        <span class="legend" id="chartlegend"></span>
+        <b id="chartlast" class="dash" style="font-size:13px">—</b>
+      </span>
+    </div>
+    <div id="chartwrap"><svg id="chart" preserveAspectRatio="none" viewBox="0 0 1000 100"></svg></div>
+  </div>
+</div>
+
+<div id="devov"><div class="dh">🐛 DEVELOPER OVERLAY</div><div id="devgrid"></div><div id="wdlog" style="margin-top:4px;font-size:9px;color:#FFC400;min-height:12px"></div></div>
+
+<script>
+"use strict";
+// ============================================================
+// UIは Payload のみを参照する。判定ロジック禁止（表示整形のみ）。
+// 対応 Payload version:
+const UI_PAYLOAD_VERSION = 1;
+// FLOWカテゴリ色（バッジ専用名前空間。未知カテゴリは白 UNKNOWN）
+const CAT = {DELTA:"#FF365F",IMBALANCE:"#23DFFF",ABSORPTION:"#A66BFF",
+             EXHAUSTION:"#FFE35D",ICEBERG:"#F6F7FF"};
+const BUY="#39F89D",SELL="#FF365F",WARN="#FFE35D",INFO="#A66BFF",DIS="#A3AED9",TXT="#F6F7FF",LINE="#3A477F",SUB="#C5CDF5";
+const $=id=>document.getElementById(id);
+const N=s=>s==null?null:Number(s);           // 表示専用変換
+const fmt=(s,d=2)=>s==null?"—":Number(s).toFixed(d);
+const FP_ROW_H=22;                           // base footprint row height (px) @ zoom 1
+function fpTfSeconds(tf){                     // timeframe string → seconds (for elapsed)
+  const m=/^(\d+)([smhd])$/.exec(tf||""); if(!m)return 60;
+  return (+m[1])*({s:1,m:60,h:3600,d:86400}[m[2]]||60);
+}
+
+// ---------------- state（全てPayload由来） ----------------
+const S={
+  symbol:"—", price:null, prevPrice:null, firstOpen:null,
+  bars:[],            // CANDLE履歴（最大300）
+  barView:-1,         // -1 = 最新追従（price lock）
+  zoom:1, lock:true,
+  analysis:null, flows:[], alerts:[],
+  series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[] },
+  tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
+  liveBar:null, health:null,
+};
+
+// ---------------- WebSocket ----------------
+let ws=null, backoff=1000;
+function connect(){
+  ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+  ws.onopen=()=>{backoff=1000;setLive(true);};
+  ws.onclose=()=>{setLive(false);setTimeout(connect,backoff);backoff=Math.min(backoff*2,10000);};
+  ws.onerror=()=>ws.close();
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(_){return;}handle(m);};
+}
+function setLive(on){
+  const el=$("live");
+  el.textContent=on?"LIVE":"RECONNECTING";
+  el.style.color=on?BUY:DIS;
+  el.style.background=on?"rgba(0,230,118,.08)":"transparent";
+  el.style.borderColor=on?"rgba(0,230,118,.25)":LINE;
+}
+
+function versionWarn(serverV){
+  const b=$("banner"); b.style.display="block";
+  b.textContent=`⚠ PAYLOAD VERSION MISMATCH — server v${serverV} / ui v${UI_PAYLOAD_VERSION}（描画は継続。表示欠落の可能性あり）`;
+}
+function handle(m){
+  // §6.2 段階的縮退: 不一致でもWarningのみ表示し描画継続。全面停止しない。
+  if(m.v!==UI_PAYLOAD_VERSION)versionWarn(m.v);
+  S.symbol=m.symbol||S.symbol;
+  const p=m.payload||{};
+  try{
+    switch(m.type){
+      case "HELLO":
+        if(p.payload_version!==UI_PAYLOAD_VERSION)versionWarn(p.payload_version);
+        $("sym").textContent=m.symbol; break;
+      case "TICK": onTick(m,p); break;
+      case "CANDLE": onCandle(p); break;
+      case "ANALYSIS": S.analysis=p; renderAnalysis(); renderTopSignal(); break;
+      case "FLOW": onFlow(m,p); break;
+      case "LIQUIDATION": pushSeries("LIQUIDATION",Math.abs(N(p.quantity)??0)); break;
+      case "OI": pushSeries("OI",N(p.open_interest)); break;
+      case "STATS": S.stats=p; renderDev(); break;
+      case "HEALTH": S.health=p; renderHealth(); break;
+      case "BAR_UPDATE": onBarUpdate(p); break;
+      default: break; // 未知typeは破棄（前方互換）
+    }
+  }catch(_){/* 必須フィールド欠落等はメッセージ単位でスキップ。画面は落とさない */}
+}
+
+// ---------------- handlers ----------------
+function onTick(m,p){
+  S.prevPrice=S.price; S.price=N(p.price);
+  if(S.firstOpen==null&&S.price!=null)S.firstOpen=S.price;
+  S.lastTickAt=Date.now();
+  S.lastTickServerMs=Date.parse(m.time);
+  S.latency=Math.max(0,Date.now()-Date.parse(m.time));
+  renderTop();
+  // refresh the "+Ns" elapsed annotation on the latest closed bar per TICK
+  if(S.bars.length&&(S.lock||S.barView<0))fpTitle(S.bars[S.bars.length-1],true);
+}
+function onCandle(p){
+  if(S.liveBar&&Date.parse(S.liveBar.bar_time)<=Date.parse(p.bar_time))S.liveBar=null;
+  S.bars.push(p); if(S.bars.length>300)S.bars.shift();
+  pushSeries("CVD+Δ",{cvd:N(p.cvd),delta:N(p.delta)});
+  pushSeries("VOLUME",N(p.volume));
+  renderBook(p.orderbook); renderFootprint(); renderChart();
+}
+function onFlow(m,p){
+  S.flows.unshift(p); if(S.flows.length>40)S.flows.pop();
+  renderFlow();
+  const th=0.85; // 表示演出の閾値（判定ではない。configと同期は将来HELLOに載せる）
+  if(N(p.strength)>=th){
+    const a={t:(p.event_time||m.time).slice(11,19),cat:p.category,side:p.side,strength:p.strength};
+    S.alerts.unshift(a); if(S.alerts.length>8)S.alerts.pop();
+    toast(a); renderAlerts();
+  }
+}
+function pushSeries(key,v){
+  if(v==null)return;
+  if(key==="CVD+Δ"){S.series[key].cvd.push(v.cvd);S.series[key].delta.push(v.delta);
+    if(S.series[key].cvd.length>140){S.series[key].cvd.shift();S.series[key].delta.shift();}}
+  else{S.series[key].push(v); if(S.series[key].length>140)S.series[key].shift();}
+  if(key===S.tab||key==="CVD+Δ"&&S.tab==="CVD+Δ")renderChart();
+}
+
+function onBarUpdate(p){
+  // 形成中バー: 追従モード(lock)のときのみ FOOTPRINT に反映。チャート系列は確定バーのみ。
+  S.liveBar=p;
+  if(S.lock&&S.barView<0)renderFootprint();
+}
+const HCOL={GREEN:BUY,YELLOW:WARN,RED:SELL};
+function renderHealth(){
+  const h=S.health; if(!h)return;
+  const col=HCOL[h.state]||DIS;
+  const d=$("hdot"); d.style.color=col; d.title=`System Health: ${h.state}`;
+  if(h.state==="RED")d.style.textShadow=`0 0 8px ${col}`; else d.style.textShadow="none";
+  const st=$("hstate"); st.classList.remove("dash"); st.textContent=h.state; st.style.color=col;
+  const names={sequence_gap:"BOOK GAP",ws_reconnect:"WS RECONNECT",pipeline:"PIPELINE",
+               bar_flow:"BAR FLOW",latency:"LATENCY",memory:"MEMORY"};
+  $("hchecks").innerHTML=Object.entries(h.checks||{}).map(([k,c])=>{
+    const cc=HCOL[c.level]||DIS;
+    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;font-size:10px">
+      <span style="color:${SUB}">${names[k]||k.toUpperCase()}</span>
+      <span style="color:${cc};text-align:right">${c.detail||c.value||"—"}</span></div>`;
+  }).join("");
+  $("hfoot").textContent=`anomalies today: ${h.anomalies_today??0} — ${(h.sample_time||"").slice(11,19)} UTC`;
+}
+$("hdot").onclick=()=>{const o=$("hpop");o.style.display=o.style.display==="block"?"none":"block";};
+
+// ---------------- renderers ----------------
+function renderTop(){
+  if(S.price==null)return;
+  const up=S.prevPrice==null||S.price>=S.prevPrice;
+  const pe=$("price"); pe.classList.remove("dash");
+  pe.textContent=S.price.toLocaleString(undefined,{minimumFractionDigits:1});
+  pe.style.color=up?BUY:SELL;
+  if(S.firstOpen==null)S.firstOpen=S.price;
+  if(S.firstOpen){const c=(S.price-S.firstOpen)/S.firstOpen*100;
+    const ce=$("chg"); ce.classList.remove("dash");
+    ce.textContent=(c>=0?"▲":"▼")+Math.abs(c).toFixed(2)+"%"; ce.style.color=c>=0?BUY:SELL;}
+  if(S.latency!=null){const le=$("lat"); le.textContent=S.latency+"ms";
+    le.style.color=S.latency<60?BUY:S.latency<120?WARN:SELL;}
+  const last=S.bars[S.bars.length-1];
+  if(last&&last.orderbook&&last.orderbook.asks[0]&&last.orderbook.bids[0]){
+    $("spread").textContent=(N(last.orderbook.asks[0].price)-N(last.orderbook.bids[0].price)).toFixed(1);}
+  renderTopSignal();
+}
+function renderTopSignal(){
+  const a=S.analysis; if(!a)return;
+  const col=sigColor(a.signal);
+  const st=$("sigtop"); st.classList.remove("dash"); st.textContent=a.signal; st.style.color=col;
+  $("sigchip").style.background=col+"14"; $("sigchip").style.borderColor=col+"44";
+  $("conftop").textContent=a.confidence==null?"—":Math.round(N(a.confidence)*100)+"%";
+}
+function sigColor(s){return s==="BUY"?BUY:s==="SELL"?SELL:s==="WAIT"?DIS:WARN;}
+
+function renderBook(book){
+  const el=$("bookbody"); if(!book){return;}
+  const rows=[]; const all=[...book.asks,...book.bids].map(r=>N(r.qty));
+  const max=Math.max(...all,0.0001);
+  const asks=[...book.asks].reverse(); // 高値上
+  let cum=0; const askCum=asks.map(r=>0);
+  for(let i=asks.length-1;i>=0;i--){cum+=N(asks[i].qty);askCum[i]=cum;}
+  const maxCum=Math.max(cum, book.bids.reduce((s,r)=>s+N(r.qty),0), 0.0001);
+  asks.forEach((r,i)=>{const h=N(r.qty)/max;
+    rows.push(`<div class="brow" style="background:rgba(255,77,77,${(0.05+h*0.42).toFixed(3)})">
+      <div class="cum" style="width:${(askCum[i]/maxCum*100).toFixed(1)}%;border-bottom:1px solid rgba(255,77,77,.5)"></div>
+      <span style="color:${h>0.75?"#FFF":SELL}">${fmt(r.price,1)}</span>
+      <span class="qty" style="color:${h>0.75?"#FFF":SUB}">${fmt(r.qty)}</span>
+      <span class="sig">${askCum[i].toFixed(1)}</span></div>`);});
+  rows.push(`<div id="mid"><b style="color:${S.prevPrice==null||S.price>=S.prevPrice?BUY:SELL}">${S.price?S.price.toFixed(1):"—"}</b><span class="hint">MID</span></div>`);
+  let bcum=0;
+  book.bids.forEach(r=>{const h=N(r.qty)/max; bcum+=N(r.qty);
+    rows.push(`<div class="brow" style="background:rgba(0,230,118,${(0.04+h*0.38).toFixed(3)})">
+      <div class="cum" style="width:${(bcum/maxCum*100).toFixed(1)}%;border-top:1px solid rgba(0,230,118,.5)"></div>
+      <span style="color:${h>0.75?"#FFF":BUY}">${fmt(r.price,1)}</span>
+      <span class="qty" style="color:${h>0.75?"#FFF":SUB}">${fmt(r.qty)}</span>
+      <span class="sig">${bcum.toFixed(1)}</span></div>`);});
+  el.innerHTML=rows.join("");
+}
+
+function fpTitle(bar,isLatest,forming){
+  // forming=true: BAR_UPDATE 由来の形成中バー。それ以外は確定バー。
+  let t=`FOOTPRINT — BAR ${bar.bar_time.slice(11,16)} (${bar.timeframe}) [${forming?"FORMING":"CLOSED"}]`;
+  if(forming){$("fptitle").textContent=t;return;}
+  if(isLatest&&S.lastTickServerMs!=null){
+    const closeMs=Date.parse(bar.bar_time)+fpTfSeconds(bar.timeframe)*1000;
+    const el=Math.max(0,Math.floor((S.lastTickServerMs-closeMs)/1000));
+    t+=` +${el}s`;   // seconds elapsed since this bar closed (updated per TICK)
+  }
+  $("fptitle").textContent=t;
+}
+function fpRow(l,fp,max){
+  const bid=N(l.bid),ask=N(l.ask),d=ask-bid;
+  const isPoc=l.price===fp.poc_price, isVah=l.price===fp.vah_price, isVal=l.price===fp.val_price;
+  const inVa=fp.vah_price!=null&&fp.val_price!=null&&N(l.price)<=N(fp.vah_price)&&N(l.price)>=N(fp.val_price);
+  // SIG列は「表示強調」のみ（判定はFLOW/ANALYSISが正）
+  const imb=ask>bid*3?"buy":bid>ask*3?"sell":null;
+  const abs=(bid+ask)>max*1.4&&Math.abs(d)<max*0.1;
+  return `<div class="fprow${isPoc?" poc":inVa?" va":""}${isVah?" vah":""}${isVal?" val":""}" style="font-size:${13*S.zoom}px;height:${(FP_ROW_H*S.zoom).toFixed(1)}px">
+    <span class="fp-price" style="color:${isPoc?WARN:SUB}">${fmt(l.price,1)}
+      ${isPoc?'<span class="badge poc">POC</span>':""}${isVah&&!isPoc?'<span class="badge va">VAH</span>':""}${isVal&&!isPoc?'<span class="badge va">VAL</span>':""}</span>
+    <span class="fp-side bid"><span style="color:${SELL}">${fmt(l.bid)}</span>
+      <span class="fp-bar" style="width:${(bid/max*100).toFixed(1)}%;background:rgba(255,77,77,.55)"></span></span>
+    <span class="fp-x">×</span>
+    <span class="fp-side ask"><span class="fp-bar" style="width:${(ask/max*100).toFixed(1)}%;background:rgba(0,230,118,.5)"></span>
+      <span style="color:${BUY}">${fmt(l.ask)}</span></span>
+    <span class="fp-delta" style="color:${d>=0?BUY:SELL}">${Math.abs(d)<0.05?"0.0":(d>0?"+":"")+d.toFixed(1)}</span>
+    <span class="fp-sig">${imb==="buy"?`<span style="color:${BUY}">▸</span>`:imb==="sell"?`<span style="color:${SELL}">◂</span>`:""}${abs?`<span style="color:${WARN}"> ●</span>`:""}</span>
+  </div>`;
+}
+function renderFootprint(){
+  const useLive=S.lock&&S.barView<0&&S.liveBar;
+  if(!S.bars.length&&!useLive)return;
+  const idx=S.lock||S.barView<0?S.bars.length-1:Math.min(S.barView,S.bars.length-1);
+  const bar=useLive?S.liveBar:S.bars[idx]; const fp=bar.footprint;
+  const isLatest=idx===S.bars.length-1;
+  fpTitle(bar,isLatest,!!useLive);
+  $("baridx").textContent=useLive?`LIVE/${S.bars.length}`:`${idx+1}/${S.bars.length}`;
+  const lv=fp.levels; if(!lv.length){$("fpbody").innerHTML='<div class="dash" style="text-align:center">—</div>';return;}
+  const max=Math.max(...lv.map(l=>Math.max(N(l.bid),N(l.ask))),0.0001);
+  // --- viewport slicing (Task-D): fit rows to fpbody, center on POC ---
+  const bodyH=$("fpbody").clientHeight||0;
+  const rowH=FP_ROW_H*S.zoom;
+  let visible=Math.max(1,Math.floor(bodyH/rowH));
+  let start,end;
+  if(lv.length<=visible){ start=0; end=lv.length; }
+  else{
+    let center=lv.findIndex(l=>l.price===fp.poc_price);
+    if(center<0)center=Math.floor(lv.length/2);         // fallback: price-center
+    // reserve one slot for each overflow indicator that will appear
+    let cap=visible; if(cap>2)cap-=0;                    // indicators replace edge rows
+    start=center-Math.floor(cap/2);
+    if(start<0)start=0;
+    end=start+cap;
+    if(end>lv.length){ end=lv.length; start=Math.max(0,end-cap); }
+  }
+  const hiddenAbove=start, hiddenBelow=lv.length-end;
+  const rows=lv.slice(start,end).map(l=>fpRow(l,fp,max)).join("");
+  const above=hiddenAbove>0?`<div class="fp-more">▲ +${hiddenAbove} levels</div>`:"";
+  const below=hiddenBelow>0?`<div class="fp-more">▼ +${hiddenBelow} levels</div>`:"";
+  $("fpbody").innerHTML=above+rows+below;
+}
+
+function catColor(c){return CAT[c]||"#FFFFFF";}
+function renderFlow(){
+  $("flowbody").innerHTML=S.flows.map((f,i)=>{
+    const col=catColor(f.category), s=N(f.strength)??0, b=Math.round(s*10);
+    const cat=CAT[f.category]?f.category:"UNKNOWN";
+    return `<div class="frow" style="opacity:${Math.max(0.35,1-i*0.055)}">
+      <span style="color:${DIS}">${(f.event_time||"").slice(11,19)}</span>
+      <span class="fcat" style="background:${col}22;color:${col};border:1px solid ${col}55">${cat}</span>
+      <span class="fside" style="color:${f.side==="BUY"?BUY:SELL}">${f.side}</span>
+      <span class="fdet">${f.detector||""}</span>
+      <span class="fblocks" style="color:${col}">${"■".repeat(b)}<span style="color:${LINE}">${"■".repeat(10-b)}</span></span>
+      <span class="fstr">${fmt(f.strength)}</span></div>`;
+  }).join("");
+}
+$("flowlegend").innerHTML=Object.entries(CAT).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join("")+`<span style="color:${BUY}">● LIVE</span>`;
+
+function scoreRow(name,val,{composite=false,zeroToOne=false}={}){
+  const v=N(val);
+  const col=composite?INFO:v==null?DIS:v>=0?BUY:SELL;
+  const width=v==null?0:zeroToOne?Math.min(Math.abs(v)*100,100):Math.min(Math.abs(v),100);
+  const disp=v==null?"—":(v>0&&!composite&&!zeroToOne?"+":"")+(zeroToOne?v.toFixed(2):Math.round(v));
+  return `<div class="srow"><div class="top">
+    <span class="name" style="color:${composite?INFO:TXT}">${name}</span>
+    <span class="val" style="color:${col}">${disp}</span></div>
+    <div class="track"><div class="fill" style="width:${width}%;background:${col};box-shadow:0 0 8px ${col}55"></div></div></div>`;
+}
+function renderAnalysis(){
+  const a=S.analysis; if(!a)return;
+  // MARKET STATE: 受信文字列をそのまま。BULL/BEAR含有は表示ヒントのみ
+  const ms=$("mschip"); ms.classList.remove("dash"); ms.textContent=a.market_state??"—";
+  const mc=(a.market_state||"").includes("BULL")?BUY:(a.market_state||"").includes("BEAR")?SELL:SUB;
+  ms.style.color=mc; ms.style.background=mc+"14"; ms.style.border=`1px solid ${mc}55`; ms.style.boxShadow=`0 0 12px ${mc}22`;
+  // CONFLUENCE: 受信フラグを描画するのみ
+  const cf=a.confluence||{}; const names=["cvd","footprint","imbalance","absorption","flow"];
+  $("confstars").classList.remove("dash");
+  $("confstars").innerHTML="★".repeat(cf.count||0)+`<span style="color:${LINE}">${"★".repeat(5-(cf.count||0))}</span>`;
+  $("confgrid").innerHTML=names.map(n=>`<div class="cchip${cf[n]?" on":""}"><b>${cf[n]?"✔":"—"}</b><span>${n.toUpperCase()}</span></div>`).join("");
+  // SIGNAL — WHY
+  const col=sigColor(a.signal);
+  const ws_=$("whysig"); ws_.classList.remove("dash"); ws_.textContent=a.signal; ws_.style.color=col;
+  $("whyconf").textContent=a.confidence==null?"—":Math.round(N(a.confidence)*100)+"%";
+  const vb=$("vetobadge");
+  if(a.veto&&a.veto!=="NONE"){vb.style.display="block";vb.textContent="⚠ "+a.veto;}else vb.style.display="none";
+  const sc=a.scores||{};
+  // CVD row: show "UNREF" when the server reports cvd_unref (cvd_slope_ref uncalibrated).
+  const cvdRow=a.cvd_unref
+    ?`<div class="srow"><div class="top"><span class="name" style="color:${TXT}">CVD</span>
+       <span class="val" style="color:${WARN}">UNREF</span></div>
+       <div class="track"><div class="fill" style="width:0%"></div></div></div>`
+    :scoreRow("CVD",sc.cvd);
+  $("scores").innerHTML=
+    cvdRow+scoreRow("FOOTPRINT",sc.footprint)+scoreRow("IMBALANCE",sc.imbalance)+
+    scoreRow("ABSORPTION",sc.absorption,{zeroToOne:true})+scoreRow("FLOW",sc.flow,{zeroToOne:true})+
+    `<div id="whydivider"></div>`+scoreRow("COMPOSITE",a.composite,{composite:true});
+  const rk=$("risk"); rk.classList.remove("dash"); rk.textContent=a.risk_level??"—";
+  rk.style.color=a.risk_level==="LOW"?BUY:a.risk_level==="MEDIUM"?WARN:a.risk_level==="HIGH"?SELL:DIS;
+  $("rr").textContent=a.expected_rr==null?"—":a.expected_rr;   // v1は常に—
+  const ve=$("veto"); ve.classList.remove("dash"); ve.textContent=a.veto??"—";
+  ve.style.color=a.veto==="NONE"?DIS:WARN;
+}
+
+// bottom chart
+const TABS=["CVD+Δ","VOLUME","OI","LIQUIDATION"];
+function tabColor(t,lastV){return t==="LIQUIDATION"?WARN:t==="OI"?INFO:(lastV??0)>=0?BUY:SELL;}
+function renderTabs(){
+  $("tabs").innerHTML=TABS.map(t=>`<button class="${t===S.tab?"on":""}" data-t="${t}"
+    style="${t===S.tab?`background:${tabColor(t,seriesLast(t))}`:""}">${t}</button>`).join("");
+  [...$("tabs").children].forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;renderTabs();renderChart();});
+}
+function seriesLast(t){const s=S.series[t];return t==="CVD+Δ"?(s.cvd[s.cvd.length-1]??null):(s[s.length-1]??null);}
+function path(data){
+  if(data.length<2)return "";
+  const mn=Math.min(...data),mx=Math.max(...data);
+  return data.map((v,i)=>`${i?"L":"M"}${(i/(data.length-1)*1000).toFixed(1)},${(100-((v-mn)/(mx-mn||1))*90-5).toFixed(1)}`).join(" ");
+}
+function renderChart(){
+  const t=S.tab, lastV=seriesLast(t), col=tabColor(t,lastV);
+  const cl=$("chartlast");
+  if(lastV!=null){cl.classList.remove("dash");cl.textContent=(lastV>=0&&(t==="CVD+Δ"||t==="OI")?"+":"")+lastV.toFixed(2)+(t==="CVD+Δ"?" BTC":"");cl.style.color=col;}
+  const main=t==="CVD+Δ"?S.series[t].cvd:S.series[t];
+  const overlay=t==="CVD+Δ"?S.series[t].delta:null;
+  $("chartlegend").innerHTML=t==="CVD+Δ"?`<span><i style="background:${col};border-radius:0;width:12px;height:2px"></i>CVD</span><span><i style="background:${INFO};border-radius:0;width:12px;height:2px"></i>DELTA</span>`:"";
+  $("chart").innerHTML=`
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${col}" stop-opacity=".22"/><stop offset="100%" stop-color="${col}" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${main.length>1?`<path d="${path(main)} L1000,100 L0,100 Z" fill="url(#g)"/>`:""}
+    ${overlay&&overlay.length>1?`<path d="${path(overlay)}" fill="none" stroke="${INFO}" stroke-width="1" stroke-dasharray="3,3" opacity=".8"/>`:""}
+    ${main.length>1?`<path d="${path(main)}" fill="none" stroke="${col}" stroke-width="1.6"/>`:""}`;
+}
+
+// alerts
+function toast(a){
+  const col=catColor(a.cat);
+  const el=document.createElement("div"); el.className="toast";
+  el.style.border=`1px solid ${col}`; el.style.color=a.side==="BUY"?BUY:SELL;
+  el.innerHTML=`<span>🚨</span><span class="badge" style="background:${col};color:#0A0D12;font-size:9px">${a.cat}</span>${a.side} ${a.cat} ${fmt(a.strength)}`;
+  $("toasts").appendChild(el); setTimeout(()=>el.remove(),3000);
+}
+function renderAlerts(){
+  $("alerthist").style.display=S.alerts.length?"block":"none";
+  $("alertrows").innerHTML=S.alerts.map(a=>`<div class="arow">
+    <span style="color:${DIS}">${a.t.slice(0,5)}</span><i style="background:${catColor(a.cat)}"></i>
+    <span style="color:${a.side==="BUY"?BUY:SELL};font-weight:600">${a.side} ${a.cat}</span>
+    <span class="as">${fmt(a.strength)}</span></div>`).join("");
+}
+
+// dev overlay + FPS
+let frames=0,fpsVal=0;
+(function fpsLoop(){frames++;requestAnimationFrame(fpsLoop);})();
+setInterval(()=>{fpsVal=frames;frames=0;$("fps").textContent=fpsVal;renderDev();},1000);
+function renderDev(){
+  if($("devov").style.display!=="block")return;
+  const s=S.stats||{};
+  const rows=[["FPS",fpsVal,fpsVal>=55?BUY:WARN],["TICK/SEC",s.tick_per_sec??"—",TXT],
+    ["QUEUE",s.queue_depth??"—",TXT],["DROPPED",s.dropped??"—",s.dropped==="0"?BUY:SELL],
+    ["WS",s.ws_upstream??"—",BUY],["LATENCY",S.latency==null?"—":S.latency+"ms",TXT],
+    ["CPU",s.cpu_percent!=null?s.cpu_percent+"%":"—",TXT],["RAM",s.ram_mb!=null?s.ram_mb+"MB":"—",TXT]];
+  $("devgrid").innerHTML=rows.map(([k,v,c])=>`<div><span class="k">${k}</span><span style="color:${c};font-weight:600">${v}</span></div>`).join("");
+}
+$("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
+  o.style.display=on?"block":"none";$("devbtn").classList.toggle("on",on);renderDev();};
+
+// footprint controls
+$("prevbar").onclick=()=>{S.lock=false;$("plock").textContent="🔓";
+  S.barView=(S.barView<0?S.bars.length-1:S.barView)-1;if(S.barView<0)S.barView=0;renderFootprint();};
+$("nextbar").onclick=()=>{if(S.barView<0)return;S.barView=Math.min(S.barView+1,S.bars.length-1);renderFootprint();};
+$("zin").onclick=()=>{S.zoom=Math.min(1.5,S.zoom+0.25);renderFootprint();};
+$("zout").onclick=()=>{S.zoom=Math.max(0.75,S.zoom-0.25);renderFootprint();};
+$("plock").onclick=()=>{S.lock=!S.lock;$("plock").textContent=S.lock?"🔒":"🔓";
+  if(S.lock)S.barView=-1;renderFootprint();};
+
+renderTabs(); connect();
+/* App version — /api/version(正は CHANGELOG.md)。失敗しても UI は阻害しない */
+fetch("/api/version").then(r=>r.json())
+  .then(j=>{ $("appver").textContent = j.version || "v?.?.?"; })
+  .catch(()=>{ $("appver").textContent = "v?.?.?"; });
+
+// ============================================================
+// Layout Watchdog v1（恒久組み込み・診断専用）
+// 2秒周期で環境・レイアウト指標をサンプリングし、変化検知時に原因を
+// 自動分類してログに残す。ログは有界リングバッファ（最大100件）。
+// 画面出力は textContent 上書きのみ。DOM蓄積ゼロ保証。
+// 判定ロジックではない（§UIは Payload のみ参照、の対象外の診断計装）。
+// ============================================================
+(function(){
+  const MAX_LOG = 100;
+  const log = [];
+  let base = null;
+
+  function sample(){
+    const panels = {};
+    for (const id of ["appgrid","main","bookbody","fpbody","flowbody","alertrows"]){
+      const el = document.getElementById(id);
+      if (el) panels[id] = el.clientHeight + "x" + el.clientWidth;
+    }
+    return {
+      t: new Date().toISOString(),
+      dpr: window.devicePixelRatio,
+      vvScale: window.visualViewport ? window.visualViewport.scale : null,
+      innerW: window.innerWidth, innerH: window.innerHeight,
+      outerW: window.outerWidth, outerH: window.outerHeight,
+      screenW: screen.availWidth, screenH: screen.availHeight,
+      panels
+    };
+  }
+
+  function classify(prev, cur){
+    const causes = [];
+    if (cur.dpr !== prev.dpr){
+      if (cur.outerW === prev.outerW && cur.outerH === prev.outerH)
+        causes.push("BROWSER_ZOOM（Ctrl+ホイール/Ctrl+±。Ctrl+0で復旧）");
+      else
+        causes.push("OS_DISPLAY_SCALING（Windowsの拡大率変更）");
+    }
+    if (cur.vvScale !== prev.vvScale && cur.vvScale !== 1)
+      causes.push("PINCH_ZOOM（visualViewport scale=" + cur.vvScale + "）");
+    if (cur.outerW !== prev.outerW || cur.outerH !== prev.outerH)
+      causes.push("WINDOW_RESIZE（ウィンドウ寸法変更）");
+    if ((cur.innerW !== prev.innerW || cur.innerH !== prev.innerH)
+        && cur.outerW === prev.outerW && cur.outerH === prev.outerH
+        && cur.dpr === prev.dpr)
+      causes.push("BROWSER_CHROME（DevToolsドッキング/サイドバー等）");
+    if (causes.length === 0){
+      for (const k in cur.panels){
+        if (prev.panels[k] !== cur.panels[k]){
+          causes.push("INTERNAL_LAYOUT（環境変数不変のままパネル寸法変化: " + k
+            + " " + prev.panels[k] + "→" + cur.panels[k] + "）");
+          break;
+        }
+      }
+    }
+    return causes;
+  }
+
+  function record(entry){
+    log.push(entry);
+    if (log.length > MAX_LOG) log.shift();
+    console.warn("[LayoutWatchdog]", JSON.stringify(entry));
+    const el = document.getElementById("wdlog");
+    if (el) el.textContent = entry.t.slice(11,19) + " " + entry.causes.join(" / ");
+  }
+
+  window.__watchdog = {
+    dump: () => log.slice(),
+    baseline: () => base,
+    tick: function(){
+      const cur = sample();
+      if (!base){ base = cur; return null; }
+      const causes = classify(base, cur);
+      if (causes.length){
+        const e = { t: cur.t, causes, prev: base, cur };
+        record(e); base = cur; return e;
+      }
+      base = cur; return null;
+    }
+  };
+  setInterval(window.__watchdog.tick, 2000);
+})();
+</script>
+
+</body>
+</html>

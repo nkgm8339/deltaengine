@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  deltaengine:
+    build: .
+    ports:
+      - "8080:8080"
+      # MT5 Adapter (SIGNAL/HEARTBEAT)。ホストの loopback のみに公開（LAN 非公開）。
+      # MT5 は同一 Windows ホスト上の 127.0.0.1:5555 へ接続する。
+      - "127.0.0.1:5555:5555"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      # バージョン単一情報源(webapp/version.py が /app/CHANGELOG.md を読む)
+      - ../ArchitectureRepository/00_Master/CHANGELOG.md:/app/CHANGELOG.md:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
