@@ -158,6 +158,11 @@ async def lifespan(app: FastAPI):
             await asyncio.sleep(5)
             try:
                 stats: dict = {"ws_upstream": "OPEN", "clients": str(broker.client_count)}
+                bm = getattr(pipeline, "book_manager", None)
+                stats["book"] = "SYNCED" if (bm is not None and bm.is_initialized) else "EMPTY"
+                rc = getattr(pipeline, "book_resync_counters", None)
+                if rc is not None:
+                    stats["book_resyncs"] = str(rc.resyncs)
                 cvd_calc = getattr(pipeline, "cvd_calculator", None)
                 if cvd_calc is not None:
                     stats["tick_per_sec"] = str(getattr(cvd_calc, "processed", 0))
@@ -306,6 +311,11 @@ async def api_stats(request: Request):
         stats["book_snapshots_applied"] = bm.snapshots_applied
         stats["book_diffs_applied"] = bm.diffs_applied
         stats["book_gaps_detected"] = bm.gaps_detected
+        stats["book_synced"] = bm.is_initialized
+        rc = getattr(pipeline, "book_resync_counters", None)
+        if rc is not None:
+            stats["book_resyncs"] = rc.resyncs
+            stats["book_snapshot_fetch_failures"] = rc.fetch_failures
     cvd_calc = getattr(pipeline, "cvd_calculator", None)
     if cvd_calc is not None:
         stats["current_cvd"] = str(cvd_calc.cvd)

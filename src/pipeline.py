@@ -114,7 +114,60 @@ def _imbalance_should_fire(
     if bars_since_last is None or bars_since_last >= cooldown_bars:
         return True
     return net > last_net
+# --- Order Book resync supervisor (ADR-010) -----------------------------------
 
+_BOOK_RESYNC_BACKOFF_SEC: tuple[int, ...] = (5, 10, 30)
+_BOOK_HEALTH_POLL_SEC: int = 1
+
+
+@dataclass
+class BookResyncCounters:
+    """Mutable counters owned by the live pipeline; single writer (supervisor)."""
+    resyncs: int = 0
+    fetch_failures: int = 0
+
+
+async def _book_resync_supervisor(
+    *,
+    symbol: str,
+    book_state: OrderBookStateManager,
+    normalizer: Any,
+    fetch_snapshot: Callable,
+    counters: BookResyncCounters,
+    sleep: Callable[[int], Awaitable[None]] = asyncio.sleep,
+) -> None:
+    """Keep the live order book initialized with retry and gap recovery."""
+    consecutive_failures = 0
+    synced_once = False
+    while True:
+        if book_state.is_initialized:
+            consecutive_failures = 0
+            await sleep(_BOOK_HEALTH_POLL_SEC)
+            continue
+        try:
+            raw_snap = await fetch_snapshot(symbol)
+            depth_evt = rest_to_depth_event(raw_snap, symbol)
+            update = normalizer.process_depth(depth_evt)
+            if update is None:
+                raise ValueError("depth snapshot normalization returned None")
+            book_state.apply(update)
+            book_state.apply_initial_sync(update.final_update_id)
+            if synced_once:
+                counters.resyncs += 1
+                logger.info("order book resynced: snap_id=%s resyncs=%s", update.final_update_id, counters.resyncs)
+            else:
+                logger.info("initial snapshot applied: snap_id=%s (sync waiting for first diff with U<=%s)", update.final_update_id, update.final_update_id + 1)
+            synced_once = True
+            consecutive_failures = 0
+            await sleep(_BOOK_HEALTH_POLL_SEC)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            counters.fetch_failures += 1
+            delay = _BOOK_RESYNC_BACKOFF_SEC[min(consecutive_failures, len(_BOOK_RESYNC_BACKOFF_SEC) - 1)]
+            consecutive_failures += 1
+            logger.warning("depth snapshot fetch failed (attempt=%s, retry_in=%ss): %s", consecutive_failures, delay, exc)
+            await sleep(delay)
 
 @dataclass(frozen=True)
 class PushFlowEvent:
@@ -532,6 +585,8 @@ class LiveStats:
     book_diffs_rejected_before_snapshot: int
     book_gaps_detected: int
     book_diffs_stale: int
+    book_resyncs: int
+    book_snapshot_fetch_failures: int
     absorption_events_detected: int
     # depth normalizer diagnostics
     depth_processed: int
@@ -976,29 +1031,19 @@ class LivePipeline:
         connector_task = asyncio.create_task(connector.run())
         receiver_task = asyncio.create_task(receiver.run())
 
-        # Fetch REST snapshot after connector/receiver start so buffered depth diffs
-        # can be aligned via apply_initial_sync (Binance initial sync spec).
+        # Order book sync is owned by the resync supervisor (ADR-010): it performs
+        # the initial REST snapshot with retry, and re-syncs automatically after
+        # gap-detection resets. fetch_snapshot=None disables it (tests).
+        self.book_resync_counters = BookResyncCounters()
+        book_supervisor_task: Optional[asyncio.Task] = None
         if fetch_snapshot is not None:
-            try:
-                raw_snap = await fetch_snapshot(self.symbol)
-                depth_evt = rest_to_depth_event(raw_snap, self.symbol)
-                update = normalizer.process_depth(depth_evt)
-                if update is not None:
-                    book_state.apply(update)
-                    book_state.apply_initial_sync(update.final_update_id)
-                    logger.info(
-                        "initial snapshot applied: snap_id=%s (sync waiting for first diff with U<=%s)",
-                        update.final_update_id, update.final_update_id + 1,
-                    )
-                    if book_state.snapshots_applied != 1:
-                        logger.warning(
-                            "book_state initial snapshot not applied cleanly: "
-                            "snapshots_applied=%s", book_state.snapshots_applied
-                        )
-                else:
-                    logger.warning("initial depth snapshot normalization failed")
-            except Exception as exc:
-                logger.warning("initial depth snapshot fetch failed: %s", exc)
+            book_supervisor_task = asyncio.create_task(_book_resync_supervisor(
+                symbol=self.symbol,
+                book_state=book_state,
+                normalizer=normalizer,
+                fetch_snapshot=fetch_snapshot,
+                counters=self.book_resync_counters,
+            ))
         deadline = (loop.time() + duration_sec) if duration_sec is not None else None
         trades_in = 0
 
@@ -1048,6 +1093,10 @@ class LivePipeline:
                     break
         finally:
             connector.stop()
+            if book_supervisor_task is not None:
+                book_supervisor_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await book_supervisor_task
             # Unblock the receiver and let it forward anything still queued.
             await out_q.put(STOP)
             with contextlib.suppress(Exception):
@@ -1135,6 +1184,8 @@ class LivePipeline:
             book_diffs_rejected_before_snapshot=book_state.diffs_rejected_before_snapshot,
             book_gaps_detected=book_state.gaps_detected,
             book_diffs_stale=book_state.diffs_stale,
+            book_resyncs=self.book_resync_counters.resyncs,
+            book_snapshot_fetch_failures=self.book_resync_counters.fetch_failures,
             absorption_events_detected=absorption.events_detected,
             depth_processed=normalizer.depth_processed,
             depth_rejected=normalizer.depth_rejected,

@@ -140,6 +140,11 @@ class OrderBookStateManager:
         """
         self._sync_id = snapshot_update_id
 
+
+    @property
+    def is_initialized(self) -> bool:
+        """True when the book currently holds a valid synced state."""
+        return self._initialized
     def snapshot(self) -> Optional[OrderBookSnapshot]:
         """Return immutable snapshot of current state, or None if not initialized."""
         if not self._initialized:

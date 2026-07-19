@@ -173,3 +173,35 @@ def test_replay_startup_uses_ensure_future_wiring_guard():
     src = inspect.getsource(m)
     assert "asyncio.ensure_future(" in src
     assert "asyncio.create_task(\n            loop.run_in_executor" not in src
+
+
+def test_stats_includes_book_resync_counters():
+    from datetime import datetime, timezone
+    from decimal import Decimal
+    from src.orderflow.orderbook import BookLevel, OrderBookStateManager, OrderBookUpdate
+    from src.pipeline import BookResyncCounters
+
+    mock_pipeline = _make_mock_pipeline()
+    book = OrderBookStateManager("BTCUSDT")
+    book.apply(OrderBookUpdate(
+        event_time=datetime(2026, 1, 1, tzinfo=timezone.utc), symbol="BTCUSDT",
+        update_type="SNAPSHOT", first_update_id=None, final_update_id=100,
+        bids=(BookLevel(Decimal("50000"), Decimal("1")),),
+        asks=(BookLevel(Decimal("50001"), Decimal("1")),),
+    ))
+    mock_pipeline.book_manager = book
+    mock_pipeline.book_resync_counters = BookResyncCounters(resyncs=2, fetch_failures=3)
+    mock_config = _make_mock_config()
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            data = client.get("/api/stats").json()
+
+    assert data["book_synced"] is True
+    assert data["book_resyncs"] == 2
+    assert data["book_snapshot_fetch_failures"] == 3

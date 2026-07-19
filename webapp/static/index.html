@@ -729,7 +729,7 @@ function renderDev(){
   const s=S.stats||{};
   const rows=[["FPS",fpsVal,fpsVal>=55?BUY:WARN],["TICK/SEC",s.tick_per_sec??"—",TXT],
     ["QUEUE",s.queue_depth??"—",TXT],["DROPPED",s.dropped??"—",s.dropped==null?TXT:Number(s.dropped)===0?BUY:SELL],
-    ["WS",s.ws_upstream??"—",BUY],["LATENCY",S.latency==null?"—":S.latency+"ms",TXT],
+    ["WS",s.ws_upstream??"—",BUY],["BOOK",s.book??"—",s.book==="SYNCED"?BUY:SELL],["RESYNC",s.book_resyncs??"—",TXT],["LATENCY",S.latency==null?"—":S.latency+"ms",TXT],
     ["CPU",s.cpu_percent!=null?s.cpu_percent+"%":"—",TXT],["RAM",s.ram_mb!=null?s.ram_mb+"MB":"—",TXT]];
   $("devgrid").innerHTML=rows.map(([k,v,c])=>`<div><span class="k">${k}</span><span style="color:${c};font-weight:600">${v}</span></div>`).join("");
 }

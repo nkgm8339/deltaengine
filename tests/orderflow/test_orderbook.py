@@ -232,3 +232,14 @@ def test_ob_no_float_in_snapshot() -> None:
     for price, qty in snap.bids.items():
         assert isinstance(price, Decimal)
         assert isinstance(qty, Decimal)
+
+
+def test_is_initialized_property_lifecycle() -> None:
+    """is_initialized becomes false again when a sequence gap resets state."""
+    mgr = OrderBookStateManager("BTCUSDT")
+    assert mgr.is_initialized is False
+    mgr.apply(_snapshot(final_id=100))
+    assert mgr.is_initialized is True
+    result = mgr.apply(_diff(300, 310))
+    assert result.gap_detected is True
+    assert mgr.is_initialized is False
