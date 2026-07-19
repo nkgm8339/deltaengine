@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+from decimal import Decimal, InvalidOperation
 from typing import Any, Callable, Optional
 
 import yaml
@@ -117,6 +118,18 @@ def v_number(
         return None
     return check
 
+def v_decimal_string(lo: Decimal = Decimal("0")) -> Validator:
+    def check(value: Any) -> Optional[str]:
+        if not isinstance(value, str):
+            return "must be a Decimal string"
+        try:
+            parsed = Decimal(value)
+        except (InvalidOperation, ValueError):
+            return "must be a valid Decimal string"
+        if not parsed.is_finite() or parsed < lo:
+            return f"must be a finite Decimal string >= {lo}"
+        return None
+    return check
 
 def v_enum(allowed: frozenset[str]) -> Validator:
     def check(value: Any) -> Optional[str]:
@@ -306,6 +319,11 @@ SCHEMA: dict[str, dict[str, Field]] = {
         "confluence": Field(v_confluence, {"score_threshold": 40, "strength_threshold": 0.5}),
         "oi_poll_interval_sec": Field(v_int(lo=1), 10),
         "bar_update_interval_sec": Field(v_int(lo=1), 1),
+    },
+    "divergence": {
+        "equal_pivot_policy": Field(v_enum(frozenset({"first"})), "first"),
+        "min_price_move": Field(v_decimal_string(), "0"),
+        "min_bar_distance": Field(v_int(lo=0), 0),
     },
     "monitor": {
         "enabled": Field(v_bool, True),

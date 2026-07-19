@@ -202,6 +202,9 @@ class ReplayPipeline:
         absorption_price_stall_ticks: int = 1,
         absorption_volume_multiplier: Decimal = Decimal("2.0"),
         absorption_volume_ref_bars: int = 20,
+        divergence_equal_pivot_policy: str = "first",
+        divergence_min_price_move: Decimal = Decimal("0"),
+        divergence_min_bar_distance: int = 0,
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -227,6 +230,9 @@ class ReplayPipeline:
         self.absorption_price_stall_ticks = absorption_price_stall_ticks
         self.absorption_volume_multiplier = absorption_volume_multiplier
         self.absorption_volume_ref_bars = absorption_volume_ref_bars
+        self.divergence_equal_pivot_policy = divergence_equal_pivot_policy
+        self.divergence_min_price_move = divergence_min_price_move
+        self.divergence_min_bar_distance = divergence_min_bar_distance
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
         self.trend_state = None
@@ -243,6 +249,7 @@ class ReplayPipeline:
         sig = config.signal
         imb = config.imbalance
         abs_ = config.absorption
+        div = config.divergence
         cvd_ref = sig.cvd_slope_ref  # decision 11: use signal.cvd_slope_ref
         return cls(
             symbol=config.market.symbol,
@@ -269,6 +276,9 @@ class ReplayPipeline:
             absorption_price_stall_ticks=abs_.price_stall_ticks,
             absorption_volume_multiplier=Decimal(str(abs_.volume_multiplier)),
             absorption_volume_ref_bars=abs_.volume_ref_bars,
+            divergence_equal_pivot_policy=div.equal_pivot_policy,
+            divergence_min_price_move=Decimal(div.min_price_move),
+            divergence_min_bar_distance=div.min_bar_distance,
         )
 
     def run(self, data_path: str | Path) -> ReplayStats:
@@ -277,7 +287,11 @@ class ReplayPipeline:
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
         trend_detector = EmaTrendDetector()
-        divergence_detector = CvdDivergenceDetector()
+        divergence_detector = CvdDivergenceDetector(
+            equal_pivot_policy=self.divergence_equal_pivot_policy,
+            min_price_move=self.divergence_min_price_move,
+            min_bar_distance=self.divergence_min_bar_distance,
+        )
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -576,6 +590,9 @@ class LivePipeline:
         absorption_price_stall_ticks: int = 1,
         absorption_volume_multiplier: Decimal = Decimal("2.0"),
         absorption_volume_ref_bars: int = 20,
+        divergence_equal_pivot_policy: str = "first",
+        divergence_min_price_move: Decimal = Decimal("0"),
+        divergence_min_bar_distance: int = 0,
         mt5_enabled: bool = False,
         mt5_bind_address: str = "127.0.0.1",
         mt5_port: int = 5555,
@@ -633,6 +650,9 @@ class LivePipeline:
         self.absorption_price_stall_ticks = absorption_price_stall_ticks
         self.absorption_volume_multiplier = absorption_volume_multiplier
         self.absorption_volume_ref_bars = absorption_volume_ref_bars
+        self.divergence_equal_pivot_policy = divergence_equal_pivot_policy
+        self.divergence_min_price_move = divergence_min_price_move
+        self.divergence_min_bar_distance = divergence_min_bar_distance
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
         self.trend_state = None
@@ -673,6 +693,7 @@ class LivePipeline:
         sig = config.signal
         imb = config.imbalance
         abs_ = config.absorption
+        div = config.divergence
         cvd_ref = sig.cvd_slope_ref
         return cls(
             symbol=config.market.symbol,
@@ -709,6 +730,9 @@ class LivePipeline:
             absorption_price_stall_ticks=abs_.price_stall_ticks,
             absorption_volume_multiplier=Decimal(str(abs_.volume_multiplier)),
             absorption_volume_ref_bars=abs_.volume_ref_bars,
+            divergence_equal_pivot_policy=div.equal_pivot_policy,
+            divergence_min_price_move=Decimal(div.min_price_move),
+            divergence_min_bar_distance=div.min_bar_distance,
             mt5_enabled=config.mt5.enabled,
             mt5_bind_address=config.mt5.bind_address,
             mt5_port=config.mt5.port,
@@ -773,7 +797,11 @@ class LivePipeline:
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
         trend_detector = EmaTrendDetector()
-        divergence_detector = CvdDivergenceDetector()
+        divergence_detector = CvdDivergenceDetector(
+            equal_pivot_policy=self.divergence_equal_pivot_policy,
+            min_price_move=self.divergence_min_price_move,
+            min_bar_distance=self.divergence_min_bar_distance,
+        )
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)

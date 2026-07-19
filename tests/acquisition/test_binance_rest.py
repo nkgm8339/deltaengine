@@ -266,3 +266,23 @@ def test_fetch_ticker_24hr_returns_raw_dict() -> None:
     assert data == payload
     assert isinstance(data["lastPrice"], str)
     assert isinstance(data["volume"], str)
+
+
+def test_rest_to_depth_event_accepts_real_binance_payload_without_timestamp() -> None:
+    """A real /fapi/v1/depth response has no E/T fields but must initialize the book."""
+    profile = _load_binance_profile()
+    raw = {
+        "lastUpdateId": 7654321,
+        "bids": [["99999.50", "1.250"]],
+        "asks": [["100000.00", "0.800"]],
+    }
+    event = rest_to_depth_event(raw, "BTCUSDT")
+    assert isinstance(event["E"], int)
+    update = DataNormalizer(profile).process_depth(event)
+    assert update is not None
+    book = OrderBookStateManager("BTCUSDT")
+    assert book.apply(update).applied is True
+    snapshot = book.snapshot()
+    assert snapshot is not None
+    assert len(snapshot.bids) == 1
+    assert len(snapshot.asks) == 1

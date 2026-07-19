@@ -110,6 +110,10 @@ flow_detector:
   tape_emit_interval_ms: 1000
   tape_pause_threshold_ms: 3000
 
+divergence:
+  equal_pivot_policy: first
+  min_price_move: "0"
+  min_bar_distance: 0
 monitor:
   enabled: true
   interval_sec: 5

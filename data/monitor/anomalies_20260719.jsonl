@@ -1,0 +1,8 @@
+{"time":"2026-07-19T00:33:50.642411+00:00","type":"PROCESSING_LATENCY","level":"YELLOW","value":"2256","detail":"event lag 2256ms"}
+{"time":"2026-07-19T00:55:38.428801+00:00","type":"PROCESSING_LATENCY","level":"YELLOW","value":"4241","detail":"event lag 4241ms"}
+{"time":"2026-07-19T00:59:13.870961+00:00","type":"PROCESSING_LATENCY","level":"YELLOW","value":"2912","detail":"event lag 2912ms"}
+{"time":"2026-07-19T01:28:12.386361+00:00","type":"PROCESSING_LATENCY","level":"YELLOW","value":"2352","detail":"event lag 2352ms"}
+{"time":"2026-07-19T02:01:33.576502+00:00","type":"PROCESSING_LATENCY","level":"YELLOW","value":"4508","detail":"event lag 4508ms"}
+{"time":"2026-07-19T02:07:27.129961+00:00","type":"PROCESSING_LATENCY","level":"RED","value":"19199","detail":"event lag 19199ms"}
+{"time":"2026-07-19T02:08:03.277426+00:00","type":"WS_RECONNECT","level":"YELLOW","value":"1","detail":"reconnects in window: 1"}
+{"time":"2026-07-19T02:08:08.292282+00:00","type":"SEQUENCE_GAP","level":"YELLOW","value":"1","detail":"book gaps in window: 1"}

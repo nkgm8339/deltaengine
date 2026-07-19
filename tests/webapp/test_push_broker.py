@@ -200,7 +200,7 @@ def test_on_analysis_payload_shape():
     signal_result.signal = "BUY"
     signal_result.confidence = Decimal("0.75")
     signal_result.composite = None
-    signal_result.reasons = []
+    signal_result.reasons = ()
 
     module_scores = {
         "cvd": Decimal("55"),
@@ -296,10 +296,8 @@ def test_flow_hook_imbalance_buy_sell():
     fp_bar.levels = [fp_level]
 
     signal_engine = MagicMock()
-    signal_result = MagicMock()
-    signal_result.signal = "BUY"
-    signal_result.confidence = Decimal("0.7")
-    signal_result.reasons = []
+    from src.orderflow.signal import SignalResult
+    signal_result = SignalResult(Decimal("1"), Decimal("0.7"), "BUY", ())
     signal_engine.evaluate.return_value = signal_result
 
     storage = MagicMock()
@@ -652,3 +650,34 @@ def test_main_adapter_reverses_footprint_levels():
     src = pathlib.Path(__file__).resolve().parents[2].joinpath(
         "webapp", "main.py").read_text(encoding="utf-8")
     assert "reversed(fp_bar.levels)" in src
+
+
+def test_on_analysis_serializes_divergence_event_direction_as_string():
+    from src.orderflow.divergence import DivergenceDirection, DivergenceEvent, DivergenceKind
+
+    broker = _make_broker()
+    sent = []
+
+    async def fake_send_text(text):
+        import json
+        sent.append(json.loads(text))
+
+    fake_ws = MagicMock()
+    fake_ws.send_text = AsyncMock(side_effect=fake_send_text)
+    event = DivergenceEvent(
+        direction=DivergenceDirection.BULLISH, kind=DivergenceKind.REGULAR,
+        symbol="BTCUSDT", timeframe="1m", detected_time=_utc("2024-01-01T12:00:00"),
+        pivot_time=_utc("2024-01-01T11:59:00"), previous_pivot_time=_utc("2024-01-01T11:57:00"),
+        pivot_price=Decimal("99"), previous_pivot_price=Decimal("100"),
+        pivot_cvd=Decimal("10"), previous_pivot_cvd=Decimal("5"),
+        price_change=Decimal("-1"), cvd_change=Decimal("5"), bars_between=2,
+    )
+    analysis_result = MagicMock(analysis_time=_utc("2024-01-01T12:00:00"), market_state="BULL", risk_level="LOW", reasons=())
+    signal_result = MagicMock(signal="BUY", confidence=Decimal("0.75"), composite=None, reasons=[])
+
+    async def run():
+        await broker.register(fake_ws)
+        await broker.on_analysis(analysis_result, signal_result, {}, None, event)
+
+    asyncio.run(run())
+    assert sent[0]["payload"]["divergence"] == "BULLISH"

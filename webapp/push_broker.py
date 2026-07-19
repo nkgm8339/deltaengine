@@ -258,7 +258,7 @@ class PushBroker:
             "veto": veto,
             "reasons": list(analysis_result.reasons),
             "expected_rr": None,
-            "divergence": divergence.direction if divergence is not None else None,
+            "divergence": divergence.direction.value if divergence is not None else None,
         }))
 
     async def on_flow_event(self, ev) -> None:

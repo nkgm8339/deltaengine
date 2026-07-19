@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 import aiohttp
@@ -131,10 +132,14 @@ def rest_to_depth_event(raw_rest: dict, symbol: str) -> dict:
         e="depthSnapshot", s=symbol, E=event_time_ms, u=lastUpdateId,
         b=bids, a=asks.
     """
+    # Binance Futures REST depth payloads provide lastUpdateId/bids/asks but
+    # no event timestamp. Supply the local receipt time for the normalizer's
+    # canonical event_time; it is metadata only and never drives book ordering.
+    event_time_ms = raw_rest.get("E", raw_rest.get("T", time.time_ns() // 1_000_000))
     return {
         "e": "depthSnapshot",
         "s": symbol,
-        "E": raw_rest["E"],
+        "E": event_time_ms,
         "u": raw_rest["lastUpdateId"],
         "b": raw_rest["bids"],
         "a": raw_rest["asks"],

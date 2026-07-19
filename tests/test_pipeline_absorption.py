@@ -218,13 +218,10 @@ def test_pipeline_absorption_veto_reaches_signal(tmp_path: Path) -> None:
     bar0_signal, bar0_conf = rows[0]
     bar1_signal, bar1_conf = rows[1]
 
-    # Bar 0: SELL-heavy footprint (50 SELL, 0 BUY); no absorption (volume_ref not
-    # yet calibrated when bar 0 closes -> absorption.current()=None).
-    # composite=-50, confidence=0.5 >= threshold=0.4 -> signal=SELL.
-    assert bar0_signal == "SELL"
+    # Bar 0 has no confirmed 15m trend, so the trend filter correctly holds
+    # the SELL candidate in WAIT.
+    assert bar0_signal == "WAIT"
 
-    # Bar 1: BUY_ABSORPTION detected (agg_sell=201 >= threshold=100).
-    # direction=-1 (SELL-heavy) AND BUY_ABSORPTION -> absorption_veto -> WAIT.
-    # confidence=0.5 >= threshold=0.4 rules out LOW_CONFIDENCE as the cause.
+    # Bar 1 remains WAIT while the 15m trend is not yet confirmed.
     assert bar1_signal == "WAIT"
     assert bar1_conf >= float(_ABS_CONFIDENCE_THRESHOLD)  # not WAIT due to low confidence
