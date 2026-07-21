@@ -121,9 +121,15 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 #whybody{padding:10px 16px;display:flex;flex-direction:column;flex:1}
 #whytop{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 #whysig{font-size:21px;font-weight:900;letter-spacing:.12em}
-  font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--warn);
-  background:rgba(255,196,0,.1);border:1px solid rgba(255,196,0,.35)}
-
+#whyconf{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--warn)}
+#vetobadge{display:none;margin:0 0 6px;padding:4px 6px;border-radius:5px;background:rgba(255,196,0,.1);border:1px solid rgba(255,196,0,.35);color:var(--warn)}
+#scores{display:flex;flex-direction:column;gap:6px}
+.srow{display:flex;flex-direction:column;gap:3px;padding:3px 0}
+.srow .top{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:11px}
+.srow .name{font-weight:900;letter-spacing:.05em}
+.srow .val{font-weight:800}
+.srow .track{height:6px;border-radius:999px;background:#0B0F25;border:1px solid #344074;overflow:hidden}
+.srow .fill{height:100%;border-radius:999px}
 #whydivider{height:1px;background:var(--line);margin:2px 0 6px}
 #whyfoot{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;text-align:center}
 .mchip{padding:5px 0;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
@@ -136,7 +142,7 @@ body{background:var(--bg);color:var(--text);overflow:auto;
   font-size:9px;font-weight:700;letter-spacing:.15em;padding:2px 9px;border-radius:4px;
   font-family:inherit}
 #tabs button.on{color:var(--bg)}
-#chartwrap{flex:1;padding:3px 8px}
+#chartwrap{flex:1;padding:2px 6px}
 #chart{width:100%;height:100%}
 /* overlays */
 #toasts{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:60;
@@ -246,7 +252,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #tabs button.on{color:#161004!important;font-weight:900;background:linear-gradient(105deg,#1375B5,#16B6D8 52%,#A66BFF);box-shadow:inset 0 1px #FFFFFF66,0 0 13px #23DFFF88}
 #chartlast{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-shadow:0 0 12px #23DFFF88}
 /* Market chart: price is primary, CVD and volume share the same time axis. */
-#bottom.market-chart-panel{height:460px;min-height:460px;flex:0 0 460px;overflow:hidden}
+#bottom.market-chart-panel{height:500px;min-height:500px;flex:0 0 500px;overflow:hidden}
 #bottom.market-chart-panel .phead{gap:12px;flex-wrap:wrap;padding-top:6px;padding-bottom:6px}
 #charttitle{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:950;letter-spacing:.13em;color:#E8ECFF}
 #charttitle i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#23DFFF;box-shadow:0 0 12px #23DFFF}
@@ -255,16 +261,24 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #chartcontrols select,#chartcontrols button{height:27px;border:1px solid #4A568C;border-radius:6px;background:#0B0F25;color:#DCE3FF;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;padding:0 8px;cursor:pointer}
 #chartcontrols button{min-width:29px;padding:0 7px}
 #chartcontrols button:hover,#chartcontrols button.on{border-color:#23DFFF;color:#23DFFF;background:#102947}
-#chartbars{min-width:54px;text-align:center;color:#AEB9E7;font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#chartbars{min-width:54px;text-align:center;color:#FFFFFF;font:900 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
 #chartlegend{font-size:10px;white-space:nowrap}
-#chartwrap{position:relative;flex:1;min-height:0;padding:0 7px 7px;background:#090D20;cursor:crosshair;touch-action:none;overflow:hidden}
-#chart{display:block;width:100%;height:100%}
-#charttip{display:none;position:absolute;z-index:8;pointer-events:none;min-width:232px;padding:9px 11px;border:1px solid #56629B;border-radius:8px;background:#0B1028F2;box-shadow:0 10px 28px #000A;color:#E9EDFF;font:750 11px/1.55 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;backdrop-filter:blur(6px)}
+#chartwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:8px;flex:1;min-height:0;padding:0 4px 4px;background:#090D20;touch-action:none;overflow:hidden}
+#chart{display:block;width:100%;height:100%;min-width:0;cursor:crosshair;outline:none}
+#charttip{display:block;position:relative;z-index:8;pointer-events:none;min-width:0;width:100%;height:100%;overflow-y:auto;padding:10px 11px;border:1px solid #56629B;border-radius:8px;background:#0B1028F2;box-shadow:inset 3px 0 14px #0005;color:#FFFFFF;font:750 11px/1.55 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#charttip .ct-empty{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#FFFFFF;font-weight:850;line-height:1.7}
 #charttip .ct-time{color:#23DFFF;font-weight:950;margin-bottom:3px}
+#charttip .ct-pattern{margin:5px 0 4px;padding:4px 6px;border-radius:6px;font-size:10px;line-height:1.35}
+#charttip .ct-pattern.ok{background:#173F33;color:#C7FFE8;border:1px solid #39F89D55}
+#charttip .ct-pattern.warn{background:#3F3616;color:#FFF2A8;border:1px solid #FFE35D55}
+#charttip .ct-pattern.bad{background:#3A1731;color:#FFD3EA;border:1px solid #FF365F55}
+#charttip .ct-dirs{margin:3px 0 2px;font-size:12px;font-weight:950;letter-spacing:.03em;color:#FFFFFF}
+#charttip .ct-dir-up{color:#72FFC0}#charttip .ct-dir-down{color:#FF6B86}
 #charttip .ct-grid{display:grid;grid-template-columns:repeat(4,auto);gap:2px 10px}
-#charttip .ct-k{color:#8995C5}.ct-buy{color:#39F89D}.ct-sell{color:#FF365F}.ct-flow{margin-top:5px;padding-top:5px;border-top:1px solid #2B3567;font-weight:900}
-#charthint{position:absolute;right:15px;bottom:10px;z-index:4;pointer-events:none;color:#66719E;font-size:9px;letter-spacing:.06em}
-@media(max-width:700px){#bottom.market-chart-panel{height:400px;min-height:400px;flex-basis:400px}#chartlegend,#charthint{display:none}#chartcontrols{width:100%;margin-left:0}}
+#charttip .ct-v{color:#FFFFFF;font-weight:900}
+#charttip .ct-k{color:#DDE3FF}.ct-buy{color:#39F89D}.ct-sell{color:#FF365F}.ct-flow{margin-top:5px;padding-top:5px;border-top:1px solid #56629B;font-weight:900}
+#charthint{position:absolute;left:15px;bottom:10px;z-index:4;pointer-events:none;color:#FFFFFF;font-size:9px;font-weight:850;letter-spacing:.06em}
+@media(max-width:700px){#bottom.market-chart-panel{height:440px;min-height:440px;flex-basis:440px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}#chartcontrols{width:100%;margin-left:0}}
 </style>
 </head>
 <body>
@@ -371,7 +385,22 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
         </div>
         <div id="absbody" style="padding:8px 12px"><div class="dash" style="text-align:center">—</div></div>
       </div>
-      <div id="alerthist" style="position:relative"><div class="ah-head" style="display:flex;align-items:center;justify-content:space-between">🕘 ALERTS <button id="alertgear" title="ライブ通知設定" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></div><div id="alertsetpop" style="display:none;position:absolute;right:8px;top:30px;z-index:50;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)"><div style="margin-bottom:6px">強度閾値 <input id="alertthrin" type="number" min="0" max="1" step="0.05" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div style="margin-bottom:6px">履歴件数 <input id="alerthistin" type="number" min="1" max="50" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div>表示秒数 <input id="alertsecsin" type="number" min="1" max="30" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div></div><div id="alertrows"></div></div>
+      <div id="whypanel" class="panel" style="position:relative">
+        <div class="phead">
+          <span class="ptitle">SIGNAL — WHY</span>
+          <span style="font-size:11px;color:var(--sub)">CONF <b id="whyconf" style="font-size:14px;color:var(--text)">—</b></span>
+        </div>
+        <div id="whybody">
+          <div id="whytop"><span id="whysig" class="dash">—</span></div>
+          <div id="vetobadge"></div>
+          <div id="scores"></div>
+          <div id="whyfoot">
+            <div class="mchip"><div class="k">RISK</div><div class="v dash" id="risk">—</div></div>
+            <div class="mchip"><div class="k">EXP. RR</div><div class="v dash" id="rr">—</div></div>
+            <div class="mchip"><div class="k">VETO</div><div class="v dash" id="veto">—</div></div>
+          </div>
+        </div>
+      </div>      <div id="alerthist" style="position:relative"><div class="ah-head" style="display:flex;align-items:center;justify-content:space-between">🕘 ALERTS <button id="alertgear" title="ライブ通知設定" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></div><div id="alertsetpop" style="display:none;position:absolute;right:8px;top:30px;z-index:50;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)"><div style="margin-bottom:6px">強度閾値 <input id="alertthrin" type="number" min="0" max="1" step="0.05" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div style="margin-bottom:6px">履歴件数 <input id="alerthistin" type="number" min="1" max="50" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div>表示秒数 <input id="alertsecsin" type="number" min="1" max="30" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div></div><div id="alertrows"></div></div>
     </div>
   </div>
 
@@ -409,8 +438,8 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     </div>
     <div id="chartwrap">
       <svg id="chart" preserveAspectRatio="none" viewBox="0 0 1200 500" aria-label="Price, CVD and volume chart"></svg>
-      <div id="charttip"></div>
-      <div id="charthint">WHEEL ZOOM · DRAG PAN · HOVER DETAILS</div>
+      <div id="charttip"><div class="ct-empty">ローソク足をクリック<br>← → で1本ずつ移動</div></div>
+      <div id="charthint">CLICK SELECT · ← → MOVE · WHEEL ZOOM · DRAG PAN</div>
     </div>
   </div>
 </div>
@@ -447,7 +476,7 @@ const S={
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
   liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],
 };
-const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],totalBars:0};
+const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],totalBars:0,selectedTime:null,priceScale:null};
 
 // ---------------- WebSocket ----------------
 let ws=null, backoff=1000;
@@ -912,6 +941,20 @@ const absPanel=$("abspanel");
 if(flowTop&&absPanel){flowTop.appendChild(absPanel);absPanel.style.flex="0 0 auto";if(flowRow)absPanel.style.width=flowRow.offsetWidth+"px";}
 if(rightCol&&leftCol){rightCol.appendChild(leftCol);leftCol.style.width="100%";leftCol.style.flex="0 0 auto";}
 if(flowTop&&alertPanel){flowTop.appendChild(alertPanel);alertPanel.style.display="none";alertPanel.style.flex="0 0 auto";alertPanel.style.width="100%";alertPanel.style.minWidth="0";}
+function sigColor(s){
+  const v=String(s??'').toUpperCase();
+  if(v.includes('BULL')||v.includes('BUY'))return BUY;
+  if(v.includes('BEAR')||v.includes('SELL'))return SELL;
+  if(v.includes('WARN')||v.includes('STALL'))return WARN;
+  return SUB;
+}
+function scoreRow(name,val,{composite=false,zeroToOne=false}={}){
+  const v=N(val);
+  const col=composite?INFO:v==null?DIS:v>=0?BUY:SELL;
+  const width=v==null?0:zeroToOne?Math.min(Math.abs(v)*100,100):Math.min(Math.abs(v),100);
+  const disp=v==null?'—':(v>0&&!composite&&!zeroToOne?'+':'')+(zeroToOne?v.toFixed(2):Math.round(v));
+  return `<div class="srow"><div class="top"><span class="name" style="color:${composite?INFO:TXT}">${name}</span><span class="val" style="color:${col}">${disp}</span></div><div class="track"><div class="fill" style="width:${width}%;background:${col};box-shadow:0 0 8px ${col}55"></div></div></div>`;
+}
 function renderAnalysis(){
   const a=S.analysis; if(!a)return;
   renderCvdDivergence(a.divergence);
@@ -922,15 +965,28 @@ function renderAnalysis(){
       if(a.imbalance.stack_count!=null)IMB.stack=a.imbalance.stack_count;
       if(a.imbalance.min_volume!=null)IMB.minVol=N(a.imbalance.min_volume);
       if(a.imbalance.ratio_cap!=null)IMB.ratioCap=N(a.imbalance.ratio_cap);
-      $("imbratio").textContent=`ratio ≥ ${IMB.ratio}`;
+      const ir=$('imbratio'); if(ir)ir.textContent=`ratio ≥ ${IMB.ratio}`;
     }
   }
   renderImbalance();
   ABS=a.absorption||null;
   renderAbsorption();
-}
-
-// market chart — shared time axis: PRICE / CVD+DELTA / VOLUME
+  const sig=a.signal||a.market_state||'—';
+  const ws=$('whysig'); if(ws){ws.classList.remove('dash');ws.textContent=sig;ws.style.color=sigColor(sig);}
+  const wc=$('whyconf'); if(wc){wc.textContent=a.confidence==null?'—':Math.round(N(a.confidence)*100)+'%';}
+  const vb=$('vetobadge'); if(vb){if(a.veto&&a.veto!=='NONE'){vb.style.display='block';vb.textContent='⚠ '+a.veto;}else vb.style.display='none';}
+  const sc=a.scores||{};
+  const cvdRow=a.cvd_unref
+    ?`<div class="srow"><div class="top"><span class="name" style="color:${TXT}">CVD</span><span class="val" style="color:${WARN}">UNREF</span></div><div class="track"><div class="fill" style="width:0%"></div></div></div>`
+    :scoreRow('CVD',sc.cvd);
+  const scoresEl=$('scores'); if(scoresEl){scoresEl.innerHTML=
+    cvdRow+scoreRow('FOOTPRINT',sc.footprint)+scoreRow('IMBALANCE',sc.imbalance)+
+    scoreRow('ABSORPTION',sc.absorption,{zeroToOne:true})+scoreRow('FLOW',sc.flow,{zeroToOne:true})+
+    `<div id="whydivider"></div>`+scoreRow('COMPOSITE',a.composite,{composite:true});}
+  const rk=$('risk'); if(rk){rk.classList.remove('dash');rk.textContent=a.risk_level??'—';rk.style.color=a.risk_level==='LOW'?BUY:a.risk_level==='MEDIUM'?WARN:a.risk_level==='HIGH'?SELL:DIS;}
+  const rr=$('rr'); if(rr){rr.classList.remove('dash');rr.textContent=a.expected_rr==null?'—':a.expected_rr;}
+  const veto=$('veto'); if(veto){veto.classList.remove('dash');veto.textContent=a.veto??'—';veto.style.color=a.veto&&a.veto!=='NONE'?WARN:DIS;}
+}// market chart — shared time axis: PRICE / CVD+DELTA / VOLUME
 const MC={W:1200,H:500,L:18,R:1110,price:{top:20,bottom:286},cvd:{top:318,bottom:408},vol:{top:438,bottom:480}};
 const FLOW_RESPONSE_LABELS={
   BUY_EFFECTIVE:"買い圧力・上昇",SELL_EFFECTIVE:"売り圧力・下落",
@@ -991,7 +1047,24 @@ function flowForBar(bar){
   }
   return best;
 }
-function chartPriceDigits(span,price){
+const CVD_PATTERNS=[
+  {no:'①',name:'上昇トレンド',klass:'ok',price:1,cvd:1,delta:1,summary:'累積も直近も買い優勢で、価格も上昇'},
+  {no:'②',name:'上昇中の押し',klass:'warn',price:1,cvd:1,delta:-1,summary:'累積は買い優勢、直近は売り、価格はまだ上'},
+  {no:'③',name:'上昇の戻し',klass:'warn',price:1,cvd:-1,delta:1,summary:'累積は売り優勢だが、直近買いで価格上昇'},
+  {no:'④',name:'上昇ダイバージェンス',klass:'bad',price:1,cvd:-1,delta:-1,summary:'売り優勢なのに価格が上昇'},
+  {no:'⑤',name:'下落ダイバージェンス',klass:'bad',price:-1,cvd:1,delta:1,summary:'買い優勢なのに価格が下落'},
+  {no:'⑥',name:'下落中の押し',klass:'warn',price:-1,cvd:1,delta:-1,summary:'累積は買い優勢だが、直近売りで価格下落'},
+  {no:'⑦',name:'下落の戻し',klass:'warn',price:-1,cvd:-1,delta:1,summary:'累積は売り優勢だが、直近買いが入った'},
+  {no:'⑧',name:'下降トレンド',klass:'ok',price:-1,cvd:-1,delta:-1,summary:'累積も直近も売り優勢で、価格も下落'},
+];
+function classifyCvdPattern(bars,index){
+  if(!bars||index==null||index<2||index>=bars.length)return null;
+  const b=bars[index],ref=bars[index-2];
+  const priceDir=b.c>ref.c?1:b.c<ref.c?-1:(b.c>=b.o?1:-1);
+  const cvdDir=b.cvd>ref.cvd?1:b.cvd<ref.cvd?-1:(b.delta>=0?1:-1);
+  const deltaDir=b.delta>=0?1:-1;
+  return CVD_PATTERNS.find(p=>p.price===priceDir&&p.cvd===cvdDir&&p.delta===deltaDir)||null;
+}function chartPriceDigits(span,price){
   if(price<1)return 5;if(price<100)return 3;if(span<10)return 2;return 1;
 }
 function renderChart(){
@@ -1026,6 +1099,7 @@ function renderChart(){
   }
   const slot=(MC.R-MC.L)/n,body=Math.max(2,Math.min(12,slot*.60));
   const priceScale=chartScale(bars.flatMap(b=>[b.l,b.h]),MC.price.top+8,MC.price.bottom-8,.07);
+  CHART.priceScale=priceScale;
   const cvdScale=chartScale(bars.map(b=>b.cvd),MC.cvd.top+7,MC.cvd.bottom-7,.12);
   const volMax=Math.max(...bars.map(b=>b.volume),1),deltaMax=Math.max(...bars.map(b=>Math.abs(b.delta)),1);
   const priceDigits=chartPriceDigits(priceScale.hi-priceScale.lo,bars[n-1].c);
@@ -1033,18 +1107,18 @@ function renderChart(){
   for(let i=0;i<=4;i++){
     const y=MC.price.top+(MC.price.bottom-MC.price.top)*i/4;
     const value=priceScale.hi-(priceScale.hi-priceScale.lo)*i/4;
-    grid.push(`<line x1="${MC.L}" x2="${MC.R}" y1="${y}" y2="${y}" stroke="#29325E" stroke-opacity=".65"/><text x="${MC.R+9}" y="${y+4}" fill="#8792BF" font-size="10">${value.toFixed(priceDigits)}</text>`);
+    grid.push(`<line x1="${MC.L}" x2="${MC.R}" y1="${y}" y2="${y}" stroke="#29325E" stroke-opacity=".65"/><text x="${MC.R+9}" y="${y+4}" fill="#FFFFFF" font-size="10" font-weight="850">${value.toFixed(priceDigits)}</text>`);
   }
   for(let i=0;i<=2;i++){
     const y=MC.cvd.top+(MC.cvd.bottom-MC.cvd.top)*i/2;
     const value=cvdScale.hi-(cvdScale.hi-cvdScale.lo)*i/2;
-    grid.push(`<line x1="${MC.L}" x2="${MC.R}" y1="${y}" y2="${y}" stroke="#242D57"/><text x="${MC.R+9}" y="${y+4}" fill="#7581AE" font-size="9">${compact(value)}</text>`);
+    grid.push(`<line x1="${MC.L}" x2="${MC.R}" y1="${y}" y2="${y}" stroke="#242D57"/><text x="${MC.R+9}" y="${y+4}" fill="#FFFFFF" font-size="9" font-weight="850">${compact(value)}</text>`);
   }
   const tickStep=Math.max(1,Math.ceil(n/7));
   for(let i=0;i<n;i+=tickStep){
     const x=MC.L+(i+.5)*slot,d=new Date(bars[i].time);
     const label=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-    grid.push(`<line x1="${x}" x2="${x}" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#242D57" stroke-opacity=".55"/><text x="${x}" y="496" text-anchor="middle" fill="#7581AE" font-size="9">${label}</text>`);
+    grid.push(`<line x1="${x}" x2="${x}" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#242D57" stroke-opacity=".55"/><text x="${x}" y="496" text-anchor="middle" fill="#FFFFFF" font-size="9" font-weight="850">${label}</text>`);
   }
   const flowBands=CHART.currentFlows.map((f,i)=>{
     const v=f&&flowVisual(f.state);if(!v)return "";
@@ -1060,43 +1134,78 @@ function renderChart(){
   const deltaMid=(MC.cvd.top+MC.cvd.bottom)/2;
   const deltas=bars.map((b,i)=>{
     const x=MC.L+(i+.5)*slot,h=Math.abs(b.delta)/deltaMax*(MC.cvd.bottom-MC.cvd.top)*.40;
-    return `<rect x="${x-Math.max(1,body*.32)}" y="${b.delta>=0?deltaMid-h:deltaMid}" width="${Math.max(2,body*.64)}" height="${Math.max(.7,h)}" fill="${b.delta>=0?INFO:SELL}" fill-opacity=".32"/>`;
+    const col=b.delta>=0?INFO:SELL;
+    return `<rect x="${x-Math.max(1,body*.32)}" y="${b.delta>=0?deltaMid-h:deltaMid}" width="${Math.max(2,body*.64)}" height="${Math.max(.7,h)}" fill="${col}" fill-opacity=".88" stroke="${col}" stroke-width=".8"/>`;
   }).join("");
   const volumes=bars.map((b,i)=>{
     const x=MC.L+(i+.5)*slot,h=b.volume/volMax*(MC.vol.bottom-MC.vol.top),col=b.c>=b.o?BUY:SELL;
     return `<rect x="${x-body/2}" y="${MC.vol.bottom-h}" width="${body}" height="${Math.max(.8,h)}" fill="${col}" fill-opacity=".58"/>`;
   }).join("");
   const last=bars[n-1],lastY=priceScale.y(last.c),lastCol=last.c>=last.o?BUY:SELL;
-  const lastLine=`<line x1="${MC.L}" x2="${MC.R}" y1="${lastY}" y2="${lastY}" stroke="${lastCol}" stroke-width="1" stroke-dasharray="5,5" opacity=".75"/><rect x="${MC.R}" y="${lastY-9}" width="82" height="18" rx="3" fill="${lastCol}"/><text x="${MC.R+41}" y="${lastY+4}" text-anchor="middle" fill="#07140E" font-size="10" font-weight="950">${last.c.toFixed(priceDigits)}</text>`;
-  const cross=`<g id="chartcross" style="display:none" pointer-events="none"><line id="chartcrossx" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#DCE3FF" stroke-width=".8" stroke-dasharray="4,4" opacity=".75"/><line id="chartcrossy" x1="${MC.L}" x2="${MC.R}" stroke="#DCE3FF" stroke-width=".8" stroke-dasharray="4,4" opacity=".55"/></g>`;
-  $("chart").innerHTML=frame+grid.join("")+`<g clip-path="url(#priceClip)">${flowBands}${candles}</g>${lastLine}<g clip-path="url(#cvdClip)">${deltas}<path d="${cvdPath} L${MC.L+(n-.5)*slot},${MC.cvd.bottom} L${MC.L+.5*slot},${MC.cvd.bottom} Z" fill="url(#cvdFill)"/><path d="${cvdPath}" fill="none" stroke="#23DFFF" stroke-width="2"/></g><g clip-path="url(#volClip)">${volumes}</g>${cross}`;
+  const lastLine=`<line x1="${MC.L}" x2="${MC.R}" y1="${lastY}" y2="${lastY}" stroke="${lastCol}" stroke-width="1" stroke-dasharray="5,5" opacity=".82"/><rect x="${MC.R}" y="${lastY-9}" width="82" height="18" rx="3" fill="#11162F" stroke="${lastCol}" stroke-width="1.2"/><text x="${MC.R+41}" y="${lastY+4}" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="950">${last.c.toFixed(priceDigits)}</text>`;
+  const cross=`<g id="chartcross" style="display:none" pointer-events="none"><rect id="chartselectshade" y="${MC.price.top}" height="${MC.vol.bottom-MC.price.top}" fill="#FFFFFF" fill-opacity=".055"/><line id="chartcrossx" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#FFFFFF" stroke-width="1.35" stroke-dasharray="4,3" opacity=".95"/><line id="chartcrossy" x1="${MC.L}" x2="${MC.R}" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="4,3" opacity=".72"/></g>`;
+  $("chart").innerHTML=frame+grid.join("")+`<g clip-path="url(#priceClip)">${flowBands}${candles}</g>${lastLine}<g clip-path="url(#cvdClip)">${deltas}<path d="${cvdPath} L${MC.L+(n-.5)*slot},${MC.cvd.bottom} L${MC.L+.5*slot},${MC.cvd.bottom} Z" fill="url(#cvdFill)"/><path d="${cvdPath}" fill="none" stroke="#59E8FF" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/></g><g clip-path="url(#volClip)">${volumes}</g>${cross}`;
   const cl=$("chartlast");cl.classList.remove("dash");cl.textContent=last.c.toFixed(priceDigits);cl.style.color=lastCol;
+  restoreChartSelection();
 }
 function chartMaxOffset(){return Math.max(0,CHART.totalBars-CHART.visible);}
 function setChartVisible(value){
   CHART.visible=Math.max(20,Math.min(160,Math.round(value/10)*10));
   CHART.offset=Math.min(CHART.offset,chartMaxOffset());renderChart();
 }
-function hideChartHover(){const g=$("chartcross");if(g)g.style.display="none";$("charttip").style.display="none";}
-function updateChartHover(e){
-  const svg=$("chart"),bars=CHART.currentBars;if(!bars.length)return;
-  const rect=svg.getBoundingClientRect(),vx=(e.clientX-rect.left)/rect.width*MC.W,vy=(e.clientY-rect.top)/rect.height*MC.H;
-  if(vx<MC.L||vx>MC.R||vy<MC.price.top||vy>MC.vol.bottom){hideChartHover();return;}
-  const slot=(MC.R-MC.L)/bars.length,index=Math.max(0,Math.min(bars.length-1,Math.floor((vx-MC.L)/slot)));
-  const b=bars[index],flow=CHART.currentFlows[index],x=MC.L+(index+.5)*slot;
-  const g=$("chartcross"),xl=$("chartcrossx"),yl=$("chartcrossy");if(!g||!xl||!yl)return;
-  g.style.display="block";xl.setAttribute("x1",x);xl.setAttribute("x2",x);yl.setAttribute("y1",vy);yl.setAttribute("y2",vy);
+function chartDirection(label,value){
+  const up=value>0;
+  return `<span class="${up?"ct-dir-up":"ct-dir-down"}">${label} ${up?"↑":"↓"}</span>`;
+}
+function selectChartIndex(index){
+  const bars=CHART.currentBars;
+  if(!bars.length||index<0||index>=bars.length)return;
+  const b=bars[index],flow=CHART.currentFlows[index],slot=(MC.R-MC.L)/bars.length,x=MC.L+(index+.5)*slot;
+  CHART.selectedTime=b.time;
+  const g=$("chartcross"),shade=$("chartselectshade"),xl=$("chartcrossx"),yl=$("chartcrossy");
+  if(!g||!shade||!xl||!yl)return;
+  const closeY=CHART.priceScale?CHART.priceScale.y(b.c):MC.price.top;
+  g.style.display="block";
+  shade.setAttribute("x",MC.L+index*slot);shade.setAttribute("width",slot);
+  xl.setAttribute("x1",x);xl.setAttribute("x2",x);
+  yl.setAttribute("y1",closeY);yl.setAttribute("y2",closeY);
   const d=new Date(b.time),time=d.toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
   const priceDigits=chartPriceDigits(b.h-b.l,b.c),tip=$("charttip"),flowName=flow?FLOW_RESPONSE_LABELS[flow.state]||flow.state:"—",fv=flow&&flowVisual(flow.state);
   const flowFacts=flow?`圧力 ${flow.pressure_ratio>=0?"+":""}${fmt(flow.pressure_ratio*100,0)}% · 価格 ${flow.price_change_bps>=0?"+":""}${fmt(flow.price_change_bps,1)}bp · 継続 ${fmt(flow.persistence*100,0)}%${flow.relative_volume==null?"":` · 出来高 ×${fmt(flow.relative_volume,1)}`}`:"データなし";
-  tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div><div class="ct-grid"><span class="ct-k">O</span><span>${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span>${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span>${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="${b.c>=b.o?"ct-buy":"ct-sell"}">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span>${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="${b.delta>=0?"ct-buy":"ct-sell"}">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span>${compact(b.volume)}</span></div><div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:${SUB};font-weight:700">${flowFacts}</span></div>`;
-  tip.style.display="block";
-  const wrap=$("chartwrap").getBoundingClientRect(),localX=e.clientX-wrap.left,localY=e.clientY-wrap.top;
-  tip.style.left=`${Math.max(8,Math.min(wrap.width-tip.offsetWidth-8,localX+16))}px`;
-  tip.style.top=`${Math.max(8,Math.min(wrap.height-tip.offsetHeight-8,localY+14))}px`;
+  const patternBars=marketBars(),patternIndex=patternBars.findIndex(row=>row.time===b.time);
+  const pattern=classifyCvdPattern(patternBars,patternIndex);
+  const directions=pattern?`${chartDirection("価格",pattern.price)}<span> ／ </span>${chartDirection("CVD",pattern.cvd)}<span> ／ </span>${chartDirection("Δ",pattern.delta)}`:"";
+  const patternHtml=pattern?`<div class="ct-pattern ${pattern.klass}">${pattern.no} ${pattern.name}<div class="ct-dirs">${directions}</div><span style="font-weight:800;opacity:.95">${pattern.summary}</span></div>`:`<div class="ct-pattern warn">— 8パターン判定なし</div>`;
+  tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div>${patternHtml}<div class="ct-grid"><span class="ct-k">O</span><span class="ct-v">${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span class="ct-v">${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span class="ct-v">${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="ct-v">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span class="ct-v">${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="ct-v">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span class="ct-v">${compact(b.volume)}</span></div><div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW RESPONSE · ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:#FFFFFF;font-weight:800">${flowFacts}</span></div>`;
+  tip.scrollTop=0;
+}
+function restoreChartSelection(){
+  if(CHART.selectedTime==null)return;
+  const index=CHART.currentBars.findIndex(b=>b.time===CHART.selectedTime);
+  if(index>=0)selectChartIndex(index);
+}
+function chartIndexFromPointer(e){
+  const svg=$("chart"),bars=CHART.currentBars;if(!bars.length)return -1;
+  const rect=svg.getBoundingClientRect(),vx=(e.clientX-rect.left)/rect.width*MC.W,vy=(e.clientY-rect.top)/rect.height*MC.H;
+  if(vx<MC.L||vx>MC.R||vy<MC.price.top||vy>MC.vol.bottom)return -1;
+  const slot=(MC.R-MC.L)/bars.length;
+  return Math.max(0,Math.min(bars.length-1,Math.floor((vx-MC.L)/slot)));
+}
+function moveChartSelection(step){
+  const all=marketBars();if(!all.length)return;
+  let current=CHART.selectedTime==null?-1:all.findIndex(b=>b.time===CHART.selectedTime);
+  if(current<0)current=Math.max(0,all.length-1-CHART.offset);
+  const target=Math.max(0,Math.min(all.length-1,current+step));
+  if(target===current){restoreChartSelection();return;}
+  CHART.selectedTime=all[target].time;
+  const end=Math.max(0,all.length-CHART.offset),start=Math.max(0,end-CHART.visible);
+  if(target<start)CHART.offset=Math.min(Math.max(0,all.length-CHART.visible),CHART.offset+(start-target));
+  else if(target>=end)CHART.offset=Math.max(0,CHART.offset-(target-end+1));
+  renderChart();
 }
 function initMarketChart(){
   const svg=$("chart"),flowSelect=$("chartflowwindow");
+  svg.tabIndex=0;svg.setAttribute("aria-label","Price, CVD and volume chart. Click a candle, then use left and right arrow keys.");
   try{const saved=Number(localStorage.getItem("deltaengine.chart.flowWindow"));if([30,60,180,300,900,1800].includes(saved))CHART.windowSec=saved;}catch(_){ }
   flowSelect.value=String(CHART.windowSec);
   flowSelect.onchange=()=>{CHART.windowSec=Number(flowSelect.value);try{localStorage.setItem("deltaengine.chart.flowWindow",String(CHART.windowSec));}catch(_){ }renderChart();};
@@ -1104,13 +1213,18 @@ function initMarketChart(){
   $("chartzoomout").onclick=()=>setChartVisible(CHART.visible+20);
   $("chartlive").onclick=()=>{CHART.offset=0;renderChart();};
   svg.addEventListener("wheel",e=>{e.preventDefault();setChartVisible(CHART.visible+(e.deltaY>0?10:-10));},{passive:false});
-  svg.addEventListener("pointerdown",e=>{if(e.button!==0)return;CHART.drag={x:e.clientX,offset:CHART.offset};svg.setPointerCapture(e.pointerId);});
+  svg.addEventListener("pointerdown",e=>{if(e.button!==0)return;svg.focus({preventScroll:true});CHART.drag={x:e.clientX,offset:CHART.offset,moved:false};svg.setPointerCapture(e.pointerId);});
   svg.addEventListener("pointermove",e=>{
-    if(CHART.drag){const rect=svg.getBoundingClientRect(),slotPx=rect.width/Math.max(1,CHART.currentBars.length),delta=Math.round((CHART.drag.x-e.clientX)/slotPx);CHART.offset=Math.max(0,Math.min(chartMaxOffset(),CHART.drag.offset+delta));renderChart();}
-    else updateChartHover(e);
+    if(CHART.drag){
+      const rect=svg.getBoundingClientRect(),slotPx=rect.width*(MC.R-MC.L)/MC.W/Math.max(1,CHART.currentBars.length),distance=CHART.drag.x-e.clientX;
+      if(Math.abs(distance)>4)CHART.drag.moved=true;
+      const delta=Math.round(distance/slotPx),next=Math.max(0,Math.min(chartMaxOffset(),CHART.drag.offset+delta));
+      if(next!==CHART.offset){CHART.offset=next;renderChart();}
+    }
   });
-  const endDrag=e=>{if(CHART.drag){CHART.drag=null;try{svg.releasePointerCapture(e.pointerId);}catch(_){ }}updateChartHover(e);};
-  svg.addEventListener("pointerup",endDrag);svg.addEventListener("pointercancel",()=>{CHART.drag=null;hideChartHover();});svg.addEventListener("pointerleave",()=>{if(!CHART.drag)hideChartHover();});
+  const endDrag=e=>{const drag=CHART.drag;if(!drag)return;CHART.drag=null;try{svg.releasePointerCapture(e.pointerId);}catch(_){ }if(!drag.moved){const index=chartIndexFromPointer(e);if(index>=0)selectChartIndex(index);}};
+  svg.addEventListener("pointerup",endDrag);svg.addEventListener("pointercancel",()=>{CHART.drag=null;});
+  svg.addEventListener("keydown",e=>{if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;e.preventDefault();moveChartSelection(e.key==="ArrowLeft"?-1:1);});
   renderChart();
 }
 async function loadChartHistory(){
