@@ -10,6 +10,7 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import duckdb
 import pyarrow.parquet as pq
@@ -110,12 +111,34 @@ RAW_TWO_BARS = [
     {"e": "aggTrade", "E": 1767225661000, "T": 1767225661000, "a": 11, "s": "BTCUSDT", "p": 101, "q": 3, "m": True},
 ]
 
+RAW_THREE_BARS = RAW_TWO_BARS + [
+    {"e": "aggTrade", "E": 1767225721000, "T": 1767225721000, "a": 12, "s": "BTCUSDT", "p": 102, "q": 1, "m": False},
+]
+
 
 def _write_jsonl_events(path: Path, events: list) -> None:
     path.write_text(
         "\n".join(json.dumps(e, sort_keys=True) for e in events) + "\n",
         encoding="utf-8",
     )
+
+
+def test_replay_divergence_clears_on_non_fire_bar(tmp_path: Path) -> None:
+    data = tmp_path / "three_bars.jsonl"
+    _write_jsonl_events(data, RAW_THREE_BARS)
+    config = load_config(PROJECT_ROOT / "config" / "config.yaml")
+    profile = load_profile(PROJECT_ROOT / "config" / "profiles" / "binance.yaml")
+    pipeline = ReplayPipeline.from_config(
+        config, profile, tmp_path / "parquet", tmp_path / "of.duckdb"
+    )
+    detector = MagicMock()
+    detector.update.side_effect = [object(), None]
+
+    with patch("src.pipeline.CvdDivergenceDetector", return_value=detector):
+        pipeline.run(data)
+
+    assert detector.update.call_count == 2
+    assert pipeline.divergence is None
 
 
 def test_pipeline_emits_signal_on_bar_close(tmp_path: Path) -> None:

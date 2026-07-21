@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -80,12 +79,6 @@ class IntervalGate:
         return False
 
 
-@dataclass
-class _FlowRecord:
-    event_time: datetime
-    strength: Decimal
-
-
 class PushBroker:
     """WebSocketクライアント管理とPayload配信。asyncio単一ループ（ADR-003）。"""
 
@@ -93,17 +86,10 @@ class PushBroker:
         self,
         symbol: str,
         depth_levels: int = 15,
-        flow_window_sec: int = 60,
-        confluence_score_threshold: Decimal = Decimal("40"),
-        confluence_strength_threshold: Decimal = Decimal("0.5"),
     ) -> None:
         self.symbol = symbol
         self.depth_levels = depth_levels
-        self.flow_window_sec = flow_window_sec
-        self.conf_score_th = confluence_score_threshold
-        self.conf_strength_th = confluence_strength_threshold
         self._clients: set[Any] = set()
-        self._flow_history: list[_FlowRecord] = []
         self._lock = asyncio.Lock()
 
     async def register(self, ws: Any) -> None:
@@ -129,65 +115,6 @@ class PushBroker:
                     dead.append(ws)
             for ws in dead:
                 self._clients.discard(ws)
-
-    def flow_score(self, now: datetime) -> Optional[Decimal]:
-        cutoff = self.flow_window_sec
-        num = Decimal("0")
-        den = Decimal("0")
-        kept: list[_FlowRecord] = []
-        for rec in self._flow_history:
-            age = (now - rec.event_time).total_seconds()
-            if age <= cutoff:
-                w = Decimal(str(math.pow(0.5, age / 30.0)))
-                num += rec.strength * w
-                den += w
-                kept.append(rec)
-        self._flow_history = kept
-        if den == 0:
-            return None
-        return (num / den).quantize(Decimal("0.0001"))
-
-    def confluence(
-        self,
-        signal: str,
-        scores: dict[str, Optional[Decimal]],
-        composite: Optional[Decimal] = None,
-    ) -> dict:
-        """Confluence flags per module (Task-C).
-
-        The direction sign is BUY→+1 / SELL→-1. On WAIT the signal has no
-        direction of its own, so the composite score's sign is used instead —
-        this lets confluence still show which side the modules lean toward
-        while waiting. A zero (or absent) composite means no direction → all
-        flags False.
-        """
-        if signal == "BUY":
-            sign = Decimal("1")
-        elif signal == "SELL":
-            sign = Decimal("-1")
-        else:  # WAIT → fall back to composite direction
-            comp = composite if composite is not None else Decimal("0")
-            if comp > 0:
-                sign = Decimal("1")
-            elif comp < 0:
-                sign = Decimal("-1")
-            else:
-                flags = {k: False for k in ("cvd", "footprint", "imbalance", "absorption", "flow")}
-                return {**flags, "count": 0}
-
-        def directional(v: Optional[Decimal]) -> bool:
-            return v is not None and v * sign >= self.conf_score_th
-
-        flags = {
-            "cvd": directional(scores.get("cvd")),
-            "footprint": directional(scores.get("footprint")),
-            "imbalance": directional(scores.get("imbalance")),
-            "absorption": scores.get("absorption") is not None
-            and scores["absorption"] >= self.conf_strength_th,
-            "flow": scores.get("flow") is not None
-            and scores["flow"] >= self.conf_strength_th,
-        }
-        return {**flags, "count": sum(flags.values())}
 
     async def on_trade(self, trade) -> None:
         await self._broadcast(envelope("TICK", trade.event_time, self.symbol, {
@@ -227,46 +154,85 @@ class PushBroker:
             "orderbook": book,
         }))
 
-    async def on_analysis(self, analysis_result, signal_result, module_scores, absorption_result, divergence=None) -> None:
+    async def on_analysis(self, analysis_result, signal_result, module_scores, absorption_result, divergence=None, imbalance_result=None, imbalance_detector=None, flow_events=None) -> None:
         now = analysis_result.analysis_time
-        scores: dict[str, Optional[Decimal]] = {
-            "cvd": module_scores.get("cvd"),
-            "footprint": module_scores.get("footprint"),
-            "imbalance": module_scores.get("imbalance"),
-            "absorption": absorption_result.strength if absorption_result is not None else None,
-            "flow": self.flow_score(now),
-        }
-        veto = "NONE"
-        for r in signal_result.reasons:
-            if "VETO" in r or r in ("ABNORMAL_BOOK", "EXTREME_DELTA", "MARKET_HALT", "DATA_ERROR"):
-                veto = r
-                break
         await self._broadcast(envelope("ANALYSIS", now, self.symbol, {
-            "signal": signal_result.signal,
-            "confidence": d2s(signal_result.confidence),
-            "composite": d2s(getattr(signal_result, "composite", None)),
-            "scores": {k: d2s(v) for k, v in scores.items()},
-            # cvd_unref: True when the CVD module produced no score because
-            # signal.cvd_slope_ref is uncalibrated (score_cvd → None). Task-B.
-            "cvd_unref": module_scores.get("cvd") is None,
-            "confluence": self.confluence(
-                signal_result.signal, scores,
-                getattr(signal_result, "composite", None),
-            ),
-            "market_state": analysis_result.market_state,
-            "risk_level": analysis_result.risk_level,
-            "veto": veto,
-            "reasons": list(analysis_result.reasons),
-            "expected_rr": None,
-            "divergence": divergence.direction.value if divergence is not None else None,
+            "divergence": None if divergence is None else {
+                "direction": divergence.direction.value,
+                "kind": divergence.kind.value,
+                "pivot_time": divergence.pivot_time.astimezone(timezone.utc).isoformat(),
+                "previous_pivot_time": divergence.previous_pivot_time.astimezone(timezone.utc).isoformat(),
+                "pivot_price": d2s(divergence.pivot_price),
+                "previous_pivot_price": d2s(divergence.previous_pivot_price),
+                "pivot_cvd": d2s(divergence.pivot_cvd),
+                "previous_pivot_cvd": d2s(divergence.previous_pivot_cvd),
+                "price_change": d2s(divergence.price_change),
+                "cvd_change": d2s(divergence.cvd_change),
+                "bars_between": divergence.bars_between,
+            },
+            "imbalance": None if imbalance_result is None else {
+                "walls": [
+                    {
+                        "side": si.direction,
+                        "count": si.count,
+                        "price_start": d2s(si.start_price),
+                        "price_end": d2s(si.end_price),
+                    }
+                    for si in imbalance_result.stacked_imbalances
+                ],
+                "ratio_threshold": d2s(imbalance_detector.ratio_threshold) if imbalance_detector is not None else None,
+                "stack_count": imbalance_detector.stack_count if imbalance_detector is not None else None,
+                "ratio_cap": d2s(imbalance_detector.ratio_cap) if imbalance_detector is not None else None,
+                "min_volume": d2s(imbalance_detector.last_effective_min_volume) if imbalance_detector is not None else None,
+            },
+            "absorption": None if absorption_result is None else {
+                "classification": absorption_result.classification,
+                "strength": d2s(absorption_result.strength),
+                "price_low": d2s(absorption_result.price_low),
+                "price_high": d2s(absorption_result.price_high),
+            },
+            "flow_events": None if not flow_events else [
+                {"kind": fe.kind, "side": fe.side, "strength": d2s(fe.strength),
+                 "price": d2s(fe.price), "detail": fe.detail if isinstance(fe.detail, dict) else {}}
+                for fe in flow_events
+            ],
         }))
 
     async def on_flow_event(self, ev) -> None:
-        self._flow_history.append(_FlowRecord(ev.event_time, ev.strength))
         await self._broadcast(envelope("FLOW", ev.event_time, self.symbol, {
             "event_time": ev.event_time.astimezone(timezone.utc).isoformat(),
             "category": ev.category, "side": ev.side,
             "strength": d2s(ev.strength), "detector": ev.detector, "detail": ev.detail,
+        }))
+
+    async def on_flow_response(self, snapshots) -> None:
+        """Broadcast observational order-flow/price-response windows."""
+        snapshots = tuple(snapshots)
+        if not snapshots:
+            return
+        now = max(s.event_time for s in snapshots)
+        await self._broadcast(envelope("FLOW_RESPONSE", now, self.symbol, {
+            "windows": [
+                {
+                    "window_sec": s.window_sec,
+                    "state": s.state.value,
+                    "pressure_side": s.pressure_side,
+                    "buy_volume": d2s(s.buy_volume),
+                    "sell_volume": d2s(s.sell_volume),
+                    "total_volume": d2s(s.total_volume),
+                    "delta": d2s(s.delta),
+                    "pressure_ratio": d2s(s.pressure_ratio),
+                    "persistence": d2s(s.persistence),
+                    "first_price": d2s(s.first_price),
+                    "last_price": d2s(s.last_price),
+                    "price_change": d2s(s.price_change),
+                    "price_change_bps": d2s(s.price_change_bps),
+                    "relative_volume": d2s(s.relative_volume),
+                    "trade_count": s.trade_count,
+                }
+                for s in snapshots
+            ],
+            "note": "observed state; not a trade signal or probability",
         }))
 
     async def on_liquidation(self, liq) -> None:

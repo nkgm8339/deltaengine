@@ -1,9 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DeltaEngine Command Center</title>
+
 <style>
 :root{
   --bg:#080916;--panel:#121733;--panel2:#192048;--line:#3A477F;
@@ -20,7 +16,7 @@ body{background:var(--bg);color:var(--text);overflow:auto;
   display:flex;flex-direction:column;overflow:hidden}
 .phead{display:flex;align-items:center;justify-content:space-between;
   padding:5px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
-.ptitle{font-size:11px;font-weight:600;letter-spacing:.15em;color:var(--sub)}
+.ptitle{font-size:22px;font-weight:600;letter-spacing:.15em;color:var(--sub)}
 .hint{font-size:9px;letter-spacing:.1em;color:var(--dis)}
 .dash{color:var(--dis)}
 /* top bar */
@@ -40,7 +36,8 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 /* main */
 #main{display:flex;gap:6px;flex:1;min-height:max-content}
 #left{width:256px;flex-shrink:0}
-#center{flex:2.2;display:flex;flex-direction:column;gap:6px;min-width:0}
+#center{flex:4.4;display:flex;flex-direction:column;gap:6px;min-width:0;grid-column:span 2;width:80%;justify-self:end}
+#flowrow,#flowpanel,#abspanel{width:calc(160% - 80px)!important;margin-left:0;margin-right:auto}
 #right{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}#right>.panel{flex-shrink:0}
 /* order book */
 #bookbody{flex:1;display:flex;flex-direction:column;justify-content:center;
@@ -58,6 +55,10 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 #fphead,#fprow-template{display:flex;align-items:center}
 #fpcols{display:flex;padding:4px 12px;font-size:9px;letter-spacing:.15em;color:var(--dis);
   border-bottom:1px solid var(--line);flex-shrink:0}
+#fptotals{display:flex;justify-content:flex-end;gap:18px;padding:4px 12px;
+  border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.06em;flex-shrink:0}
+#fptotals .k{color:var(--dis);margin-right:5px}
+#fptotals b{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
 #fpbody{flex:1;display:flex;flex-direction:column;justify-content:flex-start;padding:0 12px;overflow:hidden}
 .fprow{display:flex;align-items:center;flex-shrink:0;padding:2px 0;border-radius:4px}
 .fp-more{flex-shrink:0;text-align:center;color:var(--dis);font-size:9px;letter-spacing:.1em;padding:2px 0}
@@ -65,7 +66,7 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 .fprow.poc{background:rgba(255,196,0,.08)}
 .fprow.vah{border-top:1px dashed rgba(255,196,0,.4)}
 .fprow.val{border-bottom:1px dashed rgba(255,196,0,.4)}
-.fp-price{width:110px;flex-shrink:0;display:flex;align-items:center;gap:5px;color:var(--sub)}
+.fp-price{width:60px;flex-shrink:0;display:flex;align-items:center;gap:4px;color:var(--sub)}
 .badge{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px}
 .badge.poc{background:var(--warn);color:var(--bg)}
 .badge.va{border:1px solid var(--warn);color:var(--warn)}
@@ -74,14 +75,27 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 .fp-side.ask{padding-left:8px}
 .fp-bar{height:11px;border-radius:2px;transition:width .3s}
 .fp-x{width:26px;text-align:center;color:var(--line)}
-.fp-delta{width:60px;flex-shrink:0;text-align:right;font-weight:600}
-.fp-sig{width:44px;flex-shrink:0;text-align:center;font-size:11px}
+.fp-delta{width:35px;flex-shrink:0;text-align:right;font-weight:600}
+.fp-sig{width:24px;flex-shrink:0;text-align:center;font-size:10px}
+.fp-dir{display:inline-block;min-width:30px;padding:1px 3px;border-radius:3px;
+  font-size:8px;font-weight:900;letter-spacing:.05em;line-height:12px}
+.fp-dir.buy{color:var(--buy);background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.45)}
+.fp-dir.sell{color:var(--sell);background:rgba(255,77,77,.12);border:1px solid rgba(255,77,77,.45)}
+#fpbody .fprow.in-va{border-left:1px solid rgba(255,227,93,.5);border-right:1px solid rgba(255,227,93,.5);border-radius:0}
+#fpbody .fprow.in-va.vah{border-top:1px solid rgba(255,227,93,.5);border-radius:5px 5px 0 0}
+#fpbody .fprow.in-va.val{border-bottom:1px solid rgba(255,227,93,.5);border-radius:0 0 5px 5px}
+#fpbody .fprow.in-va.vah.val{border-radius:5px}
+#fpbody .fprow.current-price{outline:1px solid rgba(246,247,255,.72);outline-offset:-1px}
 .ctl{display:flex;align-items:center;gap:3px}
 .ctl button{background:none;border:none;color:var(--sub);cursor:pointer;padding:3px;font-size:12px}
 .ctl button.lock{color:var(--warn)}
 .ctl .idx{font-size:9px;color:var(--dis);width:52px;text-align:center}
 /* flow */
 #flowpanel{height:126px;flex-shrink:0}
+#left{height:620px;flex:0 0 620px}
+#center> .panel:first-child{height:620px;flex:0 0 620px;width:500px;max-width:calc(100vw - 24px);min-width:420px;align-self:end}
+#bookbody{height:570px;flex:0 0 570px;overflow-y:auto}
+#fpbody{height:480px;flex:1 1 auto;min-height:0;overflow-y:auto}
 #flowbody{flex:1;overflow-y:auto;padding:2px 12px}
 .frow{display:flex;align-items:center;gap:10px;padding:3px 0;border-bottom:1px solid var(--line)}
 .fcat{width:96px;text-align:center;font-size:9px;font-weight:700;letter-spacing:.08em;
@@ -94,11 +108,8 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 .legend i{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px}
 /* right */
 #mstate{padding:12px;display:flex}
-#mschip{flex:1;display:flex;align-items:center;justify-content:center;padding:9px;
   border-radius:6px;font-size:17px;font-weight:900;letter-spacing:.15em;transition:all .3s}
 #confl{padding:9px 14px}
-#confstars{text-align:center;font-size:20px;letter-spacing:.2em;color:var(--warn);margin-bottom:7px}
-#confgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
 .cchip{display:flex;flex-direction:column;align-items:center;padding:4px 0;border-radius:5px;
   background:var(--panel2);border:1px solid var(--line)}
 .cchip.on{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3)}
@@ -110,17 +121,9 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 #whybody{padding:10px 16px;display:flex;flex-direction:column;flex:1}
 #whytop{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 #whysig{font-size:21px;font-weight:900;letter-spacing:.12em}
-#vetobadge{display:none;margin-bottom:8px;padding:3px 8px;border-radius:5px;text-align:center;
   font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--warn);
   background:rgba(255,196,0,.1);border:1px solid rgba(255,196,0,.35)}
-#divergence{display:none;margin-bottom:8px;padding:3px 8px;border-radius:5px;text-align:center;
-  font-size:10px;font-weight:700;letter-spacing:.1em}
-.srow{margin-bottom:6px}
-.srow .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
-.srow .name{font-size:12px;font-weight:600;letter-spacing:.08em}
-.srow .val{font-size:18px;font-weight:900}
-.srow .track{height:9px;border-radius:99px;background:var(--line);overflow:hidden}
-.srow .fill{height:100%;border-radius:99px;transition:width .5s}
+
 #whydivider{height:1px;background:var(--line);margin:2px 0 6px}
 #whyfoot{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;text-align:center}
 .mchip{padding:5px 0;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
@@ -183,6 +186,10 @@ body{
 #devbtn{color:#C5CDF5}#devbtn.on{color:#FFE35D}
 #main,#center,#right{gap:12px}#left{width:266px}#right{width:333px}
 #flowpanel{height:132px}#bottom{height:118px}
+#main{display:grid;grid-template-columns:266px 266px minmax(0,1fr) 333px;align-items:start}
+#left,#flowtop,#center,#right{width:auto;min-width:0}
+@media(max-width:1100px){#appgrid{min-width:0}#main{grid-template-columns:minmax(220px,25%) minmax(220px,25%) minmax(0,1fr)}#right{grid-column:1 / -1;width:100%}}
+@media(max-width:700px){#main{display:flex;flex-direction:column}#left,#flowtop,#center,#right{width:100%;flex:none}}
 #bookbody{padding:7px 10px}.brow{border-radius:5px;font-weight:750}.brow .qty{color:#D8DEFC}.brow .sig{color:#C5CDF5}
 #mid{color:#161004;border-color:#FFE35D;background:#D6A928;box-shadow:0 0 14px #FFE35D38}
 #mid b{color:#161004!important}#mid .hint{color:#161004!important;font-weight:800}
@@ -190,9 +197,7 @@ body{
 .fp-price{color:#CDD4FF}.fp-bar{box-shadow:0 0 9px currentColor}.badge.poc{background:#D6A928;color:#161004}.badge.va{border-color:#FFE35D;color:#FFF08A}
 .ctl button{color:#C5CDF5}.ctl button.lock{color:#FFE35D}
 #flowbody{padding:7px 14px}.frow{gap:10px;border-bottom-color:#2A315D;font-weight:800}.fcat{border-radius:4px;font-weight:900}.legend{color:#C5CDF5}
-#mschip{color:#FFF9FF;background:linear-gradient(100deg,#4A319B,#9A57F6 48%,#EF70DF);border-color:#C98BFF;box-shadow:inset 0 1px #FFFFFF74,0 0 22px #A66BFF99;font-size:19px}
 .cchip{border-color:#56629B;background:linear-gradient(145deg,#1D2448,#101530);color:#C7D0FB}.cchip.on{border-color:#8EFFB8;background:linear-gradient(145deg,#17635A,#1AA465 52%,#79CF51);box-shadow:inset 0 1px #FFFFFF4B,0 0 13px #39F89D55}.cchip.on b,.cchip.on span{color:#EAFFC9}
-#confstars{color:#FFF08A;text-shadow:0 0 10px #FFE35D78}.srow .track{background:#252D57}.srow .fill{box-shadow:0 0 12px currentColor}
 .mchip{background:linear-gradient(145deg,#1D2448,#101530);border-color:#56629B}.mchip .k{color:#C5CDF5}
 #tabs button{color:#D3DBFF;border-radius:5px}#tabs button.on{color:#161004;font-weight:900;background:linear-gradient(105deg,#1375B5,#16B6D8 52%,#A66BFF);box-shadow:inset 0 1px #FFFFFF66,0 0 13px #23DFFF88}
 #chartwrap{background:repeating-linear-gradient(0deg,transparent 0 29px,#2D356020 30px),repeating-linear-gradient(90deg,transparent 0 72px,#2D356020 73px)}
@@ -222,8 +227,8 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #main{gap:12px}
 #center,#right{gap:12px}
 #left{width:266px}#right{width:333px}
-#bookbody{padding:9px 10px;gap:3px}
-.brow{min-height:22px;padding:0 7px;font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;font-weight:800;border-radius:5px}
+#bookbody{padding:9px 10px;gap:1px}
+.brow{min-height:22px;margin:0;padding:0 7px;font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;font-weight:800;border-radius:5px}
 .brow .qty{color:#D8DEFC}.brow span:first-of-type{font-weight:900}
 #mid{margin:3px 0;padding:8px;border:1px solid #FFE35D;background:#D6A928;color:#161004;box-shadow:0 0 14px #FFE35D38}
 #mid b{color:#161004!important;font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace}#mid .hint{color:#161004!important;font-weight:800}
@@ -237,11 +242,29 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 .fp-side.ask span[style*="color"]{color:#72FFC0!important;text-shadow:0 0 10px #39F89D8C}
 .frow{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;border-color:#2A315D}
 .fcat{font-weight:900}.fcat[style*="#FF9D3D"]{background:linear-gradient(110deg,#8C2539,#E84C57 54%,#FF9D3D)!important;color:#FFF0D2!important;border-color:#FFAD76!important}.fcat[style*="#4DA3FF"]{background:linear-gradient(110deg,#155A8D,#1765C0 52%,#A66BFF)!important;color:#E5FBFF!important;border-color:#75DCFF!important}
-#mschip{color:#FFF9FF;background:linear-gradient(100deg,#4A319B,#9A57F6 48%,#EF70DF);border-color:#D9A6FF;box-shadow:inset 0 1px #FFFFFF74,0 0 22px #A66BFF99}
-#confgrid .cchip{background:linear-gradient(145deg,#1D2448,#101530);border-color:#56629B;color:#C7D0FB}.cchip.on{color:#EAFFC9!important;border-color:#8EFFB8!important;background:linear-gradient(145deg,#17635A,#1AA465 52%,#79CF51)!important;box-shadow:inset 0 1px #FFFFFF4B,0 0 13px #39F89D55}
 #chartwrap{background:repeating-linear-gradient(0deg,transparent 0 29px,#2D356020 30px),repeating-linear-gradient(90deg,transparent 0 72px,#2D356020 73px)}
 #tabs button.on{color:#161004!important;font-weight:900;background:linear-gradient(105deg,#1375B5,#16B6D8 52%,#A66BFF);box-shadow:inset 0 1px #FFFFFF66,0 0 13px #23DFFF88}
 #chartlast{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-shadow:0 0 12px #23DFFF88}
+/* Market chart: price is primary, CVD and volume share the same time axis. */
+#bottom.market-chart-panel{height:460px;min-height:460px;flex:0 0 460px;overflow:hidden}
+#bottom.market-chart-panel .phead{gap:12px;flex-wrap:wrap;padding-top:6px;padding-bottom:6px}
+#charttitle{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:950;letter-spacing:.13em;color:#E8ECFF}
+#charttitle i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#23DFFF;box-shadow:0 0 12px #23DFFF}
+#chartcontrols{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}
+#chartcontrols label{display:flex;align-items:center;gap:5px;color:var(--dis);font-size:10px;font-weight:850;letter-spacing:.08em}
+#chartcontrols select,#chartcontrols button{height:27px;border:1px solid #4A568C;border-radius:6px;background:#0B0F25;color:#DCE3FF;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;padding:0 8px;cursor:pointer}
+#chartcontrols button{min-width:29px;padding:0 7px}
+#chartcontrols button:hover,#chartcontrols button.on{border-color:#23DFFF;color:#23DFFF;background:#102947}
+#chartbars{min-width:54px;text-align:center;color:#AEB9E7;font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#chartlegend{font-size:10px;white-space:nowrap}
+#chartwrap{position:relative;flex:1;min-height:0;padding:0 7px 7px;background:#090D20;cursor:crosshair;touch-action:none;overflow:hidden}
+#chart{display:block;width:100%;height:100%}
+#charttip{display:none;position:absolute;z-index:8;pointer-events:none;min-width:232px;padding:9px 11px;border:1px solid #56629B;border-radius:8px;background:#0B1028F2;box-shadow:0 10px 28px #000A;color:#E9EDFF;font:750 11px/1.55 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;backdrop-filter:blur(6px)}
+#charttip .ct-time{color:#23DFFF;font-weight:950;margin-bottom:3px}
+#charttip .ct-grid{display:grid;grid-template-columns:repeat(4,auto);gap:2px 10px}
+#charttip .ct-k{color:#8995C5}.ct-buy{color:#39F89D}.ct-sell{color:#FF365F}.ct-flow{margin-top:5px;padding-top:5px;border-top:1px solid #2B3567;font-weight:900}
+#charthint{position:absolute;right:15px;bottom:10px;z-index:4;pointer-events:none;color:#66719E;font-size:9px;letter-spacing:.06em}
+@media(max-width:700px){#bottom.market-chart-panel{height:400px;min-height:400px;flex-basis:400px}#chartlegend,#charthint{display:none}#chartcontrols{width:100%;margin-left:0}}
 </style>
 </head>
 <body>
@@ -253,7 +276,6 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     <span style="font-size:13px;font-weight:700;letter-spacing:.15em;color:var(--sub)" id="sym">—</span>
     <span id="price" class="dash">—</span>
     <span id="chg" class="dash">—</span>
-    <span id="sigchip"><b id="sigtop" class="dash">—</b><span id="conftop" style="font-size:11px">—</span></span>
     <span style="flex:1"></span>
     <span class="kv"><span class="k">ATR(14)</span><span class="v dash" id="atr">—</span></span>
     <span class="kv"><span class="k">SPREAD</span><span class="v" id="spread">—</span></span>
@@ -272,6 +294,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     <div id="hfoot" style="margin-top:6px;font-size:9px;color:var(--dis)">—</div>
   </div>
 
+  <div id="flowtop" style="display:flex;flex-direction:column;gap:12px;width:100%;flex-shrink:0"></div>
   <div id="main">
     <div id="left" class="panel">
       <div class="phead"><span class="ptitle">ORDER BOOK</span><span class="hint">QTY / Σ DEPTH</span></div>
@@ -279,15 +302,25 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     </div>
 
     <div id="center">
-      <div class="panel" style="flex:1">
+      <div class="panel" style="flex:1;position:relative">
         <div class="phead">
           <span class="ptitle" id="fptitle">FOOTPRINT</span>
           <span class="ctl">
+            <span id="fpva" style="font-size:11px;font-weight:800;color:var(--warn);letter-spacing:.03em">VA 70%</span>
+            <button id="fpgear" title="Value Area %" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button>
             <button id="prevbar">◀</button><span class="idx" id="baridx">—/—</span><button id="nextbar">▶</button>
             <span style="width:1px;height:14px;background:var(--line);margin:0 4px"></span>
             <button id="zin">＋</button><button id="zout">－</button>
             <button id="plock" class="lock">🔒</button>
           </span>
+        </div>
+        <div id="fpgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
+          <div>VA% <input id="fpvapct" type="number" min="30" max="95" value="70" style="width:56px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+        </div>
+        <div id="fptotals">
+          <span><span class="k">Σ BID</span><b id="fpbidtotal" style="color:var(--sell)">—</b></span>
+          <span><span class="k">Σ ASK</span><b id="fpasktotal" style="color:var(--buy)">—</b></span>
+          <span><span class="k">DELTA</span><b id="fpdeltatotal">—</b></span>
         </div>
         <div id="fpcols">
           <span style="width:110px">PRICE</span><span style="flex:1;text-align:right;padding-right:8px">BID</span>
@@ -297,57 +330,88 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
         <div id="fpbody"><div class="dash" style="text-align:center">—</div></div>
       </div>
 
-      <div id="flowpanel" class="panel">
+      <div id="flowrow" style="display:block;width:100%;flex-shrink:0">
+      <div id="flowpanel" class="panel" style="width:100%;position:relative;overflow:visible">
         <div class="phead">
-          <span class="ptitle">FLOW EVENTS</span>
+          <span style="display:flex;align-items:center;gap:6px"><span class="ptitle">FLOW EVENTS</span><button id="flowinfobtn" title="Flowイベント設定" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:11px;line-height:1;padding:2px 5px">⚙</button></span>
           <span class="legend" id="flowlegend"></span>
         </div>
+        <div id="flowinfopop" style="display:none;position:fixed;z-index:100;left:0;top:0;width:430px;max-height:calc(100vh - 20px);overflow:auto;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:7px;box-shadow:0 10px 24px #0008;color:var(--sub);font-size:10px;line-height:1.45">
+          <div style="color:var(--text);font-weight:800;margin-bottom:6px">FLOW EVENTS / STRENGTH</div>
+          <table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--dis);text-align:left"><th>イベント</th><th>意味</th><th>強度</th><th>通知≥</th></tr></thead><tbody id="flowinfobody"></tbody></table>
+          <div style="margin-top:7px;color:var(--warn)">強度は0.00〜1.00の内部スコアで、確率や利益率ではありません。</div>
+        </div>
         <div id="flowbody"></div>
+      </div>
       </div>
     </div>
 
     <div id="right">
-      <div class="panel">
-        <div class="phead"><span class="ptitle">MARKET STATE</span><span class="hint">FROM SIGNALENGINE</span></div>
-        <div id="mstate"><div id="mschip" class="dash">—</div></div>
-      </div>
-      <div class="panel">
-        <div class="phead"><span class="ptitle">CONFLUENCE</span></div>
-        <div id="confl">
-          <div id="confstars" class="dash">—</div>
-          <div id="confgrid"></div>
+      <div class="panel" style="position:relative">
+        <div class="phead">
+          <span class="ptitle">IMBALANCE</span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span id="imbratio" class="hint" style="font-size:11px">ratio ≥ 3.0</span>
+            <button id="imbgear" title="ratio / stack / min_volume" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button>
+          </span>
         </div>
-      </div>
-      <div id="whypanel" class="panel">
-        <div class="phead"><span class="ptitle">SIGNAL — WHY</span></div>
-        <div id="whybody">
-          <div id="whytop">
-            <span id="whysig" class="dash">—</span>
-            <span style="font-size:11px;color:var(--sub)">CONF <b id="whyconf" style="font-size:14px;color:var(--text)">—</b></span>
-          </div>
-          <div id="vetobadge"></div>
-          <div id="divergence"></div>
-          <div id="scores"></div>
-          <div id="whyfoot">
-            <div class="mchip"><div class="k">RISK</div><div class="v dash" id="risk">—</div></div>
-            <div class="mchip"><div class="k">EXP. RR</div><div class="v dash" id="rr">—</div></div>
-            <div class="mchip"><div class="k">VETO</div><div class="v dash" id="veto">—</div></div>
-          </div>
+        <div id="imbgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
+          <div style="margin-bottom:6px">倍率 <input id="imbratioin" type="number" min="1" max="20" step="0.5" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <div style="margin-bottom:6px">段数 <input id="imbstackin" type="number" min="2" max="20" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <div>下限 <input id="imbminvin" type="number" min="0" step="0.001" style="width:72px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
         </div>
+        <div id="imbbody" style="padding:8px 12px"><div class="dash" style="text-align:center">—</div></div>
       </div>
-      <div id="alerthist"><div class="ah-head">🕘 ALERTS</div><div id="alertrows"></div></div>
+      <div id="abspanel" class="panel" style="position:relative">
+        <div class="phead"><span class="ptitle">ABSORPTION</span><span style="display:flex;align-items:center;gap:8px"><span id="abshint" class="hint" style="font-size:11px">—</span><button id="absgear" title="stall ticks / volume ×" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></span></div>
+        <div id="absgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
+          <div style="margin-bottom:6px">停滞ticks <input id="absstallin" type="number" min="1" max="20" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <div style="margin-bottom:6px">出来高倍率 <input id="absmultin" type="number" min="1" max="10" step="0.5" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <button id="absapply" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;padding:2px 8px">反映</button>
+        </div>
+        <div id="absbody" style="padding:8px 12px"><div class="dash" style="text-align:center">—</div></div>
+      </div>
+      <div id="alerthist" style="position:relative"><div class="ah-head" style="display:flex;align-items:center;justify-content:space-between">🕘 ALERTS <button id="alertgear" title="ライブ通知設定" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></div><div id="alertsetpop" style="display:none;position:absolute;right:8px;top:30px;z-index:50;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)"><div style="margin-bottom:6px">強度閾値 <input id="alertthrin" type="number" min="0" max="1" step="0.05" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div style="margin-bottom:6px">履歴件数 <input id="alerthistin" type="number" min="1" max="50" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div>表示秒数 <input id="alertsecsin" type="number" min="1" max="30" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div></div><div id="alertrows"></div></div>
     </div>
   </div>
 
-  <div id="bottom" class="panel">
+  <div id="bottom" class="panel market-chart-panel">
     <div class="phead">
-      <span id="tabs"></span>
-      <span style="display:flex;align-items:center;gap:12px">
+      <span id="charttitle"><i></i>PRICE × FLOW RESPONSE</span>
+      <span id="chartcontrols">
+        <label>FLOW
+          <select id="chartflowwindow" title="背景帯に表示するフロー時間窓">
+            <option value="30">30s</option><option value="60">1m</option>
+            <option value="180">3m</option><option value="300">5m</option>
+            <option value="900">15m</option><option value="1800">30m</option>
+          </select>
+        </label>
+        <button id="chartzoomout" title="表示本数を増やす">−</button>
+        <span id="chartbars">80 bars</span>
+        <button id="chartzoomin" title="表示本数を減らす">＋</button>
+        <button id="chartlive" class="on" title="最新足へ戻る">LIVE</button>
+        <span id="cvdslope" class="dash" style="font-size:12px;font-weight:800;letter-spacing:.04em">—</span>
+        <button id="cvdgear" title="CVD 方式・窓">⚙</button>
         <span class="legend" id="chartlegend"></span>
         <b id="chartlast" class="dash" style="font-size:13px">—</b>
       </span>
     </div>
-    <div id="chartwrap"><svg id="chart" preserveAspectRatio="none" viewBox="0 0 1000 100"></svg></div>
+    <div id="cvddiv" style="display:none;margin:2px 12px 0;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700"></div>
+    <div id="flowresponse" style="display:none;margin:4px 12px 0;gap:7px;flex-wrap:wrap;font-size:12px;line-height:1.45"></div>
+    <div id="cvdgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
+      <div style="margin-bottom:6px">方式
+        <select id="cvdmethod" style="background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px">
+          <option value="regression">回帰</option>
+          <option value="difference">差分</option>
+        </select>
+      </div>
+      <div>窓 <input id="cvdwindow" type="number" min="2" max="140" value="20" style="width:56px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+    </div>
+    <div id="chartwrap">
+      <svg id="chart" preserveAspectRatio="none" viewBox="0 0 1200 500" aria-label="Price, CVD and volume chart"></svg>
+      <div id="charttip"></div>
+      <div id="charthint">WHEEL ZOOM · DRAG PAN · HOVER DETAILS</div>
+    </div>
   </div>
 </div>
 
@@ -379,10 +443,11 @@ const S={
   barView:-1,         // -1 = 最新追従（price lock）
   zoom:1, lock:true,
   analysis:null, flows:[], alerts:[],
-  series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[] },
+  series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[], "BTCUSDT 1M":[] },
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
-  liveBar:null, health:null,
+  liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],
 };
+const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],totalBars:0};
 
 // ---------------- WebSocket ----------------
 let ws=null, backoff=1000;
@@ -417,8 +482,18 @@ function handle(m){
         $("sym").textContent=m.symbol; break;
       case "TICK": onTick(m,p); break;
       case "CANDLE": onCandle(p); break;
-      case "ANALYSIS": S.analysis=p; renderAnalysis(); renderTopSignal(); break;
+      case "ANALYSIS":
+        S.analysis=p; renderAnalysis();
+        if(p.flow_events&&p.flow_events.length){
+          for(const fe of p.flow_events){
+            const dup=S.flows.some(f=>f.category===(fe.kind||"").toUpperCase()&&f.side===fe.side&&f.strength===fe.strength);
+            if(!dup){S.flows.unshift({event_time:m.time,category:(fe.kind||"").toUpperCase(),side:fe.side,strength:fe.strength,detector:fe.kind||"",detail:JSON.stringify(fe.detail||{})});if(S.flows.length>40)S.flows.pop();}
+          }
+          renderFlow();
+        }
+        break;
       case "FLOW": onFlow(m,p); break;
+      case "FLOW_RESPONSE": onFlowResponse(m,p);break;
       case "LIQUIDATION": pushSeries("LIQUIDATION",Math.abs(N(p.quantity)??0)); break;
       case "OI": pushSeries("OI",N(p.open_interest)); break;
       case "STATS": S.stats=p; renderDev(); break;
@@ -440,21 +515,64 @@ function onTick(m,p){
   renderTop();
   // refresh the "+Ns" elapsed annotation on the latest closed bar per TICK
   if(S.bars.length&&(S.lock||S.barView<0)&&!S.liveBar)fpTitle(S.bars[S.bars.length-1],true);
+  updateFootprintCurrentPrice();
 }
 function onCandle(p){
   if(S.liveBar&&Date.parse(S.liveBar.bar_time)<=Date.parse(p.bar_time))S.liveBar=null;
-  S.bars.push(p); if(S.bars.length>300)S.bars.shift();
+  const pTime=Date.parse(p.bar_time);
+  const same=S.bars.findIndex(b=>Date.parse(b.bar_time)===pTime);
+  if(same>=0)S.bars[same]=p;else S.bars.push(p);
+  S.bars.sort((a,b)=>Date.parse(a.bar_time)-Date.parse(b.bar_time));
+  if(S.bars.length>300)S.bars.splice(0,S.bars.length-300);
   pushSeries("CVD+Δ",{cvd:N(p.cvd),delta:N(p.delta)});
   pushSeries("VOLUME",N(p.volume));
+  renderCvdSlope();
   renderBook(p.orderbook); renderFootprint(); renderChart();
+}
+function onFlowResponse(m,p){
+  S.flowResponse=p.windows||[];
+  const time=Date.parse(m.time);
+  if(Number.isFinite(time)){
+    const rows=S.flowResponse.map(r=>({
+      window_sec:Number(r.window_sec),state:String(r.state||"UNCLEAR"),
+      pressure_ratio:N(r.pressure_ratio),persistence:N(r.persistence),
+      price_change_bps:N(r.price_change_bps),relative_volume:N(r.relative_volume),
+      total_volume:N(r.total_volume),delta:N(r.delta),trade_count:Number(r.trade_count||0)
+    }));
+    const item={time,rows};
+    const last=S.flowResponseHistory[S.flowResponseHistory.length-1];
+    if(last&&last.time===time)S.flowResponseHistory[S.flowResponseHistory.length-1]=item;
+    else S.flowResponseHistory.push(item);
+    if(S.flowResponseHistory.length>7200)S.flowResponseHistory.splice(0,S.flowResponseHistory.length-7200);
+  }
+  renderFlowResponse();
+  renderChart();
+}
+const ALERT_CFG={threshold:0.85,maxHistory:8,durationSec:3};
+try{Object.assign(ALERT_CFG,JSON.parse(localStorage.getItem("deltaengine.alerts")||"{}"));}catch(e){}
+function saveAlertCfg(){try{localStorage.setItem("deltaengine.alerts",JSON.stringify(ALERT_CFG));}catch(e){}}
+const FLOW_DEFS={
+  LARGE_TRADE:{icon:"◉",label:"LARGE",full:"LARGE TRADE",meaning:"基準数量以上の大口約定",formula:"数量 ÷ (基準数量×4)"},
+  SWEEP:{icon:"↗",label:"SWEEP",meaning:"短時間の複数価格レベル通過",formula:"レベル数 ÷ (必要レベル数×3)"},
+  EXHAUSTION:{icon:"◇",label:"EXH",full:"EXHAUSTION",meaning:"端の価格帯の出来高枯れ",formula:"1 − 端出来高 ÷ 閾値"},
+  UNFINISHED_AUCTION:{icon:"⚖",label:"U/A",full:"UNFINISHED AUCTION",meaning:"高値／安値で双方の出来高が残る",formula:"小さい側 ÷ (最低出来高×4)"},
+  TAPE:{icon:"≋",label:"TAPE",meaning:"約定方向の偏り",formula:"|BUY比率−50%|×2"}
+};
+const FLOW_CFG={};
+for(const k of Object.keys(FLOW_DEFS))FLOW_CFG[k]={threshold:0.85};
+try{Object.assign(FLOW_CFG,JSON.parse(localStorage.getItem("deltaengine.flow")||"{}"));}catch(e){}
+function saveFlowCfg(){try{localStorage.setItem("deltaengine.flow",JSON.stringify(FLOW_CFG));}catch(e){}}
+function renderFlowInfo(){
+  $("flowinfobody").innerHTML=Object.entries(FLOW_DEFS).map(([k,d])=>`<tr style="border-top:1px solid var(--line)"><td title="${d.full||d.label}" style="padding:4px 3px;white-space:nowrap;color:${TXT};cursor:help">${d.icon} ${d.label}</td><td style="padding:4px 3px">${d.meaning}</td><td style="padding:4px 3px;white-space:nowrap">${d.formula}</td><td style="padding:4px 3px"><input data-flow-key="${k}" type="number" min="0" max="1" step="0.05" value="${FLOW_CFG[k].threshold}" style="width:48px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px"></td></tr>`).join("");
+  document.querySelectorAll("[data-flow-key]").forEach(inp=>inp.onchange=()=>{const v=Number(inp.value);if(Number.isFinite(v)&&v>=0&&v<=1){FLOW_CFG[inp.dataset.flowKey].threshold=v;saveFlowCfg();}});
 }
 function onFlow(m,p){
   S.flows.unshift(p); if(S.flows.length>40)S.flows.pop();
   renderFlow();
-  const th=0.85; // 表示演出の閾値（判定ではない。configと同期は将来HELLOに載せる）
+  const th=FLOW_CFG[p.category]?.threshold ?? ALERT_CFG.threshold;
   if(N(p.strength)>=th){
     const a={t:(p.event_time||m.time).slice(11,19),cat:p.category,side:p.side,strength:p.strength};
-    S.alerts.unshift(a); if(S.alerts.length>8)S.alerts.pop();
+    S.alerts.unshift(a); while(S.alerts.length>ALERT_CFG.maxHistory)S.alerts.pop();
     toast(a); renderAlerts();
   }
 }
@@ -464,13 +582,13 @@ function pushSeries(key,v){
     S.series[key].cvd.push(v.cvd);S.series[key].delta.push(v.delta);
     if(S.series[key].cvd.length>140){S.series[key].cvd.shift();S.series[key].delta.shift();}}
   else{S.series[key].push(v); if(S.series[key].length>140)S.series[key].shift();}
-  if(key===S.tab||key==="CVD+Δ"&&S.tab==="CVD+Δ")renderChart();
 }
 
 function onBarUpdate(p){
-  // 形成中バー: 追従モード(lock)のときのみ FOOTPRINT に反映。チャート系列は確定バーのみ。
+  // 形成中バー: 価格チャートと、追従モード時の FOOTPRINT に反映。
   S.liveBar=p;
   if(S.lock&&S.barView<0)renderFootprint();
+  renderChart();
 }
 const HCOL={GREEN:BUY,YELLOW:WARN,RED:SELL};
 function renderHealth(){
@@ -507,16 +625,7 @@ function renderTop(){
   const last=S.bars[S.bars.length-1];
   if(last&&last.orderbook&&last.orderbook.asks[0]&&last.orderbook.bids[0]){
     $("spread").textContent=(N(last.orderbook.asks[0].price)-N(last.orderbook.bids[0].price)).toFixed(1);}
-  renderTopSignal();
 }
-function renderTopSignal(){
-  const a=S.analysis; if(!a)return;
-
-  const st=$("sigtop"); st.classList.remove("dash"); st.textContent=a.signal; st.style.color="#D1D5DB";
-  $("sigchip").style.background="#000"; $("sigchip").style.borderColor="#4B5563";
-  const ct=$("conftop"); ct.textContent=a.confidence==null?"—":Math.round(N(a.confidence)*100)+"%"; ct.style.color="#D1D5DB";
-}
-function sigColor(s){return s==="BUY"?BUY:s==="SELL"?SELL:s==="WAIT"?DIS:WARN;}
 
 function renderBook(book){
   const el=$("bookbody"); if(!book){return;}
@@ -554,14 +663,14 @@ function fpTitle(bar,isLatest,forming){
   }
   $("fptitle").textContent=t;
 }
-function fpRow(l,fp,max){
+function fpRow(l,fp,max,currentPrice){
   const bid=N(l.bid),ask=N(l.ask),d=ask-bid;
   const isPoc=l.price===fp.poc_price, isVah=l.price===fp.vah_price, isVal=l.price===fp.val_price;
   const inVa=fp.vah_price!=null&&fp.val_price!=null&&N(l.price)<=N(fp.vah_price)&&N(l.price)>=N(fp.val_price);
   // SIG列は「表示強調」のみ（判定はFLOW/ANALYSISが正）
   const imb=ask>bid*3?"buy":bid>ask*3?"sell":null;
   const abs=(bid+ask)>max*1.4&&Math.abs(d)<max*0.1;
-  return `<div class="fprow${isPoc?" poc":inVa?" va":""}${isVah?" vah":""}${isVal?" val":""}" style="font-size:${13*S.zoom}px;height:${(FP_ROW_H*S.zoom).toFixed(1)}px">
+  return `<div data-price="${l.price}" class="fprow${isPoc?" poc":inVa?" va":""}${inVa?" in-va":""}${isVah?" vah":""}${isVal?" val":""}${l.price===currentPrice?" current-price":""}" style="font-size:${13*S.zoom}px;height:${(FP_ROW_H*S.zoom).toFixed(1)}px">
     <span class="fp-price" style="color:${isPoc?WARN:SUB}">${fmt(l.price,1)}
       ${isPoc?'<span class="badge poc">POC</span>':""}${isVah&&!isPoc?'<span class="badge va">VAH</span>':""}${isVal&&!isPoc?'<span class="badge va">VAL</span>':""}</span>
     <span class="fp-side bid"><span style="color:${SELL}">${fmt(l.bid)}</span>
@@ -570,18 +679,71 @@ function fpRow(l,fp,max){
     <span class="fp-side ask"><span class="fp-bar" style="width:${(ask/max*100).toFixed(1)}%;background:rgba(0,230,118,.5)"></span>
       <span style="color:${BUY}">${fmt(l.ask)}</span></span>
     <span class="fp-delta" style="color:${d>=0?BUY:SELL}">${Math.abs(d)<0.05?"0.0":(d>0?"+":"")+d.toFixed(1)}</span>
-    <span class="fp-sig">${imb==="buy"?`<span style="color:${BUY}">▸</span>`:imb==="sell"?`<span style="color:${SELL}">◂</span>`:""}${abs?`<span style="color:${WARN}"> ●</span>`:""}</span>
+    <span class="fp-sig">${imb==="buy"?'<span class="fp-dir buy">BUY</span>':imb==="sell"?'<span class="fp-dir sell">SELL</span>':""}${abs?`<span style="color:${WARN}"> ●</span>`:""}</span>
   </div>`;
+}
+// ---- Footprint independent indicator: client-side native Value Area ----
+// Mirrors server compute_value_area (push_broker.py:37-59) so numbers match at
+// VA%=70. levels arrive price-descending (main.py:99-113). Prices are returned
+// as the level's original string to preserve badge string-equality.
+const FP={vaPct:70};
+function computeValueArea(levels,vaPct){
+  if(!levels||!levels.length)return {poc:null,vah:null,val:null};
+  const tot=levels.map(l=>N(l.bid)+N(l.ask));
+  let poc=0; for(let i=1;i<tot.length;i++)if(tot[i]>tot[poc])poc=i;
+  const grand=tot.reduce((a,b)=>a+b,0);
+  const target=grand*(vaPct/100);
+  let lo=poc,hi=poc,acc=tot[poc];
+  while(acc<target&&(hi>0||lo<tot.length-1)){
+    const up=hi>0?tot[hi-1]:-1;
+    const dn=lo<tot.length-1?tot[lo+1]:-1;
+    if(up>=dn){hi--;acc+=up;}else{lo++;acc+=dn;}
+  }
+  return {poc:levels[poc].price,vah:levels[hi].price,val:levels[lo].price};
+}
+function computeFootprintTotals(levels){
+  let bid=0,ask=0;
+  for(const l of levels||[]){bid+=N(l.bid);ask+=N(l.ask);}
+  return {bid,ask,delta:ask-bid};
+}
+function exactFootprintPrice(levels,price){
+  if(price==null||!levels||!levels.length)return null;
+  const match=levels.find(l=>N(l.price)===N(price));
+  return match?match.price:null;
+}
+function updateFootprintCurrentPrice(){
+  if(!S.lock||S.barView>=0||S.price==null)return;
+  const bar=S.liveBar||S.bars[S.bars.length-1];
+  if(!bar||!bar.footprint||!bar.footprint.levels.length)return;
+  const currentPrice=exactFootprintPrice(bar.footprint.levels,S.price);
+  const rows=$("fpbody").querySelectorAll(".fprow");
+  rows.forEach(row=>{
+    const on=currentPrice!=null&&row.dataset.price===String(currentPrice);
+    row.classList.toggle("current-price",on);
+  });
 }
 function renderFootprint(){
   const useLive=S.lock&&S.barView<0&&S.liveBar;
   if(!S.bars.length&&!useLive)return;
   const idx=S.lock||S.barView<0?S.bars.length-1:Math.min(S.barView,S.bars.length-1);
   const bar=useLive?S.liveBar:S.bars[idx]; const fp=bar.footprint;
+  // Recompute POC/VA client-side at the gear-selected VA% and overlay onto a
+  // shallow copy so fpRow (which reads poc_price/vah_price/val_price) stays
+  // unchanged. Server values remain the fallback shape but are not used here.
+  const _va=computeValueArea(fp.levels,FP.vaPct);
+  const fpv={...fp,poc_price:_va.poc,vah_price:_va.vah,val_price:_va.val};
   const isLatest=idx===S.bars.length-1;
   fpTitle(bar,isLatest,!!useLive);
   $("baridx").textContent=useLive?`LIVE/${S.bars.length}`:`${idx+1}/${S.bars.length}`;
-  const lv=fp.levels; if(!lv.length){$("fpbody").innerHTML='<div class="dash" style="text-align:center">—</div>';return;}
+  const lv=fp.levels;
+  const currentPrice=S.lock&&S.barView<0?exactFootprintPrice(lv,S.price):null;
+  const totals=computeFootprintTotals(lv);
+  $("fpbidtotal").textContent=fmt(totals.bid);
+  $("fpasktotal").textContent=fmt(totals.ask);
+  const deltaTotalEl=$("fpdeltatotal");
+  deltaTotalEl.textContent=(totals.delta>0?"+":"")+fmt(totals.delta);
+  deltaTotalEl.style.color=totals.delta>0?BUY:totals.delta<0?SELL:DIS;
+  if(!lv.length){$("fpbody").innerHTML='<div class="dash" style="text-align:center">—</div>';return;}
   const max=Math.max(...lv.map(l=>Math.max(N(l.bid),N(l.ask))),0.0001);
   // --- viewport slicing (Task-D): fit rows to fpbody, center on POC ---
   const bodyH=$("fpbody").clientHeight||0;
@@ -590,7 +752,7 @@ function renderFootprint(){
   let start,end;
   if(lv.length<=visible){ start=0; end=lv.length; }
   else{
-    let center=lv.findIndex(l=>l.price===fp.poc_price);
+    let center=lv.findIndex(l=>l.price===fpv.poc_price);
     if(center<0)center=Math.floor(lv.length/2);         // fallback: price-center
     // reserve one slot for each overflow indicator that will appear
     let cap=visible; if(cap>2)cap-=2;                    // reserve slots for the ▲/▼ overflow indicators
@@ -600,11 +762,129 @@ function renderFootprint(){
     if(end>lv.length){ end=lv.length; start=Math.max(0,end-cap); }
   }
   const hiddenAbove=start, hiddenBelow=lv.length-end;
-  const rows=lv.slice(start,end).map(l=>fpRow(l,fp,max)).join("");
+  const rows=lv.slice(start,end).map(l=>fpRow(l,fpv,max,currentPrice)).join("");
   const above=hiddenAbove>0?`<div class="fp-more">▲ +${hiddenAbove} levels</div>`:"";
   const below=hiddenBelow>0?`<div class="fp-more">▼ +${hiddenBelow} levels</div>`:"";
   $("fpbody").innerHTML=above+rows+below;
 }
+
+// ---- Imbalance independent indicator: client-side wall detection (案3) ----
+// Ports src/orderflow/imbalance.py detect(): diagonal qualify + stacked runs.
+// ★罠1: payload bid=sell / ask=buy (main.py:107). ★罠2: minVol defaults to the
+// server's effective_min_volume (volume_ref-adjusted) so default gear == server.
+const IMB={ratio:3.0,stack:3,minVol:0.002,ratioCap:10,serverWalls:null,custom:false};
+function imbQualify(num,den,combined,ratio,ratioCap,minVol){
+  if(combined<minVol)return null;
+  if(den===0)return num>=minVol?ratioCap:null;
+  const r=num/den;
+  return r>=ratio?r:null;
+}
+function computeWalls(levels,ratio,stack,minVol,ratioCap){
+  if(!levels||!levels.length)return [];
+  const asc=levels.slice().sort((a,b)=>N(a.price)-N(b.price));
+  const px=asc.map(l=>N(l.price));
+  const buy=asc.map(l=>N(l.ask));   // ★罠1: ask = buy_volume
+  const sell=asc.map(l=>N(l.bid));  // ★罠1: bid = sell_volume
+  const valid=asc.map((_,i)=>buy[i]>=0&&sell[i]>=0);
+  const n=asc.length;
+  const buyQ=[],sellQ=[];
+  for(let i=0;i<n;i++){
+    if(!valid[i])continue;
+    if(i>=1&&valid[i-1]&&px[i-1]<px[i]){
+      const combined=buy[i]+sell[i]+buy[i-1]+sell[i-1];
+      if(imbQualify(buy[i],sell[i-1],combined,ratio,ratioCap,minVol)!==null)buyQ.push([i,px[i]]);
+    }
+    if(i<n-1&&valid[i+1]){
+      const combined=buy[i]+sell[i]+buy[i+1]+sell[i+1];
+      if(imbQualify(sell[i],buy[i+1],combined,ratio,ratioCap,minVol)!==null)sellQ.push([i,px[i]]);
+    }
+  }
+  const runs=(q,side,out)=>{
+    if(!q.length)return;
+    let s=0;
+    for(let i=1;i<=q.length;i++){
+      if(i===q.length||q[i][0]!==q[i-1][0]+1){
+        if(i-s>=stack)out.push({side,count:i-s,ps:q[s][1],pe:q[i-1][1]});
+        s=i;
+      }
+    }
+  };
+  const out=[];
+  runs(buyQ,"BUY",out);runs(sellQ,"SELL",out);
+  return out;
+}
+function currentImbWalls(){
+  // Default gear → use server walls (perfect fidelity). Custom gear → recompute
+  // from the latest closed bar's footprint levels.
+  if(!IMB.custom&&IMB.serverWalls)return IMB.serverWalls;
+  const bar=S.bars[S.bars.length-1];
+  if(!bar||!bar.footprint||!bar.footprint.levels)return IMB.serverWalls||[];
+  return computeWalls(bar.footprint.levels,IMB.ratio,IMB.stack,IMB.minVol,IMB.ratioCap)
+    .map(w=>({side:w.side,count:w.count,price_start:String(w.ps),price_end:String(w.pe)}));
+}
+function renderImbalance(){
+  const el=$("imbbody");
+  const walls=currentImbWalls();
+  if(!walls||!walls.length){el.innerHTML='<div class="dash" style="text-align:center">—</div>';return;}
+  const ordered=[...walls].sort((a,b)=>
+    Math.max(N(b.price_start),N(b.price_end))-Math.max(N(a.price_start),N(a.price_end)));
+  el.innerHTML=ordered.map(w=>{
+    const c=w.side==="BUY"?BUY:SELL;
+    return `<div style="min-height:42px;display:grid;grid-template-columns:52px minmax(0,1fr) 38px;align-items:center;gap:8px;margin-bottom:8px;padding:0 10px;border:1px solid ${c}66;border-left:4px solid ${c};border-radius:6px;background:${c}12;box-sizing:border-box">`
+      +`<b style="color:${c};font-size:11px;letter-spacing:.08em">${w.side}</b>`
+      +`<span style="color:var(--text);font-size:12px;font-weight:800;text-align:center;white-space:nowrap">${w.price_start} – ${w.price_end}</span>`
+      +`<span style="color:${SUB};font-size:12px;font-weight:800;text-align:right">×${w.count}</span></div>`;
+  }).join("");
+}
+(function(){
+  const gear=$("imbgear"),pop=$("imbgearpop"),ri=$("imbratioin"),si=$("imbstackin"),mi=$("imbminvin");
+  gear.onclick=()=>{pop.style.display=pop.style.display==="none"?"block":"none";};
+  const apply=()=>{
+    const r=parseFloat(ri.value),s=parseInt(si.value,10),m=parseFloat(mi.value);
+    if(r>=1)IMB.ratio=r; if(s>=2)IMB.stack=s; if(m>=0)IMB.minVol=m;
+    IMB.custom=true;
+    $("imbratio").textContent=`ratio ≥ ${IMB.ratio}`;
+    renderImbalance();
+  };
+  ri.onchange=apply;si.onchange=apply;mi.onchange=apply;
+})();
+
+// ---- Absorption independent indicator: event-only native reading ----
+let ABS=null;
+function renderAbsorption(){
+  const el=$("absbody"), hint=$("abshint");
+  if(!ABS){el.innerHTML='<div class="dash" style="text-align:center">—</div>'; hint.textContent="—"; return;}
+  const buy=ABS.classification==="BUY_ABSORPTION";
+  const c=buy?BUY:SELL;
+  const pct=Math.round(N(ABS.strength)*100);
+  hint.textContent=buy?"買 ABS":"売 ABS";
+  hint.style.color=c;
+  el.innerHTML=
+    `<div style="display:flex;flex-direction:column;gap:6px">`
+    +`<div style="font-size:15px;color:${c};font-weight:600">${buy?"買 ABS":"売 ABS"}</div>`
+    +`<div style="display:flex;align-items:center;gap:8px"><span style="color:${SUB};font-size:11px">strength</span>`
+    +`<div style="flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${c}"></div></div>`
+    +`<span style="color:${c};font-size:12px">${pct}%</span></div>`
+    +`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:${SUB}">price</span>`
+    +`<span style="color:${c}">${ABS.price_low} – ${ABS.price_high}</span></div>`
+    +`</div>`;
+}
+(function(){
+  const gear=$("absgear"),pop=$("absgearpop"),st=$("absstallin"),mu=$("absmultin"),ap=$("absapply");
+  gear.onclick=()=>{pop.style.display=pop.style.display==="none"?"block":"none";};
+  ap.onclick=async()=>{
+    const body={};
+    const s=parseInt(st.value,10), m=parseFloat(mu.value);
+    if(s>=1)body.price_stall_ticks=s;
+    if(m>=1)body.volume_multiplier=String(m);
+    try{
+      const r=await fetch("/api/absorption/params",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const j=await r.json();
+      if(j&&j.ok){st.value=j.price_stall_ticks; mu.value=j.volume_multiplier;}
+    }catch(e){}
+    pop.style.display="none";
+  };
+})();
 
 function catColor(c){return CAT[c]||"#FFFFFF";}
 function renderFlow(){
@@ -621,88 +901,333 @@ function renderFlow(){
   }).join("");
 }
 $("flowlegend").innerHTML=Object.entries(CAT).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join("")+`<span style="color:${BUY}">● LIVE</span>`;
-
-function scoreRow(name,val,{composite=false,zeroToOne=false}={}){
-  const v=N(val);
-  const col=composite?INFO:v==null?DIS:v>=0?BUY:SELL;
-  const width=v==null?0:zeroToOne?Math.min(Math.abs(v)*100,100):Math.min(Math.abs(v),100);
-  const disp=v==null?"—":(v>0&&!composite&&!zeroToOne?"+":"")+(zeroToOne?v.toFixed(2):Math.round(v));
-  return `<div class="srow"><div class="top">
-    <span class="name" style="color:${composite?INFO:TXT}">${name}</span>
-    <span class="val" style="color:${col}">${disp}</span></div>
-    <div class="track"><div class="fill" style="width:${width}%;background:${col};box-shadow:0 0 8px ${col}55"></div></div></div>`;
-}
+$("flowinfobtn").onclick=()=>{const p=$("flowinfopop"),b=$("flowinfobtn");if(p.style.display!=="none"){p.style.display="none";return;}renderFlowInfo();p.style.display="block";const r=b.getBoundingClientRect(),gap=6,w=430,h=Math.min(p.scrollHeight,window.innerHeight-20);p.style.height=h+"px";p.style.left=Math.max(8,Math.min(r.left,window.innerWidth-w-8))+"px";p.style.top=(r.bottom+gap+h<=window.innerHeight-8?r.bottom+gap:Math.max(8,r.top-gap-h))+"px";};
+const flowRow=$("flowrow"),alertPanel=$("alerthist");
+const bottomPanel=$("bottom"),appgrid=$("appgrid");if(bottomPanel&&appgrid)appgrid.insertBefore(bottomPanel,appgrid.children[1]);
+const flowTop=$("flowtop");
+const mainCol=$("main"),centerCol=$("center"),leftCol=$("left"),rightCol=$("right");
+if(flowTop&&mainCol&&centerCol){mainCol.insertBefore(flowTop,centerCol);flowTop.style.width="100%";}
+if(flowTop&&flowRow){flowTop.appendChild(flowRow);flowRow.style.width="100%";}
+const absPanel=$("abspanel");
+if(flowTop&&absPanel){flowTop.appendChild(absPanel);absPanel.style.flex="0 0 auto";if(flowRow)absPanel.style.width=flowRow.offsetWidth+"px";}
+if(rightCol&&leftCol){rightCol.appendChild(leftCol);leftCol.style.width="100%";leftCol.style.flex="0 0 auto";}
+if(flowTop&&alertPanel){flowTop.appendChild(alertPanel);alertPanel.style.display="none";alertPanel.style.flex="0 0 auto";alertPanel.style.width="100%";alertPanel.style.minWidth="0";}
 function renderAnalysis(){
   const a=S.analysis; if(!a)return;
-  // MARKET STATE: 受信文字列をそのまま。BULL/BEAR含有は表示ヒントのみ
-  const ms=$("mschip"); ms.classList.remove("dash"); ms.textContent=a.market_state??"—";
-  const mc=(a.market_state||"").includes("BULL")?BUY:(a.market_state||"").includes("BEAR")?SELL:SUB;
-  ms.style.color=mc; ms.style.background=mc+"14"; ms.style.border=`1px solid ${mc}55`; ms.style.boxShadow=`0 0 12px ${mc}22`;
-  // CONFLUENCE: 受信フラグを描画するのみ
-  const cf=a.confluence||{}; const names=["cvd","footprint","imbalance","absorption","flow"];
-  $("confstars").classList.remove("dash");
-  const cnt=Math.max(0,Math.min(5,cf.count||0));
-  $("confstars").innerHTML="★".repeat(cnt)+`<span style="color:${LINE}">${"★".repeat(5-cnt)}</span>`;
-  $("confgrid").innerHTML=names.map(n=>`<div class="cchip${cf[n]?" on":""}"><b>${cf[n]?"✔":"—"}</b><span>${n.toUpperCase()}</span></div>`).join("");
-  // SIGNAL — WHY
-
-  const ws_=$("whysig"); ws_.classList.remove("dash"); ws_.textContent=a.signal; ws_.style.color=col;
-  $("whyconf").textContent=a.confidence==null?"—":Math.round(N(a.confidence)*100)+"%";
-  const vb=$("vetobadge");
-  if(a.veto&&a.veto!=="NONE"){vb.style.display="block";vb.textContent="⚠ "+a.veto;}else vb.style.display="none";
-  const sc=a.scores||{};
-  // CVD row: show "UNREF" when the server reports cvd_unref (cvd_slope_ref uncalibrated).
-  const dv=$("divergence");
-  if(a.divergence==="BULLISH"||a.divergence==="BEARISH"){
-    const dc=a.divergence==="BULLISH"?BUY:SELL;
-    dv.style.display="block"; dv.textContent=`DIVERGENCE: ${a.divergence}`;
-    dv.style.color=dc; dv.style.background=dc+"18"; dv.style.border=`1px solid ${dc}55`;
-  }else dv.style.display="none";
-  const cvdRow=a.cvd_unref
-    ?`<div class="srow"><div class="top"><span class="name" style="color:${TXT}">CVD</span>
-       <span class="val" style="color:${WARN}">UNREF</span></div>
-       <div class="track"><div class="fill" style="width:0%"></div></div></div>`
-    :scoreRow("CVD",sc.cvd);
-  $("scores").innerHTML=
-    cvdRow+scoreRow("FOOTPRINT",sc.footprint)+scoreRow("IMBALANCE",sc.imbalance)+
-    scoreRow("ABSORPTION",sc.absorption,{zeroToOne:true})+scoreRow("FLOW",sc.flow,{zeroToOne:true})+
-    `<div id="whydivider"></div>`+scoreRow("COMPOSITE",a.composite,{composite:true});
-  const rk=$("risk"); rk.classList.remove("dash"); rk.textContent=a.risk_level??"—";
-  rk.style.color=a.risk_level==="LOW"?BUY:a.risk_level==="MEDIUM"?WARN:a.risk_level==="HIGH"?SELL:DIS;
-  $("rr").textContent=a.expected_rr==null?"—":a.expected_rr;   // v1は常に—
-  const ve=$("veto"); ve.classList.remove("dash"); ve.textContent=a.veto??"—";
-  ve.style.color=a.veto==="NONE"?DIS:WARN;
+  renderCvdDivergence(a.divergence);
+  if(a.imbalance){
+    IMB.serverWalls=a.imbalance.walls||[];
+    if(!IMB.custom){
+      if(a.imbalance.ratio_threshold!=null)IMB.ratio=N(a.imbalance.ratio_threshold);
+      if(a.imbalance.stack_count!=null)IMB.stack=a.imbalance.stack_count;
+      if(a.imbalance.min_volume!=null)IMB.minVol=N(a.imbalance.min_volume);
+      if(a.imbalance.ratio_cap!=null)IMB.ratioCap=N(a.imbalance.ratio_cap);
+      $("imbratio").textContent=`ratio ≥ ${IMB.ratio}`;
+    }
+  }
+  renderImbalance();
+  ABS=a.absorption||null;
+  renderAbsorption();
 }
 
-// bottom chart
-const TABS=["CVD+Δ","VOLUME","OI","LIQUIDATION"];
-function tabColor(t,lastV){return t==="LIQUIDATION"?WARN:t==="OI"?INFO:(lastV??0)>=0?BUY:SELL;}
-function renderTabs(){
-  $("tabs").innerHTML=TABS.map(t=>`<button class="${t===S.tab?"on":""}" data-t="${t}"
-    style="${t===S.tab?`background:${tabColor(t,seriesLast(t))}`:""}">${t}</button>`).join("");
-  [...$("tabs").children].forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;renderTabs();renderChart();});
+// market chart — shared time axis: PRICE / CVD+DELTA / VOLUME
+const MC={W:1200,H:500,L:18,R:1110,price:{top:20,bottom:286},cvd:{top:318,bottom:408},vol:{top:438,bottom:480}};
+const FLOW_RESPONSE_LABELS={
+  BUY_EFFECTIVE:"買い圧力・上昇",SELL_EFFECTIVE:"売り圧力・下落",
+  BUY_STALLED:"買い圧力・価格停滞",SELL_STALLED:"売り圧力・価格停滞",
+  BUY_TRAPPED:"買い圧力・逆行",SELL_TRAPPED:"売り圧力・逆行",UNCLEAR:"不明"
+};
+const FLOW_RANK={UNCLEAR:0,BUY_EFFECTIVE:1,SELL_EFFECTIVE:1,BUY_STALLED:2,SELL_STALLED:2,BUY_TRAPPED:3,SELL_TRAPPED:3};
+function flowWindowText(sec){return sec<60?`${sec}s`:sec%60===0?`${sec/60}m`:`${sec}s`;}
+function compact(v){
+  if(v==null||!Number.isFinite(Number(v)))return "—";
+  const n=Number(v),a=Math.abs(n);
+  if(a>=1e9)return `${(n/1e9).toFixed(1)}B`;
+  if(a>=1e6)return `${(n/1e6).toFixed(1)}M`;
+  if(a>=1e3)return `${(n/1e3).toFixed(1)}K`;
+  return n.toFixed(a>=100?0:a>=10?1:2);
 }
-function seriesLast(t){const s=S.series[t];return t==="CVD+Δ"?(s.cvd[s.cvd.length-1]??null):(s[s.length-1]??null);}
-function path(data){
-  if(data.length<2)return "";
-  const mn=Math.min(...data),mx=Math.max(...data);
-  return data.map((v,i)=>`${i?"L":"M"}${(i/(data.length-1)*1000).toFixed(1)},${(100-((v-mn)/(mx-mn||1))*90-5).toFixed(1)}`).join(" ");
+function normalizeMarketBar(raw,live=false){
+  if(!raw)return null;
+  const time=Date.parse(raw.bar_time),o=N(raw.open),h=N(raw.high),l=N(raw.low),c=N(raw.close);
+  if(!Number.isFinite(time)||![o,h,l,c].every(Number.isFinite))return null;
+  return {time,bar_time:raw.bar_time,timeframe:raw.timeframe||"1m",o,h,l,c,
+    volume:Number.isFinite(N(raw.volume))?N(raw.volume):0,
+    delta:Number.isFinite(N(raw.delta))?N(raw.delta):0,
+    cvd:Number.isFinite(N(raw.cvd))?N(raw.cvd):0,live};
+}
+function marketBars(){
+  const byTime=new Map();
+  for(const raw of S.bars){const b=normalizeMarketBar(raw,false);if(b)byTime.set(b.time,b);}
+  const live=normalizeMarketBar(S.liveBar,true);if(live)byTime.set(live.time,live);
+  return [...byTime.values()].sort((a,b)=>a.time-b.time);
+}
+function chartScale(values,top,bottom,pad=.08){
+  const valid=values.filter(Number.isFinite);
+  let lo=valid.length?Math.min(...valid):0,hi=valid.length?Math.max(...valid):1;
+  let span=hi-lo;
+  if(span===0){span=Math.max(Math.abs(hi)*.001,1);lo-=span/2;hi+=span/2;}
+  else{lo-=span*pad;hi+=span*pad;}
+  return {lo,hi,y:v=>top+(hi-v)/(hi-lo)*(bottom-top)};
+}
+function flowVisual(state){
+  if(state==="BUY_STALLED"||state==="SELL_STALLED")return {color:WARN,opacity:.12};
+  if(state==="BUY_TRAPPED"||state==="SELL_TRAPPED")return {color:INFO,opacity:.17};
+  if(state==="BUY_EFFECTIVE")return {color:BUY,opacity:.055};
+  if(state==="SELL_EFFECTIVE")return {color:SELL,opacity:.055};
+  return null;
+}
+function flowForBar(bar){
+  const start=bar.time,end=start+fpTfSeconds(bar.timeframe)*1000;
+  let best=null,rank=-1;
+  for(let i=S.flowResponseHistory.length-1;i>=0;i--){
+    const h=S.flowResponseHistory[i];
+    if(h.time>=end)continue;
+    const row=h.rows.find(r=>r.window_sec===CHART.windowSec);
+    if(!row)continue;
+    if(h.time<start){if(!best)best=row;break;}
+    const next=FLOW_RANK[row.state]??0;
+    if(next>rank){best=row;rank=next;}
+  }
+  return best;
+}
+function chartPriceDigits(span,price){
+  if(price<1)return 5;if(price<100)return 3;if(span<10)return 2;return 1;
 }
 function renderChart(){
-  const t=S.tab, lastV=seriesLast(t), col=tabColor(t,lastV);
-  const cl=$("chartlast");
-  if(lastV!=null){cl.classList.remove("dash");cl.textContent=(lastV>=0&&(t==="CVD+Δ"||t==="OI")?"+":"")+lastV.toFixed(2)+(t==="CVD+Δ"?" BTC":"");cl.style.color=col;}
-  const main=t==="CVD+Δ"?S.series[t].cvd:S.series[t];
-  const overlay=t==="CVD+Δ"?S.series[t].delta:null;
-  $("chartlegend").innerHTML=t==="CVD+Δ"?`<span><i style="background:${col};border-radius:0;width:12px;height:2px"></i>CVD</span><span><i style="background:${INFO};border-radius:0;width:12px;height:2px"></i>DELTA</span>`:"";
-  $("chart").innerHTML=`
-    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${col}" stop-opacity=".22"/><stop offset="100%" stop-color="${col}" stop-opacity="0"/>
-    </linearGradient></defs>
-    ${main.length>1?`<path d="${path(main)} L1000,100 L0,100 Z" fill="url(#g)"/>`:""}
-    ${overlay&&overlay.length>1?`<path d="${path(overlay)}" fill="none" stroke="${INFO}" stroke-width="1" stroke-dasharray="3,3" opacity=".8"/>`:""}
-    ${main.length>1?`<path d="${path(main)}" fill="none" stroke="${col}" stroke-width="1.6"/>`:""}`;
+  const all=marketBars();
+  CHART.totalBars=all.length;
+  const maxOffset=Math.max(0,all.length-CHART.visible);
+  CHART.offset=Math.max(0,Math.min(CHART.offset,maxOffset));
+  const end=Math.max(0,all.length-CHART.offset),start=Math.max(0,end-CHART.visible);
+  const bars=all.slice(start,end),n=bars.length;
+  CHART.currentBars=bars;CHART.currentFlows=bars.map(flowForBar);
+  $("chartbars").textContent=`${CHART.visible} bars`;
+  $("chartlive").classList.toggle("on",CHART.offset===0);
+  $("chartlegend").innerHTML=`<span><i style="background:${BUY}"></i>PRICE</span><span><i style="background:#23DFFF"></i>CVD</span><span><i style="background:${INFO}"></i>Δ</span><span><i style="background:${WARN}"></i>停滞</span><span><i style="background:${INFO}"></i>逆行 ${flowWindowText(CHART.windowSec)}</span>`;
+  const frame=`
+    <defs>
+      <linearGradient id="cvdFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#23DFFF" stop-opacity=".20"/><stop offset="100%" stop-color="#23DFFF" stop-opacity="0"/></linearGradient>
+      <clipPath id="priceClip"><rect x="${MC.L}" y="${MC.price.top}" width="${MC.R-MC.L}" height="${MC.price.bottom-MC.price.top}"/></clipPath>
+      <clipPath id="cvdClip"><rect x="${MC.L}" y="${MC.cvd.top}" width="${MC.R-MC.L}" height="${MC.cvd.bottom-MC.cvd.top}"/></clipPath>
+      <clipPath id="volClip"><rect x="${MC.L}" y="${MC.vol.top}" width="${MC.R-MC.L}" height="${MC.vol.bottom-MC.vol.top}"/></clipPath>
+    </defs>
+    <rect x="${MC.L}" y="${MC.price.top}" width="${MC.R-MC.L}" height="${MC.price.bottom-MC.price.top}" fill="#0B1026"/>
+    <rect x="${MC.L}" y="${MC.cvd.top}" width="${MC.R-MC.L}" height="${MC.cvd.bottom-MC.cvd.top}" fill="#0A0F22"/>
+    <rect x="${MC.L}" y="${MC.vol.top}" width="${MC.R-MC.L}" height="${MC.vol.bottom-MC.vol.top}" fill="#090E20"/>
+    <line x1="${MC.L}" x2="${MC.R}" y1="302" y2="302" stroke="#2B3567"/>
+    <line x1="${MC.L}" x2="${MC.R}" y1="423" y2="423" stroke="#2B3567"/>
+    <text x="28" y="38" fill="#AEB9E7" font-size="11" font-weight="900">PRICE</text>
+    <text x="28" y="335" fill="#23DFFF" font-size="11" font-weight="900">CVD + Δ</text>
+    <text x="28" y="454" fill="#AEB9E7" font-size="10" font-weight="900">VOLUME</text>`;
+  if(!n){
+    $("chart").innerHTML=frame+`<text x="${(MC.L+MC.R)/2}" y="150" text-anchor="middle" fill="#68739F" font-size="15" font-weight="900">WAITING FOR CANDLE DATA</text>`;
+    return;
+  }
+  const slot=(MC.R-MC.L)/n,body=Math.max(2,Math.min(12,slot*.60));
+  const priceScale=chartScale(bars.flatMap(b=>[b.l,b.h]),MC.price.top+8,MC.price.bottom-8,.07);
+  const cvdScale=chartScale(bars.map(b=>b.cvd),MC.cvd.top+7,MC.cvd.bottom-7,.12);
+  const volMax=Math.max(...bars.map(b=>b.volume),1),deltaMax=Math.max(...bars.map(b=>Math.abs(b.delta)),1);
+  const priceDigits=chartPriceDigits(priceScale.hi-priceScale.lo,bars[n-1].c);
+  const grid=[];
+  for(let i=0;i<=4;i++){
+    const y=MC.price.top+(MC.price.bottom-MC.price.top)*i/4;
+    const value=priceScale.hi-(priceScale.hi-priceScale.lo)*i/4;
+    grid.push(`<line x1="${MC.L}" x2="${MC.R}" y1="${y}" y2="${y}" stroke="#29325E" stroke-opacity=".65"/><text x="${MC.R+9}" y="${y+4}" fill="#8792BF" font-size="10">${value.toFixed(priceDigits)}</text>`);
+  }
+  for(let i=0;i<=2;i++){
+    const y=MC.cvd.top+(MC.cvd.bottom-MC.cvd.top)*i/2;
+    const value=cvdScale.hi-(cvdScale.hi-cvdScale.lo)*i/2;
+    grid.push(`<line x1="${MC.L}" x2="${MC.R}" y1="${y}" y2="${y}" stroke="#242D57"/><text x="${MC.R+9}" y="${y+4}" fill="#7581AE" font-size="9">${compact(value)}</text>`);
+  }
+  const tickStep=Math.max(1,Math.ceil(n/7));
+  for(let i=0;i<n;i+=tickStep){
+    const x=MC.L+(i+.5)*slot,d=new Date(bars[i].time);
+    const label=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    grid.push(`<line x1="${x}" x2="${x}" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#242D57" stroke-opacity=".55"/><text x="${x}" y="496" text-anchor="middle" fill="#7581AE" font-size="9">${label}</text>`);
+  }
+  const flowBands=CHART.currentFlows.map((f,i)=>{
+    const v=f&&flowVisual(f.state);if(!v)return "";
+    const x=MC.L+i*slot;
+    return `<rect x="${x}" y="${MC.price.top}" width="${slot+.4}" height="${MC.price.bottom-MC.price.top}" fill="${v.color}" fill-opacity="${v.opacity}"/><rect x="${x}" y="${MC.price.top}" width="${slot+.4}" height="4" fill="${v.color}" fill-opacity=".8"/>`;
+  }).join("");
+  const candles=bars.map((b,i)=>{
+    const x=MC.L+(i+.5)*slot,col=b.c>=b.o?BUY:SELL;
+    const yo=priceScale.y(b.o),yc=priceScale.y(b.c),yh=priceScale.y(b.h),yl=priceScale.y(b.l);
+    return `<line x1="${x}" x2="${x}" y1="${yh}" y2="${yl}" stroke="${col}" stroke-width="1.35" opacity=".95"/><rect x="${x-body/2}" y="${Math.min(yo,yc)}" width="${body}" height="${Math.max(1.8,Math.abs(yc-yo))}" rx="1" fill="${col}" ${b.live?`stroke="#FFFFFF" stroke-width=".8"`:""}/>`;
+  }).join("");
+  const cvdPath=bars.map((b,i)=>`${i?"L":"M"}${(MC.L+(i+.5)*slot).toFixed(2)},${cvdScale.y(b.cvd).toFixed(2)}`).join(" ");
+  const deltaMid=(MC.cvd.top+MC.cvd.bottom)/2;
+  const deltas=bars.map((b,i)=>{
+    const x=MC.L+(i+.5)*slot,h=Math.abs(b.delta)/deltaMax*(MC.cvd.bottom-MC.cvd.top)*.40;
+    return `<rect x="${x-Math.max(1,body*.32)}" y="${b.delta>=0?deltaMid-h:deltaMid}" width="${Math.max(2,body*.64)}" height="${Math.max(.7,h)}" fill="${b.delta>=0?INFO:SELL}" fill-opacity=".32"/>`;
+  }).join("");
+  const volumes=bars.map((b,i)=>{
+    const x=MC.L+(i+.5)*slot,h=b.volume/volMax*(MC.vol.bottom-MC.vol.top),col=b.c>=b.o?BUY:SELL;
+    return `<rect x="${x-body/2}" y="${MC.vol.bottom-h}" width="${body}" height="${Math.max(.8,h)}" fill="${col}" fill-opacity=".58"/>`;
+  }).join("");
+  const last=bars[n-1],lastY=priceScale.y(last.c),lastCol=last.c>=last.o?BUY:SELL;
+  const lastLine=`<line x1="${MC.L}" x2="${MC.R}" y1="${lastY}" y2="${lastY}" stroke="${lastCol}" stroke-width="1" stroke-dasharray="5,5" opacity=".75"/><rect x="${MC.R}" y="${lastY-9}" width="82" height="18" rx="3" fill="${lastCol}"/><text x="${MC.R+41}" y="${lastY+4}" text-anchor="middle" fill="#07140E" font-size="10" font-weight="950">${last.c.toFixed(priceDigits)}</text>`;
+  const cross=`<g id="chartcross" style="display:none" pointer-events="none"><line id="chartcrossx" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#DCE3FF" stroke-width=".8" stroke-dasharray="4,4" opacity=".75"/><line id="chartcrossy" x1="${MC.L}" x2="${MC.R}" stroke="#DCE3FF" stroke-width=".8" stroke-dasharray="4,4" opacity=".55"/></g>`;
+  $("chart").innerHTML=frame+grid.join("")+`<g clip-path="url(#priceClip)">${flowBands}${candles}</g>${lastLine}<g clip-path="url(#cvdClip)">${deltas}<path d="${cvdPath} L${MC.L+(n-.5)*slot},${MC.cvd.bottom} L${MC.L+.5*slot},${MC.cvd.bottom} Z" fill="url(#cvdFill)"/><path d="${cvdPath}" fill="none" stroke="#23DFFF" stroke-width="2"/></g><g clip-path="url(#volClip)">${volumes}</g>${cross}`;
+  const cl=$("chartlast");cl.classList.remove("dash");cl.textContent=last.c.toFixed(priceDigits);cl.style.color=lastCol;
 }
+function chartMaxOffset(){return Math.max(0,CHART.totalBars-CHART.visible);}
+function setChartVisible(value){
+  CHART.visible=Math.max(20,Math.min(160,Math.round(value/10)*10));
+  CHART.offset=Math.min(CHART.offset,chartMaxOffset());renderChart();
+}
+function hideChartHover(){const g=$("chartcross");if(g)g.style.display="none";$("charttip").style.display="none";}
+function updateChartHover(e){
+  const svg=$("chart"),bars=CHART.currentBars;if(!bars.length)return;
+  const rect=svg.getBoundingClientRect(),vx=(e.clientX-rect.left)/rect.width*MC.W,vy=(e.clientY-rect.top)/rect.height*MC.H;
+  if(vx<MC.L||vx>MC.R||vy<MC.price.top||vy>MC.vol.bottom){hideChartHover();return;}
+  const slot=(MC.R-MC.L)/bars.length,index=Math.max(0,Math.min(bars.length-1,Math.floor((vx-MC.L)/slot)));
+  const b=bars[index],flow=CHART.currentFlows[index],x=MC.L+(index+.5)*slot;
+  const g=$("chartcross"),xl=$("chartcrossx"),yl=$("chartcrossy");if(!g||!xl||!yl)return;
+  g.style.display="block";xl.setAttribute("x1",x);xl.setAttribute("x2",x);yl.setAttribute("y1",vy);yl.setAttribute("y2",vy);
+  const d=new Date(b.time),time=d.toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  const priceDigits=chartPriceDigits(b.h-b.l,b.c),tip=$("charttip"),flowName=flow?FLOW_RESPONSE_LABELS[flow.state]||flow.state:"—",fv=flow&&flowVisual(flow.state);
+  const flowFacts=flow?`圧力 ${flow.pressure_ratio>=0?"+":""}${fmt(flow.pressure_ratio*100,0)}% · 価格 ${flow.price_change_bps>=0?"+":""}${fmt(flow.price_change_bps,1)}bp · 継続 ${fmt(flow.persistence*100,0)}%${flow.relative_volume==null?"":` · 出来高 ×${fmt(flow.relative_volume,1)}`}`:"データなし";
+  tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div><div class="ct-grid"><span class="ct-k">O</span><span>${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span>${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span>${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="${b.c>=b.o?"ct-buy":"ct-sell"}">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span>${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="${b.delta>=0?"ct-buy":"ct-sell"}">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span>${compact(b.volume)}</span></div><div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:${SUB};font-weight:700">${flowFacts}</span></div>`;
+  tip.style.display="block";
+  const wrap=$("chartwrap").getBoundingClientRect(),localX=e.clientX-wrap.left,localY=e.clientY-wrap.top;
+  tip.style.left=`${Math.max(8,Math.min(wrap.width-tip.offsetWidth-8,localX+16))}px`;
+  tip.style.top=`${Math.max(8,Math.min(wrap.height-tip.offsetHeight-8,localY+14))}px`;
+}
+function initMarketChart(){
+  const svg=$("chart"),flowSelect=$("chartflowwindow");
+  try{const saved=Number(localStorage.getItem("deltaengine.chart.flowWindow"));if([30,60,180,300,900,1800].includes(saved))CHART.windowSec=saved;}catch(_){ }
+  flowSelect.value=String(CHART.windowSec);
+  flowSelect.onchange=()=>{CHART.windowSec=Number(flowSelect.value);try{localStorage.setItem("deltaengine.chart.flowWindow",String(CHART.windowSec));}catch(_){ }renderChart();};
+  $("chartzoomin").onclick=()=>setChartVisible(CHART.visible-20);
+  $("chartzoomout").onclick=()=>setChartVisible(CHART.visible+20);
+  $("chartlive").onclick=()=>{CHART.offset=0;renderChart();};
+  svg.addEventListener("wheel",e=>{e.preventDefault();setChartVisible(CHART.visible+(e.deltaY>0?10:-10));},{passive:false});
+  svg.addEventListener("pointerdown",e=>{if(e.button!==0)return;CHART.drag={x:e.clientX,offset:CHART.offset};svg.setPointerCapture(e.pointerId);});
+  svg.addEventListener("pointermove",e=>{
+    if(CHART.drag){const rect=svg.getBoundingClientRect(),slotPx=rect.width/Math.max(1,CHART.currentBars.length),delta=Math.round((CHART.drag.x-e.clientX)/slotPx);CHART.offset=Math.max(0,Math.min(chartMaxOffset(),CHART.drag.offset+delta));renderChart();}
+    else updateChartHover(e);
+  });
+  const endDrag=e=>{if(CHART.drag){CHART.drag=null;try{svg.releasePointerCapture(e.pointerId);}catch(_){ }}updateChartHover(e);};
+  svg.addEventListener("pointerup",endDrag);svg.addEventListener("pointercancel",()=>{CHART.drag=null;hideChartHover();});svg.addEventListener("pointerleave",()=>{if(!CHART.drag)hideChartHover();});
+  renderChart();
+}
+async function loadChartHistory(){
+  try{
+    const response=await fetch("/api/history/candles?limit=300");
+    if(!response.ok)return;
+    const payload=await response.json(),rows=Array.isArray(payload.candles)?payload.candles:[];
+    const byTime=new Map();
+    for(const raw of [...rows,...S.bars]){const b=normalizeMarketBar(raw,false);if(b)byTime.set(b.time,raw);}
+    S.bars=[...byTime.entries()].sort((a,b)=>a[0]-b[0]).map(([,raw])=>raw).slice(-300);
+    S.series["CVD+Δ"].cvd=S.bars.map(b=>N(b.cvd)).filter(Number.isFinite).slice(-140);
+    S.series["CVD+Δ"].delta=S.bars.map(b=>N(b.delta)).filter(Number.isFinite).slice(-140);
+    S.series.VOLUME=S.bars.map(b=>N(b.volume)).filter(Number.isFinite).slice(-140);
+    renderCvdSlope();renderChart();
+  }catch(_){/* live stream continues even when history is unavailable */}
+}
+async function loadFlowResponseHistory(){
+  try{
+    const response=await fetch("/api/history/flow-response?limit=5000");
+    if(!response.ok)return;
+    const payload=await response.json(),events=Array.isArray(payload.events)?payload.events:[];
+    const byTime=new Map(S.flowResponseHistory.map(item=>[item.time,item]));
+    for(const event of events){
+      const time=Date.parse(event.event_time);if(!Number.isFinite(time))continue;
+      const row={window_sec:Number(event.window_sec),state:String(event.state||"UNCLEAR"),
+        pressure_ratio:N(event.pressure_ratio),persistence:N(event.persistence),
+        price_change_bps:N(event.price_change_bps),relative_volume:N(event.relative_volume),
+        total_volume:N(event.total_volume),delta:N(event.delta),trade_count:Number(event.trade_count||0)};
+      const item=byTime.get(time)||{time,rows:[]};
+      item.rows=item.rows.filter(r=>r.window_sec!==row.window_sec);item.rows.push(row);byTime.set(time,item);
+    }
+    S.flowResponseHistory=[...byTime.values()].sort((a,b)=>a.time-b.time).slice(-10000);
+    renderChart();
+  }catch(_){/* live flow response continues when persisted history is unavailable */}
+}
+
+// ---- CVD independent indicator: client-side native-unit slope ----
+const CVD={method:"regression",window:20};
+function cvdSlope(){
+  const s=S.series["CVD+Δ"].cvd,w=CVD.window;
+  if(s.length<w)return {ready:false,n:s.length,w};
+  const win=s.slice(-w);
+  let slope;
+  if(CVD.method==="difference"){
+    slope=(win[w-1]-win[0])/(w-1);
+  }else{
+    const xbar=(w-1)/2;
+    let ybar=0;
+    for(let i=0;i<w;i++)ybar+=win[i];
+    ybar/=w;
+    let sxy=0,sxx=0;
+    for(let i=0;i<w;i++){
+      sxy+=(i-xbar)*(win[i]-ybar);
+      sxx+=(i-xbar)*(i-xbar);
+    }
+    slope=sxx===0?0:sxy/sxx;
+  }
+  return {ready:true,slope,w,method:CVD.method};
+}
+function renderCvdSlope(){
+  const r=cvdSlope(),el=$("cvdslope");
+  el.classList.remove("dash");
+  if(!r.ready){
+    el.textContent=`CVD SLOPE — ${r.n}/${r.w}`;
+    el.style.color=SUB;
+    return;
+  }
+  el.style.color=r.slope>0?BUY:r.slope<0?SELL:DIS;
+  el.textContent=`CVD SLOPE ${r.slope>=0?"+":""}${String(r.slope)}/bar (${r.method==="regression"?"回帰":"差分"}·${r.w})`;
+}
+function renderCvdDivergence(d){
+  const el=$("cvddiv");
+  if(!d){
+    el.style.display="none";
+    el.textContent="";
+    return;
+  }
+  const dc=d.direction==="BULLISH"?BUY:SELL;
+  el.style.display="block";
+  el.style.color=dc;
+  el.style.background=dc+"18";
+  el.style.border=`1px solid ${dc}55`;
+  el.textContent=`DIVERGENCE ${d.direction} · Δprice ${d.price_change} · Δcvd ${d.cvd_change} · ${d.bars_between} bars`;
+}
+function renderFlowResponse(){
+  const el=$("flowresponse"),rows=S.flowResponse||[];
+  if(!rows.length){el.style.display="none";el.innerHTML="";return;}
+  const labels={
+    BUY_EFFECTIVE:"買い圧力・上昇",SELL_EFFECTIVE:"売り圧力・下落",
+    BUY_STALLED:"買い圧力・価格停滞",SELL_STALLED:"売り圧力・価格停滞",
+    BUY_TRAPPED:"買い圧力・逆行",SELL_TRAPPED:"売り圧力・逆行",UNCLEAR:"不明"
+  };
+  const color=s=>s==="BUY_EFFECTIVE"?BUY:s==="SELL_EFFECTIVE"?SELL:
+    s.includes("STALLED")?WARN:s.includes("TRAPPED")?INFO:DIS;
+  const tf=s=>s<60?`${s}s`:s%60===0?`${s/60}m`:`${s}s`;
+  el.style.display="flex";
+  el.innerHTML=rows.slice().sort((a,b)=>a.window_sec-b.window_sec).map(r=>{
+    const p=N(r.pressure_ratio),b=N(r.price_change_bps),rv=N(r.relative_volume);
+    const facts=`圧力 ${(p>=0?"+":"")}${fmt(p*100,0)}% · 価格 ${(b>=0?"+":"")}${fmt(b,1)}bp${rv==null?"":` · 出来高 ×${fmt(rv,1)}`}`;
+    return `<span title="観測状態。売買指示・確率ではありません。${facts}" style="border:1px solid ${color(r.state)}55;background:${color(r.state)}12;color:${color(r.state)};border-radius:5px;padding:4px 7px"><b>${tf(r.window_sec)}</b> ${labels[r.state]||r.state} <span style="color:${SUB}">${facts}</span></span>`;
+  }).join("");
+}
+(function(){
+  const gear=$("cvdgear"),pop=$("cvdgearpop"),method=$("cvdmethod"),windowInput=$("cvdwindow");
+  gear.onclick=()=>{pop.style.display=pop.style.display==="none"?"block":"none";};
+  method.onchange=()=>{CVD.method=method.value;renderCvdSlope();};
+  windowInput.onchange=()=>{
+    const value=parseInt(windowInput.value,10);
+    if(value>=2&&value<=140){
+      CVD.window=value;
+      renderCvdSlope();
+    }else{
+      windowInput.value=String(CVD.window);
+    }
+  };
+  renderCvdSlope();
+})();
 
 // alerts
 function toast(a){
@@ -710,15 +1235,28 @@ function toast(a){
   const el=document.createElement("div"); el.className="toast";
   el.style.border=`1px solid ${col}`; el.style.color=a.side==="BUY"?BUY:SELL;
   el.innerHTML=`<span>🚨</span><span class="badge" style="background:${col};color:#0A0D12;font-size:9px">${a.cat}</span>${a.side} ${a.cat} ${fmt(a.strength)}`;
-  $("toasts").appendChild(el); setTimeout(()=>el.remove(),3000);
+  $("toasts").appendChild(el); setTimeout(()=>el.remove(),ALERT_CFG.durationSec*1000);
 }
 function renderAlerts(){
-  $("alerthist").style.display=S.alerts.length?"block":"none";
+  $("alerthist").style.display="block";
   $("alertrows").innerHTML=S.alerts.map(a=>`<div class="arow">
     <span style="color:${DIS}">${a.t.slice(0,5)}</span><i style="background:${catColor(a.cat)}"></i>
     <span style="color:${a.side==="BUY"?BUY:SELL};font-weight:600">${a.side} ${a.cat}</span>
     <span class="as">${fmt(a.strength)}</span></div>`).join("");
 }
+(function(){
+  const gear=$("alertgear"),pop=$("alertsetpop"),th=$("alertthrin"),hist=$("alerthistin"),sec=$("alertsecsin");
+  th.value=ALERT_CFG.threshold; hist.value=ALERT_CFG.maxHistory; sec.value=ALERT_CFG.durationSec;
+  gear.onclick=()=>{pop.style.display=pop.style.display==="none"?"block":"none";};
+  const apply=()=>{
+    const t=Number(th.value),h=parseInt(hist.value,10),s=parseInt(sec.value,10);
+    if(Number.isFinite(t)&&t>=0&&t<=1)ALERT_CFG.threshold=t;
+    if(Number.isFinite(h)&&h>=1){ALERT_CFG.maxHistory=h;while(S.alerts.length>h)S.alerts.pop();renderAlerts();}
+    if(Number.isFinite(s)&&s>=1)ALERT_CFG.durationSec=s;
+    saveAlertCfg(); pop.style.display="none";
+  };
+  th.onchange=apply;hist.onchange=apply;sec.onchange=apply;
+})();
 
 // dev overlay + FPS
 let frames=0,fpsVal=0;
@@ -737,6 +1275,16 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
   o.style.display=on?"block":"none";$("devbtn").classList.toggle("on",on);renderDev();};
 
 // footprint controls
+// --- Footprint VA% gear (immediate, no reload; spec §7) ---
+(function(){
+  const gear=$("fpgear"),pop=$("fpgearpop"),input=$("fpvapct"),label=$("fpva");
+  gear.onclick=()=>{pop.style.display=pop.style.display==="none"?"block":"none";};
+  input.onchange=()=>{
+    const v=parseInt(input.value,10);
+    if(v>=30&&v<=95){FP.vaPct=v;label.textContent=`VA ${v}%`;renderFootprint();}
+    else{input.value=String(FP.vaPct);}
+  };
+})();
 $("prevbar").onclick=()=>{S.lock=false;$("plock").textContent="🔓";
   S.barView=(S.barView<0?S.bars.length-1:S.barView)-1;if(S.barView<0)S.barView=0;renderFootprint();};
 $("nextbar").onclick=()=>{if(S.barView<0)return;S.barView=Math.min(S.barView+1,S.bars.length-1);renderFootprint();};
@@ -745,7 +1293,7 @@ $("zout").onclick=()=>{S.zoom=Math.max(0.75,S.zoom-0.25);renderFootprint();};
 $("plock").onclick=()=>{S.lock=!S.lock;$("plock").textContent=S.lock?"🔒":"🔓";
   if(S.lock)S.barView=-1;renderFootprint();};
 
-renderTabs(); connect();
+initMarketChart(); loadChartHistory(); loadFlowResponseHistory(); connect();
 /* App version — /api/version(正は CHANGELOG.md)。失敗しても UI は阻害しない */
 fetch("/api/version").then(r=>r.json())
   .then(j=>{ $("appver").textContent = j.version || "v?.?.?"; })

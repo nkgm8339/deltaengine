@@ -325,6 +325,26 @@ SCHEMA: dict[str, dict[str, Field]] = {
         "min_price_move": Field(v_decimal_string(), "0"),
         "min_bar_distance": Field(v_int(lo=0), 0),
     },
+    "flow_response": {
+        # Observational pressure/response windows. These are intentionally not
+        # confidence scores or BUY/SELL signals.
+        "enabled": Field(v_bool, True),
+        "windows_sec": Field(
+            v_list_of(v_int(lo=1), nonempty=True),
+            [30, 60, 180, 300, 900, 1800],
+        ),
+        "baseline_window_sec": Field(v_int(lo=1), 1800),
+        "pressure_threshold": Field(v_decimal_string(), "0.20"),
+        "persistence_threshold": Field(v_decimal_string(), "0.60"),
+        "stall_bps": Field(v_decimal_string(), "1.0"),
+        "effective_bps": Field(v_decimal_string(), "2.0"),
+        "opposite_bps": Field(v_decimal_string(), "1.0"),
+        "min_trades": Field(v_int(lo=1), 20),
+        "outcome_horizons_sec": Field(
+            v_list_of(v_int(lo=1), nonempty=True),
+            [60, 180, 300, 600],
+        ),
+    },
     "monitor": {
         "enabled": Field(v_bool, True),
         "interval_sec": Field(v_int(lo=1), 5),

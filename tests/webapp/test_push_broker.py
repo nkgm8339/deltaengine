@@ -27,9 +27,6 @@ def _make_broker(**kwargs) -> PushBroker:
     defaults = dict(
         symbol="BTCUSDT",
         depth_levels=15,
-        flow_window_sec=60,
-        confluence_score_threshold=Decimal("40"),
-        confluence_strength_threshold=Decimal("0.5"),
     )
     defaults.update(kwargs)
     return PushBroker(**defaults)
@@ -88,93 +85,14 @@ def test_compute_value_area_empty():
 
 # ── test 5: confluence BUY direction ─────────────────────────────────────────
 
-def test_confluence_buy_flags_and_count():
-    broker = _make_broker(
-        confluence_score_threshold=Decimal("40"),
-        confluence_strength_threshold=Decimal("0.5"),
-    )
-    scores = {
-        "cvd": Decimal("50"),       # >= 40 → True for BUY
-        "footprint": Decimal("45"), # >= 40 → True
-        "imbalance": Decimal("30"), # < 40 → False
-        "absorption": Decimal("0.6"),  # >= 0.5 → True
-        "flow": Decimal("0.4"),        # < 0.5 → False
-    }
-    cf = broker.confluence("BUY", scores)
-    assert cf["cvd"] is True
-    assert cf["footprint"] is True
-    assert cf["imbalance"] is False
-    assert cf["absorption"] is True
-    assert cf["flow"] is False
-    assert cf["count"] == 3
-
 
 # ── test 6: confluence WAIT → all false / count 0 ────────────────────────────
-
-def test_confluence_wait_all_false():
-    broker = _make_broker()
-    scores = {
-        "cvd": Decimal("100"),
-        "footprint": Decimal("100"),
-        "imbalance": Decimal("100"),
-        "absorption": Decimal("1.0"),
-        "flow": Decimal("1.0"),
-    }
-    cf = broker.confluence("WAIT", scores)
-    assert cf["cvd"] is False
-    assert cf["footprint"] is False
-    assert cf["imbalance"] is False
-    assert cf["absorption"] is False
-    assert cf["flow"] is False
-    assert cf["count"] == 0
 
 
 # ── test 6b: confluence WAIT with directional composite (Task-C) ──────────────
 
-def test_confluence_wait_uses_composite_direction():
-    """WAIT no longer short-circuits to all-False: the composite sign supplies
-    the direction so aligned modules still light up."""
-    broker = _make_broker(
-        confluence_score_threshold=Decimal("40"),
-        confluence_strength_threshold=Decimal("0.5"),
-    )
-    scores = {
-        "cvd": Decimal("50"),        # aligned with BUY-leaning composite
-        "footprint": Decimal("-45"), # opposes composite → False
-        "imbalance": Decimal("60"),  # aligned → True
-        "absorption": Decimal("0.6"),
-        "flow": Decimal("0.2"),
-    }
-    # Positive composite → BUY-direction sign while signal is WAIT.
-    cf = broker.confluence("WAIT", scores, composite=Decimal("35"))
-    assert cf["cvd"] is True
-    assert cf["footprint"] is False
-    assert cf["imbalance"] is True
-    assert cf["absorption"] is True
-    assert cf["flow"] is False
-    assert cf["count"] == 3
-
-    # Zero composite → no direction → all False (parity with legacy WAIT).
-    cf0 = broker.confluence("WAIT", scores, composite=Decimal("0"))
-    assert cf0["count"] == 0
-
 
 # ── test 7: flow_score weighted average / empty returns None ──────────────────
-
-def test_flow_score_weighted_average_and_none():
-    broker = _make_broker(flow_window_sec=60)
-    now = _utc("2024-01-01T12:01:00")
-
-    # Empty → None
-    assert broker.flow_score(now) is None
-
-    # Insert a record exactly at `now` (age=0), strength=0.8
-    from webapp.push_broker import _FlowRecord
-    broker._flow_history.append(_FlowRecord(event_time=now, strength=Decimal("0.8")))
-    score = broker.flow_score(now)
-    assert score is not None
-    # At age=0, weight=2^0=1, so score == 0.8
-    assert abs(score - Decimal("0.8")) < Decimal("0.01")
 
 
 # ── test 8: on_analysis payload shape ────────────────────────────────────────
@@ -218,13 +136,15 @@ def test_on_analysis_payload_shape():
     assert len(sent) == 1
     msg = sent[0]
     p = msg["payload"]
-    assert p["expected_rr"] is None
-    assert p["market_state"] == "BULL"
-    assert p["signal"] == "BUY"
     assert p["divergence"] is None
+    assert p["imbalance"] is None
+    assert p["absorption"] is None
+    assert p["flow_events"] is None
 
 
-def test_on_analysis_includes_divergence_direction():
+def test_on_analysis_serializes_imbalance_walls_and_effective_floor():
+    from src.orderflow.imbalance import ImbalanceResult, StackedImbalance
+
     broker = _make_broker()
     sent = []
 
@@ -234,24 +154,79 @@ def test_on_analysis_includes_divergence_direction():
 
     fake_ws = MagicMock()
     fake_ws.send_text = AsyncMock(side_effect=fake_send_text)
+    analysis_time = _utc("2024-01-01T12:00:00")
     analysis_result = MagicMock(
-        analysis_time=_utc("2024-01-01T12:00:00"), market_state="BULL",
-        risk_level="LOW", reasons=(),
+        analysis_time=analysis_time, market_state="BULL", risk_level="LOW", reasons=(),
     )
-    signal_result = MagicMock(signal="BUY", confidence=Decimal("0.75"), composite=None, reasons=[])
-    divergence = MagicMock(direction="BULLISH")
+    signal_result = MagicMock(
+        signal="BUY", confidence=Decimal("0.75"), composite=None, reasons=[],
+    )
+    imbalance_result = ImbalanceResult(
+        bar_time=analysis_time,
+        symbol="BTCUSDT",
+        buy_imbalances=(),
+        sell_imbalances=(),
+        stacked_imbalances=(
+            StackedImbalance(
+                start_price=Decimal("100.25"),
+                end_price=Decimal("100.75"),
+                count=3,
+                direction="BUY",
+            ),
+            StackedImbalance(
+                start_price=Decimal("99.75"),
+                end_price=Decimal("99.25"),
+                count=4,
+                direction="SELL",
+            ),
+        ),
+    )
+    detector = MagicMock()
+    detector.ratio_threshold = Decimal("3.0")
+    detector.stack_count = 3
+    detector.ratio_cap = Decimal("10.0")
+    detector.last_effective_min_volume = Decimal("0.125")
 
     async def run():
         await broker.register(fake_ws)
-        await broker.on_analysis(analysis_result, signal_result, {}, None, divergence)
+        await broker.on_analysis(
+            analysis_result,
+            signal_result,
+            {},
+            None,
+            None,
+            imbalance_result,
+            detector,
+        )
+
+    asyncio.run(run())
+    assert sent[0]["payload"]["imbalance"] == {
+        "walls": [
+            {
+                "side": "BUY",
+                "count": 3,
+                "price_start": "100.25",
+                "price_end": "100.75",
+            },
+            {
+                "side": "SELL",
+                "count": 4,
+                "price_start": "99.75",
+                "price_end": "99.25",
+            },
+        ],
+        "ratio_threshold": "3.0",
+        "stack_count": 3,
+        "ratio_cap": "10.0",
+        "min_volume": "0.125",
+    }
 
 
+# ── test 9: independent IMBALANCE no longer emits rounded flow events ────────
 
-# ── test 9: FLOW hook IMBALANCE fires BUY+SELL events ────────────────────────
-
-def test_flow_hook_imbalance_buy_sell():
-    """_evaluate_and_store fires IMBALANCE PushFlowEvent for BUY and SELL."""
-    from src.pipeline import PushFlowEvent, _evaluate_and_store, _BarCloseResult
+def test_evaluate_and_store_excludes_imbalance_score_and_flow_events():
+    """Independent IMBALANCE stays out of composite and rounded FLOW events."""
+    from src.pipeline import _evaluate_and_store
     from src.orderflow.imbalance import ImbalanceResult, StackedImbalance
     from unittest.mock import MagicMock
     from decimal import Decimal
@@ -318,18 +293,16 @@ def test_flow_hook_imbalance_buy_sell():
         on_webapp_flow_event=on_ev,
     )
 
-    buy_events = [e for e in emitted if e.category == "IMBALANCE" and e.side == "BUY"]
-    sell_events = [e for e in emitted if e.category == "IMBALANCE" and e.side == "SELL"]
-    assert len(buy_events) == 1
-    assert len(sell_events) == 1
+    assert emitted == []
 
-    # Task-A: strength halved to min(net/(stack_ref*2), 1) to avoid saturating at 1.00.
-    # BUY net=5, stack_ref=3 → min(5/6,1)=0.8333…; SELL net=3 → min(3/6,1)=0.5
-    assert buy_events[0].strength == Decimal("5") / (Decimal("3") * 2)
-    assert sell_events[0].strength == Decimal("0.5")
-
-    # module_scores present
+    # Independent indicators are no longer passed into the shrinking composite.
     assert result.module_scores is not None
+    assert result.module_scores["cvd"] is None
+    assert result.module_scores["footprint"] is None
+    assert result.module_scores["imbalance"] is None
+    assert signal_engine.evaluate.call_args.args[0] is None
+    assert signal_engine.evaluate.call_args.args[1] is None
+    assert signal_engine.evaluate.call_args.args[2] is None
 
 
 # ── test 10: ABSORPTION hook fires exactly once per event_detected increment ──
@@ -652,7 +625,7 @@ def test_main_adapter_reverses_footprint_levels():
     assert "reversed(fp_bar.levels)" in src
 
 
-def test_on_analysis_serializes_divergence_event_direction_as_string():
+def test_on_analysis_serializes_divergence_native_object():
     from src.orderflow.divergence import DivergenceDirection, DivergenceEvent, DivergenceKind
 
     broker = _make_broker()
@@ -680,4 +653,53 @@ def test_on_analysis_serializes_divergence_event_direction_as_string():
         await broker.on_analysis(analysis_result, signal_result, {}, None, event)
 
     asyncio.run(run())
-    assert sent[0]["payload"]["divergence"] == "BULLISH"
+    payload = sent[0]["payload"]["divergence"]
+    assert payload == {
+        "direction": "BULLISH",
+        "kind": "REGULAR",
+        "pivot_time": "2024-01-01T11:59:00+00:00",
+        "previous_pivot_time": "2024-01-01T11:57:00+00:00",
+        "pivot_price": "99",
+        "previous_pivot_price": "100",
+        "pivot_cvd": "10",
+        "previous_pivot_cvd": "5",
+        "price_change": "-1",
+        "cvd_change": "5",
+        "bars_between": 2,
+    }
+
+
+def test_on_flow_response_serializes_observations_without_signal_language():
+    from src.orderflow.flow_price_response import FlowResponseSnapshot, FlowResponseState
+
+    broker = _make_broker()
+    sent = []
+
+    async def fake_send_text(text):
+        import json
+        sent.append(json.loads(text))
+
+    fake_ws = MagicMock()
+    fake_ws.send_text = AsyncMock(side_effect=fake_send_text)
+    snapshot = FlowResponseSnapshot(
+        event_time=_utc("2024-01-01T12:00:00"), symbol="BTCUSDT", window_sec=60,
+        state=FlowResponseState.BUY_STALLED, pressure_side="BUY",
+        buy_volume=Decimal("12"), sell_volume=Decimal("3"), total_volume=Decimal("15"),
+        delta=Decimal("9"), pressure_ratio=Decimal("0.6"), persistence=Decimal("0.8"),
+        first_price=Decimal("100"), last_price=Decimal("100.005"),
+        high_price=Decimal("100.01"), low_price=Decimal("99.99"),
+        price_change=Decimal("0.005"), price_change_bps=Decimal("0.5"),
+        relative_volume=None, trade_count=42, observed_span_sec=60,
+    )
+
+    async def run():
+        await broker.register(fake_ws)
+        await broker.on_flow_response((snapshot,))
+
+    asyncio.run(run())
+    assert sent[0]["type"] == "FLOW_RESPONSE"
+    payload = sent[0]["payload"]
+    assert payload["note"] == "observed state; not a trade signal or probability"
+    assert payload["windows"][0]["state"] == "BUY_STALLED"
+    assert payload["windows"][0]["pressure_ratio"] == "0.6"
+    assert payload["windows"][0]["relative_volume"] is None

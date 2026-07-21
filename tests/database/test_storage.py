@@ -13,7 +13,13 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from src.database.schema import CANDLES_SCHEMA, SIGNALS_SCHEMA, TRADES_SCHEMA
+from src.database.schema import (
+    CANDLES_SCHEMA,
+    FLOW_RESPONSE_EVENTS_SCHEMA,
+    FLOW_RESPONSE_OUTCOMES_SCHEMA,
+    SIGNALS_SCHEMA,
+    TRADES_SCHEMA,
+)
 from src.database.storage import StorageWriter
 
 UTC = timezone.utc
@@ -194,6 +200,56 @@ def test_signals_no_pk_allows_duplicate_insert(tmp_path: Path) -> None:
     count = con.execute("SELECT count(*) FROM signals").fetchone()[0]
     con.close()
     assert count == 2   # both rows present — no dedup
+
+
+# ============================ flow/price response research ====================
+def _flow_response_event_row(ts=datetime(2026, 1, 1, 0, 1, 0, tzinfo=UTC)) -> dict:
+    return {
+        "event_time": ts, "symbol": "BTCUSDT", "window_sec": 60,
+        "state": "BUY_STALLED", "pressure_side": "BUY",
+        "buy_volume": Decimal("12"), "sell_volume": Decimal("3"),
+        "delta": Decimal("9"), "pressure_ratio": Decimal("0.6"),
+        "persistence": Decimal("0.8"), "first_price": Decimal("100"),
+        "last_price": Decimal("100.005"), "price_change": Decimal("0.005"),
+        "price_change_bps": Decimal("0.5"), "relative_volume": None,
+        "trade_count": 42,
+    }
+
+
+def _flow_response_outcome_row(ts=datetime(2026, 1, 1, 0, 1, 0, tzinfo=UTC)) -> dict:
+    return {
+        "event_time": ts, "symbol": "BTCUSDT", "window_sec": 60,
+        "state": "BUY_STALLED", "horizon_sec": 180,
+        "observed_price": Decimal("100.005"),
+        "outcome_time": ts.replace(minute=4), "outcome_price": Decimal("99"),
+        "forward_return_bps": Decimal("-100.49497525"),
+        "max_up_bps": Decimal("20"), "max_down_bps": Decimal("-130"),
+    }
+
+
+def test_flow_response_records_have_separate_parquet_datasets(tmp_path: Path) -> None:
+    sw = _writer(tmp_path, batch_size=10)
+    sw.add_flow_response_event(_flow_response_event_row())
+    sw.add_flow_response_outcome(_flow_response_outcome_row())
+    sw.close()
+    events = _read_file(tmp_path / "parquet" / "flow_response_events")
+    outcomes = _read_file(tmp_path / "parquet" / "flow_response_outcomes")
+    assert events.schema.equals(FLOW_RESPONSE_EVENTS_SCHEMA, check_metadata=False)
+    assert outcomes.schema.equals(FLOW_RESPONSE_OUTCOMES_SCHEMA, check_metadata=False)
+    assert events.to_pylist()[0]["state"] == "BUY_STALLED"
+    assert outcomes.to_pylist()[0]["horizon_sec"] == 180
+
+
+def test_duckdb_flow_response_tables_and_counters(tmp_path: Path) -> None:
+    sw = _writer(tmp_path, batch_size=10)
+    sw.add_flow_response_event(_flow_response_event_row())
+    sw.add_flow_response_outcome(_flow_response_outcome_row())
+    sw.flush()
+    assert sw.duckdb.count("flow_response_events") == 1
+    assert sw.duckdb.count("flow_response_outcomes") == 1
+    assert sw.flow_response_events_written == 1
+    assert sw.flow_response_outcomes_written == 1
+    sw.close()
 
 
 # ============================ duplicate primary key ===========================

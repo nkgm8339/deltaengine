@@ -171,6 +171,7 @@ class ImbalanceDetector:
         self.stack_count = stack_count
         self._volume_ref = volume_ref
         self.invalid_pairs = 0  # levels skipped due to negative volume or ordering
+        self.last_effective_min_volume = self.min_volume
 
     def detect(self, bar: FootprintBar) -> ImbalanceResult:
         """Run diagonal comparison over bar.levels; return ImbalanceResult."""
@@ -182,6 +183,9 @@ class ImbalanceDetector:
             effective_min_volume = max(self._volume_ref.current(), self.min_volume)
         else:
             effective_min_volume = self.min_volume
+        # Expose the floor actually used (may be raised by volume_ref) so the
+        # webapp client can recompute walls faithfully (Imbalance独立化: ★罠2).
+        self.last_effective_min_volume = effective_min_volume
 
         levels = bar.levels
         n = len(levels)

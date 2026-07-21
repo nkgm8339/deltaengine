@@ -19,8 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from src.config import load_config
 from src.pipeline import LivePipeline, ReplayPipeline, load_profile
 from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
-from webapp.push_broker import IntervalGate, PushBroker, PAYLOAD_VERSION
+from webapp.push_broker import IntervalGate, PushBroker, PAYLOAD_VERSION, d2s
 from webapp.oi_poller import oi_polling_loop
+from webapp.history import query_candles, query_flow_response_events
 from webapp.version import resolve_version
 
 logger = logging.getLogger("webapp.main")
@@ -52,9 +53,6 @@ def _build_broker(config) -> PushBroker:
     return PushBroker(
         symbol=config.market.symbol,
         depth_levels=w.depth_levels,
-        flow_window_sec=w.flow_window_sec,
-        confluence_score_threshold=Decimal(str(w.confluence.score_threshold)),
-        confluence_strength_threshold=Decimal(str(w.confluence.strength_threshold)),
     )
 
 
@@ -121,6 +119,9 @@ async def lifespan(app: FastAPI):
                 bc.module_scores,
                 bc.absorption_result,
                 getattr(pipeline, "divergence", None),
+                bc.imbalance_result,
+                bc.imbalance_detector,
+                bc.flow_events,
             ))
 
     def on_liquidation_cb(liq):
@@ -129,11 +130,15 @@ async def lifespan(app: FastAPI):
     def on_webapp_flow_cb(ev):
         asyncio.create_task(broker.on_flow_event(ev))
 
+    def on_flow_response_cb(snapshots):
+        asyncio.create_task(broker.on_flow_response(snapshots))
+
     pipeline.on_trade = on_trade_cb
     pipeline.on_candle = on_candle_cb
     pipeline.on_analysis = on_analysis_cb
     pipeline.on_liquidation = on_liquidation_cb
     pipeline.on_webapp_flow_event = on_webapp_flow_cb
+    pipeline.on_flow_response = on_flow_response_cb
 
     app.state.broker = broker
     app.state.config = config
@@ -300,6 +305,47 @@ async def api_version(request: Request):
     return JSONResponse({"version": version})
 
 
+@app.get("/api/history/candles")
+async def api_candle_history(request: Request, limit: int = 300):
+    """Return recent candles oldest-first for immediate chart hydration."""
+    config = getattr(request.app.state, "config", None)
+    if config is None:
+        return JSONResponse({"candles": []})
+    safe_limit = max(20, min(int(limit), 300))
+    try:
+        newest_first = await asyncio.to_thread(
+            query_candles,
+            config.database.duckdb_path,
+            config.market.symbol,
+            safe_limit,
+            config.market.bar_timeframe,
+        )
+    except Exception:
+        logger.exception("candle history query failed")
+        newest_first = []
+    return JSONResponse({"candles": list(reversed(newest_first))})
+
+
+@app.get("/api/history/flow-response")
+async def api_flow_response_history(request: Request, limit: int = 5000):
+    """Return persisted flow-response transitions oldest-first for chart bands."""
+    config = getattr(request.app.state, "config", None)
+    if config is None:
+        return JSONResponse({"events": []})
+    safe_limit = max(100, min(int(limit), 10000))
+    try:
+        newest_first = await asyncio.to_thread(
+            query_flow_response_events,
+            config.database.duckdb_path,
+            config.market.symbol,
+            safe_limit,
+        )
+    except Exception:
+        logger.exception("flow-response history query failed")
+        newest_first = []
+    return JSONResponse({"events": list(reversed(newest_first))})
+
+
 @app.get("/api/stats")
 async def api_stats(request: Request):
     pipeline = getattr(request.app.state, "pipeline", None)
@@ -332,3 +378,22 @@ async def api_config(request: Request):
     if config is None:
         return JSONResponse({})
     return JSONResponse(_config_to_dict(config))
+
+
+@app.post("/api/absorption/params")
+async def set_absorption_params(payload: dict, request: Request):
+    pipeline = getattr(request.app.state, "pipeline", None)
+    ab = getattr(pipeline, "absorption_detector", None)
+    if ab is None:
+        return {"ok": False, "reason": "detector_unavailable"}
+    pst = payload.get("price_stall_ticks")
+    vm = payload.get("volume_multiplier")
+    ab.set_params(
+        price_stall_ticks=int(pst) if pst is not None else None,
+        volume_multiplier=Decimal(str(vm)) if vm is not None else None,
+    )
+    return {
+        "ok": True,
+        "price_stall_ticks": ab._price_stall_ticks,
+        "volume_multiplier": d2s(ab._volume_multiplier),
+    }

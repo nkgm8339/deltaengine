@@ -40,6 +40,23 @@ CREATE TABLE trades (
 )
 """
 
+_FLOW_RESPONSE_EVENTS_DDL = """
+CREATE TABLE flow_response_events (
+    event_time TIMESTAMP,
+    symbol VARCHAR,
+    window_sec INTEGER,
+    state VARCHAR,
+    pressure_ratio DECIMAL(20,8),
+    persistence DECIMAL(20,8),
+    price_change_bps DECIMAL(20,8),
+    relative_volume DECIMAL(20,8),
+    buy_volume DECIMAL(20,8),
+    sell_volume DECIMAL(20,8),
+    delta DECIMAL(20,8),
+    trade_count BIGINT
+)
+"""
+
 
 def test_query_candles_returns_list(tmp_path):
     db_path = str(tmp_path / "test.duckdb")
@@ -57,8 +74,48 @@ def test_query_candles_returns_list(tmp_path):
     assert isinstance(result, list)
     assert len(result) == 1
     assert "bar_time" in result[0]
+    assert result[0]["bar_time"].endswith("+00:00")
+    assert result[0]["timeframe"] == "1m"
     assert "cvd" in result[0]
     assert isinstance(result[0]["cvd"], str)
+
+
+def test_query_candles_filters_timeframe(tmp_path):
+    db_path = str(tmp_path / "test.duckdb")
+    con = duckdb.connect(db_path)
+    con.execute(_CANDLES_DDL)
+    con.execute(
+        "INSERT INTO candles VALUES "
+        "('2026-07-09 00:00:00', 'BTCUSDT', '1m', 100, 101, 99, 100, 10, 1, 1),"
+        "('2026-07-09 00:00:00', 'BTCUSDT', '5m', 100, 105, 95, 104, 50, 5, 5)"
+    )
+    con.close()
+
+    from webapp.history import query_candles
+    result = query_candles(db_path, "BTCUSDT", limit=10, timeframe="5m")
+
+    assert len(result) == 1
+    assert result[0]["timeframe"] == "5m"
+
+
+def test_query_flow_response_events_returns_chart_metrics(tmp_path):
+    db_path = str(tmp_path / "test.duckdb")
+    con = duckdb.connect(db_path)
+    con.execute(_FLOW_RESPONSE_EVENTS_DDL)
+    con.execute(
+        "INSERT INTO flow_response_events VALUES "
+        "('2026-07-09 00:00:30', 'BTCUSDT', 30, 'BUY_STALLED', 0.4, 0.7, "
+        "0.2, 1.5, 8, 2, 6, 42)"
+    )
+    con.close()
+
+    from webapp.history import query_flow_response_events
+    result = query_flow_response_events(db_path, "BTCUSDT", limit=10)
+
+    assert len(result) == 1
+    assert result[0]["state"] == "BUY_STALLED"
+    assert result[0]["total_volume"] == "10.00000000"
+    assert result[0]["event_time"].endswith("+00:00")
 
 
 def test_query_signals_returns_list(tmp_path):

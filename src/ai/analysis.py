@@ -57,50 +57,12 @@ class AnalysisEngine:
         self.confidence_threshold = Decimal(str(confidence_threshold))
 
     def evaluate(self, inp: AnalysisInput) -> AnalysisResult:
-        sr = inp.signal_result
-        conf = sr.confidence
-        sig = sr.signal
-
-        # market_state
-        if sig == "BUY":
-            if conf >= Decimal("0.90"):
-                market_state = "STRONG_BULL"
-            elif conf >= Decimal("0.70"):
-                market_state = "BULL"
-            else:
-                market_state = "NEUTRAL"
-        elif sig == "SELL":
-            if conf >= Decimal("0.90"):
-                market_state = "STRONG_BEAR"
-            elif conf >= Decimal("0.70"):
-                market_state = "BEAR"
-            else:
-                market_state = "NEUTRAL"
-        else:
-            market_state = "NEUTRAL"
-
-        # risk_level
-        if sig != "WAIT" and inp.absorption_result is not None:
-            risk_level = "MEDIUM"
-        elif sig == "WAIT" or conf < self.confidence_threshold:
-            risk_level = "HIGH"
-        else:
-            risk_level = "LOW"
-
-        # reasons: inherit from SignalResult + ABSORPTION_ACTIVE if present
-        reasons = list(sr.reasons)
-        if inp.absorption_result is not None:
-            reasons.append("ABSORPTION_ACTIVE")
-
-        # summary
-        summary = f"{market_state}: {sig} signal at {conf:.0%} confidence"
-
         return AnalysisResult(
             analysis_time=inp.analysis_time,
             symbol=inp.symbol,
-            market_state=market_state,
-            confidence=conf,
-            risk_level=risk_level,
-            summary=summary,
-            reasons=tuple(reasons),
+            market_state="NEUTRAL",
+            confidence=_ZERO,
+            risk_level="LOW",
+            summary="Independent indicators active",
+            reasons=tuple(inp.signal_result.reasons) if inp.signal_result else (),
         )

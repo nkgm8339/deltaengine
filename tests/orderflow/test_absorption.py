@@ -1,6 +1,6 @@
 """Unit tests for AbsorptionDetector (B-2 M9).
 
-9 tests: TV-ABS-01..05 (TestSpecification_v3.2 §4.4) + 4 additional.
+11 tests: TV-ABS-01..05 (TestSpecification_v3.2 §4.4) + 6 additional.
 
 Fixture defaults (per §4.4):
     window_sec=10, price_stall_ticks=1, volume_multiplier=2.0,
@@ -134,6 +134,9 @@ def test_tv_abs_01_buy_absorption_qualifies() -> None:
     assert result is not None
     assert result.classification == "BUY_ABSORPTION"
     assert result.strength == D("1")
+    assert result.price_low == D("100")
+    assert result.price_high == D("100")
+    assert (result.price_low, result.price_high) == (D("100"), D("100"))
     assert detector.events_detected == 1
     assert detector.aggression_condition_fails == 0
     assert detector.stall_condition_fails == 0
@@ -227,6 +230,9 @@ def test_tv_abs_05_sell_absorption_qualifies() -> None:
     assert result is not None
     assert result.classification == "SELL_ABSORPTION"
     assert result.strength == D("1")
+    assert result.price_low == D("200")
+    assert result.price_high == D("200")
+    assert (result.price_low, result.price_high) == (D("200"), D("200"))
     assert detector.events_detected == 1
 
 
@@ -334,3 +340,44 @@ def test_absorption_deterministic_replay() -> None:
     assert r1[0] == 1
     assert r1[1] is not None
     assert r1[1].classification == "BUY_ABSORPTION"
+
+
+def test_absorption_set_params_preserves_window() -> None:
+    detector = _make_detector()
+    trade = _FakeTrade(_T0, "100", "1", "SELL", trade_id=1)
+    detector.observe_trade(trade)
+    before = tuple(detector._window)
+    detector.set_params(price_stall_ticks=2, volume_multiplier=D("3.0"))
+    assert detector._price_stall_ticks == 2
+    assert detector._volume_multiplier == D("3.0")
+    assert tuple(detector._window) == before
+
+
+def test_absorption_reports_full_stalled_price_range() -> None:
+    """Native reading preserves min/max across the qualifying stalled-price set."""
+    detector = _make_detector(price_stall_ticks=2)
+    detector.observe_trade(_FakeTrade(_T0, "100", "60", "SELL", trade_id=1))
+    detector.observe_trade(
+        _FakeTrade(_T0 + timedelta(seconds=1), "101", "60", "SELL", trade_id=2)
+    )
+
+    result = detector.current()
+    assert result is not None
+    assert (result.price_low, result.price_high) == (D("100"), D("101"))
+
+
+def test_set_params_updates_thresholds_without_touching_window() -> None:
+    """Gear updates thresholds in place without rebuilding the live trade window."""
+    detector = _make_detector()
+    detector.observe_trade(_FakeTrade(_T0, "100", "1", "SELL", trade_id=1))
+    window = detector._window
+    contents = tuple(window)
+    start_snapshot = detector._window_start_snapshot
+
+    detector.set_params(price_stall_ticks=2, volume_multiplier=D("3.0"))
+
+    assert detector._price_stall_ticks == 2
+    assert detector._volume_multiplier == D("3.0")
+    assert detector._window is window
+    assert tuple(detector._window) == contents
+    assert detector._window_start_snapshot is start_snapshot

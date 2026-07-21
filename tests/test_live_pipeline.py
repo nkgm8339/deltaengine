@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from decimal import Decimal as _Decimal
 
@@ -98,6 +99,27 @@ def test_live_pipeline_filters_normalizes_and_stores(tmp_path: Path) -> None:
     assert stats.candles_stored == 2     # bar @00:00 closed + final bar @00:01
     assert stats.signals_stored == 2     # one signal per confirmed bar
     assert stats.final_cvd == Decimal("2") + Decimal("-1")  # == 1
+    assert pipeline._last_bar_close is not None
+    assert pipeline._last_bar_close.module_scores["cvd"] is None
+    assert pipeline._last_bar_close.module_scores["footprint"] is None
+    assert pipeline._last_bar_close.module_scores["imbalance"] is None
+
+
+def test_live_divergence_clears_on_non_fire_bar(tmp_path: Path) -> None:
+    messages = MESSAGES + [_agg(3, m=False, q="1", epoch_ms=_T1 + 60000)]
+    pipeline = _live(tmp_path, "divergence_clear")
+    detector = MagicMock()
+    detector.update.side_effect = [object(), None]
+
+    with patch("src.pipeline.CvdDivergenceDetector", return_value=detector):
+        pipeline.run(
+            connect=FakeConnect(messages),
+            poll_interval=0.02,
+            fetch_snapshot=None,
+        )
+
+    assert detector.update.call_count == 2
+    assert pipeline.divergence is None
 
 
 def test_live_recording_replays_identically(tmp_path: Path) -> None:
@@ -254,9 +276,10 @@ def test_flow_score_present_in_signal_result(tmp_path: Path) -> None:
         poll_interval=0.02,
         fetch_snapshot=None,
     )
-    # If bar closed and flow events were in buffer, flow_score is populated
+    # Flow is independent and no longer contributes a composite score.
     if pipeline._last_bar_close is not None:
-        assert pipeline._last_bar_close.signal_result.flow_score is not None
+        assert pipeline._last_bar_close.signal_result.flow_score is None
+        assert pipeline._last_bar_close.flow_events is not None
 
 
 def test_flow_on_flow_event_hook_called(tmp_path: Path) -> None:
@@ -284,3 +307,39 @@ def test_flow_on_flow_event_hook_called(tmp_path: Path) -> None:
     assert stats.flow_events_emitted == len(received)
     assert len(received) >= 1
     assert all(hasattr(e, "kind") for e in received)
+
+
+def test_flow_price_response_reaches_callback_and_persists_outcome(tmp_path: Path) -> None:
+    received = []
+    pipeline = LivePipeline(
+        symbol="BTCUSDT", timeframe="1m", profile=PROFILE,
+        ws_url="wss://test/ws", subscribe_streams=["btcusdt@aggTrade"],
+        parquet_path=tmp_path / "flow_response" / "parquet",
+        duckdb_path=tmp_path / "flow_response" / "orderflow.duckdb",
+        batch_size=10, flush_interval_sec=1, reconnect=False,
+        flow_response_windows_sec=(3,), flow_response_baseline_window_sec=3,
+        flow_response_min_trades=3, flow_response_outcome_horizons_sec=(1,),
+        on_flow_response=received.append,
+    )
+    messages = [
+        _agg(100 + second, m=False, q="1", epoch_ms=_T0 + second * 1000)
+        for second in range(4)
+    ]
+    pipeline.run(connect=FakeConnect(messages), poll_interval=0.02, fetch_snapshot=None)
+
+    assert received
+    assert received[0][0].state.value == "BUY_STALLED"
+    assert len(pipeline.flow_response_events) == 1
+    assert len(pipeline.flow_response_outcomes) == 1
+
+    import duckdb
+    con = duckdb.connect(str(tmp_path / "flow_response" / "orderflow.duckdb"), read_only=True)
+    try:
+        assert con.execute("SELECT count(*) FROM flow_response_events").fetchone()[0] == 1
+        assert con.execute("SELECT count(*) FROM flow_response_outcomes").fetchone()[0] == 1
+        row = con.execute(
+            "SELECT state, horizon_sec, forward_return_bps FROM flow_response_outcomes"
+        ).fetchone()
+        assert row == ("BUY_STALLED", 1, Decimal("0E-8"))
+    finally:
+        con.close()

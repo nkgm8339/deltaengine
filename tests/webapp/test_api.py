@@ -114,6 +114,56 @@ def test_config_ok():
     assert "webapp" in data
 
 
+def test_candle_history_returns_oldest_first():
+    mock_pipeline = _make_mock_pipeline()
+    mock_config = _make_mock_config()
+    newest_first = [
+        {"bar_time": "2026-07-21 00:01:00", "timeframe": "1m", "open": "101", "high": "102", "low": "100", "close": "101", "volume": "2", "delta": "1", "cvd": "3"},
+        {"bar_time": "2026-07-21 00:00:00", "timeframe": "1m", "open": "100", "high": "101", "low": "99", "close": "100", "volume": "1", "delta": "1", "cvd": "2"},
+    ]
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.query_candles", return_value=newest_first) as history_query, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get("/api/history/candles?limit=999")
+
+    assert response.status_code == 200
+    candles = response.json()["candles"]
+    assert candles[0]["bar_time"] == "2026-07-21 00:00:00"
+    assert candles[1]["bar_time"] == "2026-07-21 00:01:00"
+    history_query.assert_called_once_with(":memory:", "BTCUSDT", 300, "1m")
+
+
+def test_flow_response_history_returns_oldest_first():
+    mock_pipeline = _make_mock_pipeline()
+    mock_config = _make_mock_config()
+    newest_first = [
+        {"event_time": "2026-07-21T00:01:00+00:00", "window_sec": "30", "state": "BUY_TRAPPED"},
+        {"event_time": "2026-07-21T00:00:00+00:00", "window_sec": "30", "state": "BUY_STALLED"},
+    ]
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.query_flow_response_events", return_value=newest_first) as history_query, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get("/api/history/flow-response?limit=99999")
+
+    assert response.status_code == 200
+    events = response.json()["events"]
+    assert events[0]["state"] == "BUY_STALLED"
+    assert events[1]["state"] == "BUY_TRAPPED"
+    history_query.assert_called_once_with(":memory:", "BTCUSDT", 10000)
+
+
 def test_api_health_unknown_before_first_sample():
     """monitor 無効 (health loop 未稼働) では UNKNOWN を返す。"""
     mock_pipeline = _make_mock_pipeline()

@@ -26,6 +26,10 @@ import pyarrow.parquet as pq
 from .schema import (
     CANDLES_DDL,
     CANDLES_SCHEMA,
+    FLOW_RESPONSE_EVENTS_DDL,
+    FLOW_RESPONSE_EVENTS_SCHEMA,
+    FLOW_RESPONSE_OUTCOMES_DDL,
+    FLOW_RESPONSE_OUTCOMES_SCHEMA,
     SIGNALS_DDL,
     SIGNALS_SCHEMA,
     TRADES_DDL,
@@ -71,6 +75,8 @@ class DuckDbWriter:
         self._con.execute(TRADES_DDL)
         self._con.execute(CANDLES_DDL)
         self._con.execute(SIGNALS_DDL)
+        self._con.execute(FLOW_RESPONSE_EVENTS_DDL)
+        self._con.execute(FLOW_RESPONSE_OUTCOMES_DDL)
         self.duplicates = 0
 
     def _insert(self, table: str, arrow_table: pa.Table) -> int:
@@ -109,6 +115,12 @@ class DuckDbWriter:
             self._con.unregister("_batch")
         return arrow_table.num_rows
 
+    def insert_flow_response_events(self, arrow_table: pa.Table) -> int:
+        return self._insert("flow_response_events", arrow_table)
+
+    def insert_flow_response_outcomes(self, arrow_table: pa.Table) -> int:
+        return self._insert("flow_response_outcomes", arrow_table)
+
     def count(self, table: str) -> int:
         return self._con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
 
@@ -145,12 +157,16 @@ class StorageWriter:
         self._trades: list[dict] = []
         self._candles: list[dict] = []
         self._signals: list[dict] = []
+        self._flow_response_events: list[dict] = []
+        self._flow_response_outcomes: list[dict] = []
         self._last_flush = clock()
         self._seq = 0
         # counters
         self.trades_written = 0
         self.candles_written = 0
         self.signals_written = 0
+        self.flow_response_events_written = 0
+        self.flow_response_outcomes_written = 0
         self.flushes = 0
 
     @classmethod
@@ -182,22 +198,37 @@ class StorageWriter:
         if len(self._signals) >= self.batch_size:
             self.flush()
 
+    def add_flow_response_event(self, row: dict) -> None:
+        self._flow_response_events.append(row)
+        if len(self._flow_response_events) >= self.batch_size:
+            self.flush()
+
+    def add_flow_response_outcome(self, row: dict) -> None:
+        self._flow_response_outcomes.append(row)
+        if len(self._flow_response_outcomes) >= self.batch_size:
+            self.flush()
+
     def tick(self) -> None:
         """Time-based flush: call periodically; flushes if the interval elapsed."""
         if (self._clock() - self._last_flush) >= self.flush_interval_sec and (
             self._trades or self._candles or self._signals
+            or self._flow_response_events or self._flow_response_outcomes
         ):
             self.flush()
 
     # -- parquet --
-    def _write_parquet(self, rows: list[dict], schema: pa.Schema, time_col: str, has_timeframe: bool) -> None:
+    def _write_parquet(
+        self, rows: list[dict], schema: pa.Schema, time_col: str,
+        has_timeframe: bool, dataset: str | None = None,
+    ) -> None:
         table = pa.Table.from_pylist(rows, schema=schema)
         # group row indices by partition
         groups: dict[Path, list[dict]] = {}
         for row in rows:
             when = row[time_col]
             timeframe = row["timeframe"] if has_timeframe else None
-            directory = _partition_dir(self._pq_base, row["symbol"], when, timeframe)
+            base = self._pq_base / dataset if dataset else self._pq_base
+            directory = _partition_dir(base, row["symbol"], when, timeframe)
             groups.setdefault(directory, []).append(row)
         for directory, group_rows in groups.items():
             directory.mkdir(parents=True, exist_ok=True)
@@ -227,6 +258,24 @@ class StorageWriter:
             self._duck.insert_signals(arrow)
             self.signals_written += len(self._signals)
             self._signals = []
+        if self._flow_response_events:
+            arrow = pa.Table.from_pylist(self._flow_response_events, schema=FLOW_RESPONSE_EVENTS_SCHEMA)
+            self._write_parquet(
+                self._flow_response_events, FLOW_RESPONSE_EVENTS_SCHEMA, "event_time",
+                has_timeframe=False, dataset="flow_response_events",
+            )
+            inserted = self._duck.insert_flow_response_events(arrow)
+            self.flow_response_events_written += inserted
+            self._flow_response_events = []
+        if self._flow_response_outcomes:
+            arrow = pa.Table.from_pylist(self._flow_response_outcomes, schema=FLOW_RESPONSE_OUTCOMES_SCHEMA)
+            self._write_parquet(
+                self._flow_response_outcomes, FLOW_RESPONSE_OUTCOMES_SCHEMA, "event_time",
+                has_timeframe=False, dataset="flow_response_outcomes",
+            )
+            inserted = self._duck.insert_flow_response_outcomes(arrow)
+            self.flow_response_outcomes_written += inserted
+            self._flow_response_outcomes = []
         self._seq += 1
         self._last_flush = self._clock()
         self.flushes += 1

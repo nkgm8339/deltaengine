@@ -109,6 +109,8 @@ def test_shipped_config_is_valid() -> None:
     assert config.signal.weight.cvd == pytest.approx(1.0)
     assert config.calibration.cvd_slope_ref is None
     assert config.replay.speed == pytest.approx(1.0)
+    assert list(config.flow_response.windows_sec) == [30, 60, 180, 300, 900, 1800]
+    assert list(config.flow_response.outcome_horizons_sec) == [60, 180, 300, 600]
 
 
 def test_base_dict_loads(tmp_path: Path) -> None:
@@ -134,6 +136,19 @@ def test_optional_sections_default(tmp_path: Path) -> None:
     assert config.signal.confidence_threshold == pytest.approx(0.6)
     assert config.queue.overflow_policy == "drop_oldest_log"
     assert config.calibration.cvd_slope_ref is None
+    assert config.flow_response.enabled is True
+    assert config.flow_response.baseline_window_sec == 1800
+
+
+def test_flow_response_windows_must_be_positive_nonempty_list(tmp_path: Path) -> None:
+    data = _base_dict()
+    data["flow_response"] = {"windows_sec": []}
+    with pytest.raises(ConfigValidationError):
+        load_config(_write(tmp_path, data))
+
+    data["flow_response"] = {"windows_sec": [60, 0]}
+    with pytest.raises(ConfigValidationError):
+        load_config(_write(tmp_path, data))
 
 
 def test_calibration_accepts_number(tmp_path: Path) -> None:

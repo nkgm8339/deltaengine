@@ -12,6 +12,7 @@ M11:    signals table added (SignalEngine output per confirmed bar).
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 import pyarrow as pa
@@ -104,6 +105,97 @@ CREATE TABLE IF NOT EXISTS signals (
 SIGNALS_COLUMNS = [f.name for f in SIGNALS_SCHEMA]
 
 
+_SCALE_8 = Decimal("0.00000001")
+
+
+def _q8(value: Any):
+    """Quantize derived Decimal metrics to the storage schema's scale."""
+    if value is None:
+        return None
+    parsed = value if isinstance(value, Decimal) else Decimal(str(value))
+    return parsed.quantize(_SCALE_8)
+
+
+# --- flow/price response research records ------------------------------------
+# These tables preserve observations and raw forward outcomes. They contain no
+# predicted probability and no inferred trade instruction.
+FLOW_RESPONSE_EVENTS_SCHEMA = pa.schema(
+    [
+        ("event_time", TIMESTAMP),
+        ("symbol", pa.string()),
+        ("window_sec", pa.int32()),
+        ("state", pa.string()),
+        ("pressure_side", pa.string()),
+        ("buy_volume", DECIMAL),
+        ("sell_volume", DECIMAL),
+        ("delta", DECIMAL),
+        ("pressure_ratio", DECIMAL),
+        ("persistence", DECIMAL),
+        ("first_price", DECIMAL),
+        ("last_price", DECIMAL),
+        ("price_change", DECIMAL),
+        ("price_change_bps", DECIMAL),
+        ("relative_volume", DECIMAL),
+        ("trade_count", pa.int64()),
+    ]
+)
+
+FLOW_RESPONSE_EVENTS_DDL = """
+CREATE TABLE IF NOT EXISTS flow_response_events (
+    event_time TIMESTAMP,
+    symbol VARCHAR,
+    window_sec INTEGER,
+    state VARCHAR,
+    pressure_side VARCHAR,
+    buy_volume DECIMAL(20,8),
+    sell_volume DECIMAL(20,8),
+    delta DECIMAL(20,8),
+    pressure_ratio DECIMAL(20,8),
+    persistence DECIMAL(20,8),
+    first_price DECIMAL(20,8),
+    last_price DECIMAL(20,8),
+    price_change DECIMAL(20,8),
+    price_change_bps DECIMAL(20,8),
+    relative_volume DECIMAL(20,8),
+    trade_count BIGINT,
+    PRIMARY KEY (event_time, symbol, window_sec)
+);
+"""
+
+FLOW_RESPONSE_OUTCOMES_SCHEMA = pa.schema(
+    [
+        ("event_time", TIMESTAMP),
+        ("symbol", pa.string()),
+        ("window_sec", pa.int32()),
+        ("state", pa.string()),
+        ("horizon_sec", pa.int32()),
+        ("observed_price", DECIMAL),
+        ("outcome_time", TIMESTAMP),
+        ("outcome_price", DECIMAL),
+        ("forward_return_bps", DECIMAL),
+        ("max_up_bps", DECIMAL),
+        ("max_down_bps", DECIMAL),
+    ]
+)
+
+FLOW_RESPONSE_OUTCOMES_DDL = """
+CREATE TABLE IF NOT EXISTS flow_response_outcomes (
+    event_time TIMESTAMP,
+    symbol VARCHAR,
+    window_sec INTEGER,
+    state VARCHAR,
+    horizon_sec INTEGER,
+    observed_price DECIMAL(20,8),
+    outcome_time TIMESTAMP,
+    outcome_price DECIMAL(20,8),
+    forward_return_bps DECIMAL(20,8),
+    max_up_bps DECIMAL(20,8),
+    max_down_bps DECIMAL(20,8),
+    PRIMARY KEY (event_time, symbol, window_sec, horizon_sec)
+);
+"""
+
+
 def signal_to_row(signal_time: datetime, symbol: str, signal_result: Any) -> dict:
     """SignalResult + metadata -> signals row dict (canonical column order).
 
@@ -114,6 +206,43 @@ def signal_to_row(signal_time: datetime, symbol: str, signal_result: Any) -> dic
         "symbol": symbol,
         "signal": signal_result.signal,
         "confidence": float(signal_result.confidence),
+    }
+
+
+def flow_response_event_to_row(snapshot: Any) -> dict:
+    return {
+        "event_time": snapshot.event_time,
+        "symbol": snapshot.symbol,
+        "window_sec": snapshot.window_sec,
+        "state": snapshot.state.value,
+        "pressure_side": snapshot.pressure_side,
+        "buy_volume": snapshot.buy_volume,
+        "sell_volume": snapshot.sell_volume,
+        "delta": snapshot.delta,
+        "pressure_ratio": _q8(snapshot.pressure_ratio),
+        "persistence": _q8(snapshot.persistence),
+        "first_price": snapshot.first_price,
+        "last_price": snapshot.last_price,
+        "price_change": snapshot.price_change,
+        "price_change_bps": _q8(snapshot.price_change_bps),
+        "relative_volume": _q8(snapshot.relative_volume),
+        "trade_count": snapshot.trade_count,
+    }
+
+
+def flow_response_outcome_to_row(outcome: Any) -> dict:
+    return {
+        "event_time": outcome.event_time,
+        "symbol": outcome.symbol,
+        "window_sec": outcome.window_sec,
+        "state": outcome.state.value,
+        "horizon_sec": outcome.horizon_sec,
+        "observed_price": outcome.observed_price,
+        "outcome_time": outcome.outcome_time,
+        "outcome_price": outcome.outcome_price,
+        "forward_return_bps": _q8(outcome.forward_return_bps),
+        "max_up_bps": _q8(outcome.max_up_bps),
+        "max_down_bps": _q8(outcome.max_down_bps),
     }
 
 

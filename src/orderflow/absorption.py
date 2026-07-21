@@ -45,10 +45,17 @@ class AbsorptionResult:
 
     classification: "BUY_ABSORPTION" | "SELL_ABSORPTION"
     strength: 0.0-1.0 (normalised absorption strength)
+    price_low / price_high: stalled price range
+    price_low: minimum stalled price in the detection window
+    price_high: maximum stalled price in the detection window
     """
 
     classification: str
     strength: Decimal
+    price_low: Decimal
+    price_high: Decimal
+    price_low: Decimal
+    price_high: Decimal
 
 
 class AbsorptionDetector:
@@ -82,6 +89,26 @@ class AbsorptionDetector:
         self.stall_condition_fails: int = 0
         self.replenish_condition_fails: int = 0
         self.double_direction_events: int = 0
+
+    def set_params(self, *, price_stall_ticks: Optional[int] = None,
+                   volume_multiplier: Optional[Decimal] = None) -> None:
+        """Live-adjust detection thresholds without touching the window."""
+        if price_stall_ticks is not None:
+            self._price_stall_ticks = int(price_stall_ticks)
+        if volume_multiplier is not None:
+            self._volume_multiplier = Decimal(str(volume_multiplier))
+
+    def set_params(
+        self,
+        *,
+        price_stall_ticks: Optional[int] = None,
+        volume_multiplier: Optional[Decimal] = None,
+    ) -> None:
+        """Live-adjust detection thresholds (spec §7 gear). Window buffer untouched."""
+        if price_stall_ticks is not None:
+            self._price_stall_ticks = int(price_stall_ticks)
+        if volume_multiplier is not None:
+            self._volume_multiplier = Decimal(str(volume_multiplier))
 
     def observe_trade(self, trade: Any) -> None:
         """Process one trade; update the sliding window and evaluate detection."""
@@ -165,6 +192,8 @@ class AbsorptionDetector:
             return None
 
         # Step 6: Judgment — BUY_ABSORPTION priority on double-direction tie (decision 5).
+        p_low = min(distinct_prices)
+        p_high = max(distinct_prices)
         if buy_replenished and sell_replenished:
             self.double_direction_events += 1
             sell_replenished = False
@@ -172,8 +201,14 @@ class AbsorptionDetector:
         if buy_replenished:
             strength = min(agg_sell / threshold, _ONE)
             self.events_detected += 1
-            return AbsorptionResult(classification="BUY_ABSORPTION", strength=strength)
+            return AbsorptionResult(
+                classification="BUY_ABSORPTION", strength=strength,
+                price_low=p_low, price_high=p_high,
+            )
         else:
             strength = min(agg_buy / threshold, _ONE)
             self.events_detected += 1
-            return AbsorptionResult(classification="SELL_ABSORPTION", strength=strength)
+            return AbsorptionResult(
+                classification="SELL_ABSORPTION", strength=strength,
+                price_low=p_low, price_high=p_high,
+            )

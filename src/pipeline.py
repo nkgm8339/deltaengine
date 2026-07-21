@@ -41,7 +41,13 @@ from .acquisition.connector import ExchangeConnector
 from .acquisition.event_queue import BoundedEventQueue
 from .acquisition.receiver import STOP, DataReceiver, JsonlRecorder, default_validate
 from .acquisition.replay import ReplaySource
-from .database.schema import candle_to_row, signal_to_row, trade_to_row
+from .database.schema import (
+    candle_to_row,
+    flow_response_event_to_row,
+    flow_response_outcome_to_row,
+    signal_to_row,
+    trade_to_row,
+)
 from .database.storage import StorageWriter
 from .normalization.normalizer import (
     DataNormalizer,
@@ -54,7 +60,6 @@ from .orderflow.absorption import AbsorptionDetector
 from .orderflow.cvd import CvdCalculator
 from .orderflow.multi_timeframe import MultiTimeframeCandleAggregator
 from .orderflow.divergence import CvdDivergenceDetector
-from .orderflow.trend import EmaTrendDetector, apply_trend_filter
 from .orderflow.flow_detector import (
     ExhaustionDetector,
     FlowEvent,
@@ -64,9 +69,13 @@ from .orderflow.flow_detector import (
     UnfinishedAuctionDetector,
 )
 from .orderflow.footprint import FootprintCalculator
+from .orderflow.flow_price_response import (
+    FlowPriceResponseDetector,
+    FlowResponseOutcomeTracker,
+)
 from .orderflow.imbalance import ImbalanceDetector, ImbalanceResult
 from .orderflow.orderbook import OrderBookStateManager
-from .orderflow.signal import SignalEngine, SignalResult, score_cvd, score_footprint, score_imbalance
+from .orderflow.signal import SignalEngine, SignalResult
 from .orderflow.volume_ref import VolumeRefTracker
 
 logger = logging.getLogger("pipeline")
@@ -258,6 +267,16 @@ class ReplayPipeline:
         divergence_equal_pivot_policy: str = "first",
         divergence_min_price_move: Decimal = Decimal("0"),
         divergence_min_bar_distance: int = 0,
+        flow_response_enabled: bool = True,
+        flow_response_windows_sec: tuple[int, ...] = (30, 60, 180, 300, 900, 1800),
+        flow_response_baseline_window_sec: int = 1800,
+        flow_response_pressure_threshold: Decimal = Decimal("0.20"),
+        flow_response_persistence_threshold: Decimal = Decimal("0.60"),
+        flow_response_stall_bps: Decimal = Decimal("1.0"),
+        flow_response_effective_bps: Decimal = Decimal("2.0"),
+        flow_response_opposite_bps: Decimal = Decimal("1.0"),
+        flow_response_min_trades: int = 20,
+        flow_response_outcome_horizons_sec: tuple[int, ...] = (60, 180, 300, 600),
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -286,6 +305,16 @@ class ReplayPipeline:
         self.divergence_equal_pivot_policy = divergence_equal_pivot_policy
         self.divergence_min_price_move = divergence_min_price_move
         self.divergence_min_bar_distance = divergence_min_bar_distance
+        self.flow_response_enabled = flow_response_enabled
+        self.flow_response_windows_sec = tuple(flow_response_windows_sec)
+        self.flow_response_baseline_window_sec = flow_response_baseline_window_sec
+        self.flow_response_pressure_threshold = flow_response_pressure_threshold
+        self.flow_response_persistence_threshold = flow_response_persistence_threshold
+        self.flow_response_stall_bps = flow_response_stall_bps
+        self.flow_response_effective_bps = flow_response_effective_bps
+        self.flow_response_opposite_bps = flow_response_opposite_bps
+        self.flow_response_min_trades = flow_response_min_trades
+        self.flow_response_outcome_horizons_sec = tuple(flow_response_outcome_horizons_sec)
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
         self.trend_state = None
@@ -303,6 +332,7 @@ class ReplayPipeline:
         imb = config.imbalance
         abs_ = config.absorption
         div = config.divergence
+        fr = config.flow_response
         cvd_ref = sig.cvd_slope_ref  # decision 11: use signal.cvd_slope_ref
         return cls(
             symbol=config.market.symbol,
@@ -332,6 +362,16 @@ class ReplayPipeline:
             divergence_equal_pivot_policy=div.equal_pivot_policy,
             divergence_min_price_move=Decimal(div.min_price_move),
             divergence_min_bar_distance=div.min_bar_distance,
+            flow_response_enabled=fr.enabled,
+            flow_response_windows_sec=tuple(fr.windows_sec),
+            flow_response_baseline_window_sec=fr.baseline_window_sec,
+            flow_response_pressure_threshold=Decimal(fr.pressure_threshold),
+            flow_response_persistence_threshold=Decimal(fr.persistence_threshold),
+            flow_response_stall_bps=Decimal(fr.stall_bps),
+            flow_response_effective_bps=Decimal(fr.effective_bps),
+            flow_response_opposite_bps=Decimal(fr.opposite_bps),
+            flow_response_min_trades=fr.min_trades,
+            flow_response_outcome_horizons_sec=tuple(fr.outcome_horizons_sec),
         )
 
     def run(self, data_path: str | Path) -> ReplayStats:
@@ -339,12 +379,30 @@ class ReplayPipeline:
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
-        trend_detector = EmaTrendDetector()
         divergence_detector = CvdDivergenceDetector(
             equal_pivot_policy=self.divergence_equal_pivot_policy,
             min_price_move=self.divergence_min_price_move,
             min_bar_distance=self.divergence_min_bar_distance,
         )
+        flow_response_detector = None
+        flow_response_tracker = None
+        if self.flow_response_enabled:
+            flow_response_detector = FlowPriceResponseDetector(
+                windows_sec=self.flow_response_windows_sec,
+                baseline_window_sec=self.flow_response_baseline_window_sec,
+                pressure_threshold=self.flow_response_pressure_threshold,
+                persistence_threshold=self.flow_response_persistence_threshold,
+                stall_bps=self.flow_response_stall_bps,
+                effective_bps=self.flow_response_effective_bps,
+                opposite_bps=self.flow_response_opposite_bps,
+                min_trades=self.flow_response_min_trades,
+            )
+            flow_response_tracker = FlowResponseOutcomeTracker(
+                self.flow_response_outcome_horizons_sec
+            )
+        self.flow_response = ()
+        self.flow_response_events = deque(maxlen=5000)
+        self.flow_response_outcomes = deque(maxlen=5000)
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -383,18 +441,29 @@ class ReplayPipeline:
         def handle(normalized) -> None:
             nonlocal analysis_count
             storage.add_trade(trade_to_row(normalized))
+            if flow_response_detector is not None and flow_response_tracker is not None:
+                snapshots = flow_response_detector.process(normalized)
+                if snapshots:
+                    self.flow_response = snapshots
+                    events = flow_response_tracker.register(snapshots)
+                    self.flow_response_events.extend(events)
+                    for event in events:
+                        storage.add_flow_response_event(flow_response_event_to_row(event))
+                outcomes = flow_response_tracker.observe_trade(normalized)
+                self.flow_response_outcomes.extend(outcomes)
+                for outcome in outcomes:
+                    storage.add_flow_response_outcome(flow_response_outcome_to_row(outcome))
             cvd_result = cvd.process(normalized)
             if cvd_result.accepted:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
-                if "15m" in closed_higher:
-                    self.trend_state = trend_detector.update(closed_higher["15m"])
             fp_closed = footprint.process_trade(normalized)
             absorption.observe_trade(normalized)
             if cvd_result.closed_candle is not None:
                 detected_divergence = divergence_detector.update(cvd_result.closed_candle)
-                if detected_divergence is not None:
-                    self.divergence = detected_divergence
+                # Spec §3.2: event indicators are silent on non-fire bars.
+                # Assign every bar (None when nothing fired) — fixes stale-persist bug.
+                self.divergence = detected_divergence
                 storage.add_candle(candle_to_row(cvd_result.closed_candle))
                 if fp_closed is None:
                     logger.warning(
@@ -424,6 +493,15 @@ class ReplayPipeline:
                     handle(normalized)
         for normalized in normalizer.flush():
             handle(normalized)
+
+        if flow_response_detector is not None and flow_response_tracker is not None:
+            snapshots = flow_response_detector.finalize()
+            if snapshots:
+                self.flow_response = snapshots
+                events = flow_response_tracker.register(snapshots)
+                self.flow_response_events.extend(events)
+                for event in events:
+                    storage.add_flow_response_event(flow_response_event_to_row(event))
 
         final_candle = cvd.finalize()
         final_fp = footprint.finalize()
@@ -464,6 +542,8 @@ class _BarCloseResult:
     signal_result: SignalResult
     absorption_result: Optional[Any]
     module_scores: dict  # {"cvd": Decimal|None, "footprint": Decimal|None, "imbalance": Decimal|None}
+    imbalance_detector: Any = None  # exposed for webapp wall payload (Imbalance独立化)
+    flow_events: Optional[list] = None  # exposed for ANALYSIS payload (Flow独立化)
 
 
 def _evaluate_and_store(
@@ -491,34 +571,6 @@ def _evaluate_and_store(
     """
     imbalance_result = imbalance_detector.detect(fp_bar)
 
-    # IMBALANCE flow events (2 directions each fired separately). Strength is
-    # net/(stack_ref*2) capped at 1 (Task-A: halved so strong-but-not-extreme
-    # stacks no longer saturate at 1.00), gated by a same-direction cooldown.
-    if on_webapp_flow_event is not None:
-        buy_net = sum(si.count for si in imbalance_result.stacked_imbalances if si.direction == "BUY")
-        sell_net = sum(si.count for si in imbalance_result.stacked_imbalances if si.direction == "SELL")
-        stack_ref_d = Decimal(str(stack_ref))
-        for direction, net_int in (("BUY", buy_net), ("SELL", sell_net)):
-            net = Decimal(str(net_int))
-            st = imbalance_fire_state.get(direction) if imbalance_fire_state is not None else None
-            bars_since = st["bars_since"] if st else None
-            last_net = st["last_net"] if st else _DEC_ZERO
-            if net_int > 0 and _imbalance_should_fire(net, bars_since, last_net):
-                on_webapp_flow_event(PushFlowEvent(
-                    event_time=candle.bar_time,
-                    symbol=candle.symbol,
-                    category="IMBALANCE",
-                    side=direction,
-                    strength=min(net / (stack_ref_d * 2), Decimal("1")),
-                    detector="ImbalanceDetector",
-                    detail=f"stacked_count={net_int}",
-                ))
-                if imbalance_fire_state is not None:
-                    imbalance_fire_state[direction] = {"bars_since": 0, "last_net": net}
-            elif imbalance_fire_state is not None and bars_since is not None:
-                # Age the cooldown only once it has fired at least once.
-                imbalance_fire_state[direction] = {"bars_since": bars_since + 1, "last_net": last_net}
-
     buy_total = sum((lv.buy_volume for lv in fp_bar.levels), Decimal(0))
     sell_total = sum((lv.sell_volume for lv in fp_bar.levels), Decimal(0))
     if buy_total + sell_total == Decimal(0):
@@ -527,16 +579,25 @@ def _evaluate_and_store(
     per_level_volumes = [lv.buy_volume + lv.sell_volume for lv in fp_bar.levels]
     volume_ref.observe_bar(per_level_volumes)
 
-    s_cvd = score_cvd(candle.delta, cvd_slope_ref)
-    s_fp = score_footprint(buy_total, sell_total)
-    s_imb = score_imbalance(imbalance_result, stack_ref)
+    # CVD is now an independent native indicator (spec §9 step1); pull it out of
+    # composite by passing None; CVD is rendered through its independent payload.
+    s_cvd = None
+    # Footprint is now an independent native indicator (spec §9 step2, same
+    # treatment as CVD): pull it out of composite by passing None. Its native
+    # reading (POC / Value Area) is computed webapp-side and rendered in the
+    # footprint panel with a gear-adjustable VA%.
+    s_fp = None
+    # Imbalance is now an independent native indicator (spec §9 step2-3, same
+    # treatment as CVD/Footprint): pull it out of composite by passing None. Its
+    # native reading (stacked walls) is sent structured in the ANALYSIS payload
+    # and rendered as the independent wall payload.
+    s_imb = None
     absorption_result = absorption.current()
     signal_result = signal_engine.evaluate(
         s_cvd, s_fp, s_imb,
         absorption_result=absorption_result,
-        flow_events=flow_events,
+        flow_events=None,
     )
-    signal_result = apply_trend_filter(signal_result, trend_state)
     storage.add_signal(signal_to_row(candle.bar_time, candle.symbol, signal_result))
 
     analysis_input = AnalysisInput(
@@ -555,6 +616,8 @@ def _evaluate_and_store(
         signal_result=signal_result,
         absorption_result=absorption_result,
         module_scores={"cvd": s_cvd, "footprint": s_fp, "imbalance": s_imb},
+        imbalance_detector=imbalance_detector,
+        flow_events=flow_events,
     )
 
 
@@ -660,6 +723,7 @@ class LivePipeline:
         on_liquidation: Optional[Callable] = None,
         on_flow_event: Optional[Callable] = None,
         on_webapp_flow_event: Optional[Callable] = None,
+        on_flow_response: Optional[Callable] = None,
         flow_large_trade_min_qty: Decimal = Decimal("5.0"),
         flow_sweep_window_ms: int = 500,
         flow_sweep_min_qty: Decimal = Decimal("8.0"),
@@ -670,6 +734,16 @@ class LivePipeline:
         flow_tape_window_ms: int = 5000,
         flow_tape_emit_interval_ms: int = 1000,
         flow_tape_pause_threshold_ms: int = 3000,
+        flow_response_enabled: bool = True,
+        flow_response_windows_sec: tuple[int, ...] = (30, 60, 180, 300, 900, 1800),
+        flow_response_baseline_window_sec: int = 1800,
+        flow_response_pressure_threshold: Decimal = Decimal("0.20"),
+        flow_response_persistence_threshold: Decimal = Decimal("0.60"),
+        flow_response_stall_bps: Decimal = Decimal("1.0"),
+        flow_response_effective_bps: Decimal = Decimal("2.0"),
+        flow_response_opposite_bps: Decimal = Decimal("1.0"),
+        flow_response_min_trades: int = 20,
+        flow_response_outcome_horizons_sec: tuple[int, ...] = (60, 180, 300, 600),
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -724,6 +798,7 @@ class LivePipeline:
         self.on_liquidation = on_liquidation
         self.on_flow_event = on_flow_event
         self.on_webapp_flow_event = on_webapp_flow_event
+        self.on_flow_response = on_flow_response
         self.flow_large_trade_min_qty = flow_large_trade_min_qty
         self.flow_sweep_window_ms = flow_sweep_window_ms
         self.flow_sweep_min_qty = flow_sweep_min_qty
@@ -734,6 +809,16 @@ class LivePipeline:
         self.flow_tape_window_ms = flow_tape_window_ms
         self.flow_tape_emit_interval_ms = flow_tape_emit_interval_ms
         self.flow_tape_pause_threshold_ms = flow_tape_pause_threshold_ms
+        self.flow_response_enabled = flow_response_enabled
+        self.flow_response_windows_sec = tuple(flow_response_windows_sec)
+        self.flow_response_baseline_window_sec = flow_response_baseline_window_sec
+        self.flow_response_pressure_threshold = flow_response_pressure_threshold
+        self.flow_response_persistence_threshold = flow_response_persistence_threshold
+        self.flow_response_stall_bps = flow_response_stall_bps
+        self.flow_response_effective_bps = flow_response_effective_bps
+        self.flow_response_opposite_bps = flow_response_opposite_bps
+        self.flow_response_min_trades = flow_response_min_trades
+        self.flow_response_outcome_horizons_sec = tuple(flow_response_outcome_horizons_sec)
 
     @classmethod
     def from_config(
@@ -749,6 +834,7 @@ class LivePipeline:
         imb = config.imbalance
         abs_ = config.absorption
         div = config.divergence
+        fr = config.flow_response
         cvd_ref = sig.cvd_slope_ref
         return cls(
             symbol=config.market.symbol,
@@ -804,6 +890,16 @@ class LivePipeline:
             flow_tape_window_ms=config.flow_detector.tape_window_ms,
             flow_tape_emit_interval_ms=config.flow_detector.tape_emit_interval_ms,
             flow_tape_pause_threshold_ms=config.flow_detector.tape_pause_threshold_ms,
+            flow_response_enabled=fr.enabled,
+            flow_response_windows_sec=tuple(fr.windows_sec),
+            flow_response_baseline_window_sec=fr.baseline_window_sec,
+            flow_response_pressure_threshold=Decimal(fr.pressure_threshold),
+            flow_response_persistence_threshold=Decimal(fr.persistence_threshold),
+            flow_response_stall_bps=Decimal(fr.stall_bps),
+            flow_response_effective_bps=Decimal(fr.effective_bps),
+            flow_response_opposite_bps=Decimal(fr.opposite_bps),
+            flow_response_min_trades=fr.min_trades,
+            flow_response_outcome_horizons_sec=tuple(fr.outcome_horizons_sec),
         )
 
     async def run_async(
@@ -851,12 +947,27 @@ class LivePipeline:
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
-        trend_detector = EmaTrendDetector()
         divergence_detector = CvdDivergenceDetector(
             equal_pivot_policy=self.divergence_equal_pivot_policy,
             min_price_move=self.divergence_min_price_move,
             min_bar_distance=self.divergence_min_bar_distance,
         )
+        flow_response_detector = None
+        flow_response_tracker = None
+        if self.flow_response_enabled:
+            flow_response_detector = FlowPriceResponseDetector(
+                windows_sec=self.flow_response_windows_sec,
+                baseline_window_sec=self.flow_response_baseline_window_sec,
+                pressure_threshold=self.flow_response_pressure_threshold,
+                persistence_threshold=self.flow_response_persistence_threshold,
+                stall_bps=self.flow_response_stall_bps,
+                effective_bps=self.flow_response_effective_bps,
+                opposite_bps=self.flow_response_opposite_bps,
+                min_trades=self.flow_response_min_trades,
+            )
+            flow_response_tracker = FlowResponseOutcomeTracker(
+                self.flow_response_outcome_horizons_sec
+            )
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -929,6 +1040,9 @@ class LivePipeline:
         self._last_bar_close: Optional[_BarCloseResult] = None
         self._last_fp_bar: Optional[Any] = None
         self.flow_event_buffer = flow_event_buffer
+        self.flow_response = ()
+        self.flow_response_events = deque(maxlen=5000)
+        self.flow_response_outcomes = deque(maxlen=5000)
         # Per-direction cooldown state for webapp IMBALANCE flow events (Task-A).
         self._imbalance_fire_state: dict = {}
 
@@ -953,14 +1067,26 @@ class LivePipeline:
         def handle(normalized) -> None:
             storage.add_trade(trade_to_row(normalized))
             self._last_event_time = normalized.event_time
+            if flow_response_detector is not None and flow_response_tracker is not None:
+                snapshots = flow_response_detector.process(normalized)
+                if snapshots:
+                    self.flow_response = snapshots
+                    events = flow_response_tracker.register(snapshots)
+                    self.flow_response_events.extend(events)
+                    for event in events:
+                        storage.add_flow_response_event(flow_response_event_to_row(event))
+                    if self.on_flow_response is not None:
+                        self.on_flow_response(snapshots)
+                outcomes = flow_response_tracker.observe_trade(normalized)
+                self.flow_response_outcomes.extend(outcomes)
+                for outcome in outcomes:
+                    storage.add_flow_response_outcome(flow_response_outcome_to_row(outcome))
             if self.on_trade is not None:
                 self.on_trade(normalized)
             cvd_result = cvd.process(normalized)
             if cvd_result.accepted:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
-                if "15m" in closed_higher:
-                    self.trend_state = trend_detector.update(closed_higher["15m"])
             fp_closed = footprint.process_trade(normalized)
             prev_abs = absorption.events_detected
             absorption.observe_trade(normalized)
@@ -989,8 +1115,9 @@ class LivePipeline:
                 _emit_flow(_ta)
             if cvd_result.closed_candle is not None:
                 detected_divergence = divergence_detector.update(cvd_result.closed_candle)
-                if detected_divergence is not None:
-                    self.divergence = detected_divergence
+                # Spec §3.2: event indicators are silent on non-fire bars.
+                # Assign every bar (None when nothing fired) — fixes stale-persist bug.
+                self.divergence = detected_divergence
                 storage.add_candle(candle_to_row(cvd_result.closed_candle))
                 if fp_closed is None:
                     logger.warning(
@@ -1129,6 +1256,16 @@ class LivePipeline:
                         handle(normalized)
             for normalized in normalizer.flush():
                 handle(normalized)
+            if flow_response_detector is not None and flow_response_tracker is not None:
+                snapshots = flow_response_detector.finalize()
+                if snapshots:
+                    self.flow_response = snapshots
+                    events = flow_response_tracker.register(snapshots)
+                    self.flow_response_events.extend(events)
+                    for event in events:
+                        storage.add_flow_response_event(flow_response_event_to_row(event))
+                    if self.on_flow_response is not None:
+                        self.on_flow_response(snapshots)
             final_candle = cvd.finalize()
             final_fp = footprint.finalize()
             if final_candle is not None:

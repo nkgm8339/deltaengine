@@ -47,13 +47,13 @@ signal:
     flow: 1.0
   confidence_threshold: 0.6
   cvd_slope_ref: 65.203
-  stack_ref: 3
+  stack_ref: 5
   absorption_veto_threshold: 0.5
   evaluation_window: 1 bar
 
 imbalance:
   ratio_threshold: 3.0
-  min_volume: 0.5
+  min_volume: 0.002
   ratio_cap: 10.0
   stack_count: 3
 
@@ -114,6 +114,20 @@ divergence:
   equal_pivot_policy: first
   min_price_move: "0"
   min_bar_distance: 0
+
+# Order-flow pressure versus price response. States are observations
+# (EFFECTIVE/STALLED/TRAPPED/UNCLEAR), never direct trade instructions.
+flow_response:
+  enabled: true
+  windows_sec: [30, 60, 180, 300, 900, 1800]
+  baseline_window_sec: 1800
+  pressure_threshold: "0.20"
+  persistence_threshold: "0.60"
+  stall_bps: "1.0"
+  effective_bps: "2.0"
+  opposite_bps: "1.0"
+  min_trades: 20
+  outcome_horizons_sec: [60, 180, 300, 600]
 monitor:
   enabled: true
   interval_sec: 5
