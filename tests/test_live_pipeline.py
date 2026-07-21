@@ -343,3 +343,42 @@ def test_flow_price_response_reaches_callback_and_persists_outcome(tmp_path: Pat
         assert row == ("BUY_STALLED", 1, Decimal("0E-8"))
     finally:
         con.close()
+
+
+def test_live_pipeline_rejects_zero_trade_and_keeps_flow_outcome_alive(tmp_path: Path) -> None:
+    pipeline = LivePipeline(
+        symbol="BTCUSDT", timeframe="1m", profile=PROFILE,
+        ws_url="wss://test/ws", subscribe_streams=["btcusdt@aggTrade"],
+        parquet_path=tmp_path / "zero_guard" / "parquet",
+        duckdb_path=tmp_path / "zero_guard" / "orderflow.duckdb",
+        batch_size=10, flush_interval_sec=1, reconnect=False,
+        flow_response_windows_sec=(3,), flow_response_baseline_window_sec=3,
+        flow_response_min_trades=3, flow_response_outcome_horizons_sec=(2,),
+    )
+    messages = [
+        _agg(200 + second, m=False, q="1", epoch_ms=_T0 + second * 1000)
+        for second in range(4)
+    ]
+    invalid = _agg(204, m=False, q="0", epoch_ms=_T0 + 4000)
+    invalid["p"] = "0"
+    messages.extend([invalid, _agg(205, m=False, q="1", epoch_ms=_T0 + 5000)])
+
+    stats = pipeline.run(
+        connect=FakeConnect(messages), poll_interval=0.02, fetch_snapshot=None,
+    )
+
+    assert stats.normalized == 5
+    assert stats.normalizer_rejected == 1
+    assert stats.trades_stored == 5
+    assert len(pipeline.flow_response_events) == 1
+    assert len(pipeline.flow_response_outcomes) == 1
+    assert pipeline.flow_response_outcomes[0].max_down_bps == Decimal("0")
+
+    import duckdb
+    con = duckdb.connect(str(tmp_path / "zero_guard" / "orderflow.duckdb"), read_only=True)
+    try:
+        assert con.execute(
+            "SELECT count(*) FROM trades WHERE price <= 0 OR quantity <= 0"
+        ).fetchone()[0] == 0
+    finally:
+        con.close()

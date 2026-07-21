@@ -148,6 +148,7 @@ class FlowPriceResponseDetector:
         self._symbol: Optional[str] = None
         self.rejected_out_of_order = 0
         self.rejected_invalid_side = 0
+        self.rejected_invalid_trade = 0
 
     @staticmethod
     def _ratio(value: Decimal, name: str) -> Decimal:
@@ -167,6 +168,20 @@ class FlowPriceResponseDetector:
         """Consume one trade and return snapshots when the previous second closes."""
         if trade.side not in ("BUY", "SELL"):
             self.rejected_invalid_side += 1
+            return ()
+        try:
+            price = Decimal(str(trade.price))
+            quantity = Decimal(str(trade.quantity))
+        except (ValueError, TypeError, ArithmeticError, AttributeError):
+            self.rejected_invalid_trade += 1
+            return ()
+        if (
+            not price.is_finite()
+            or price <= _ZERO
+            or not quantity.is_finite()
+            or quantity <= _ZERO
+        ):
+            self.rejected_invalid_trade += 1
             return ()
         if self._last_event_time is not None and trade.event_time < self._last_event_time:
             self.rejected_out_of_order += 1
@@ -357,11 +372,21 @@ class FlowResponseOutcomeTracker:
         self.horizons_sec = horizons
         self._last_state: dict[int, FlowResponseState] = {}
         self._pending: list[_PendingOutcome] = []
+        self.rejected_invalid_snapshot = 0
+        self.rejected_invalid_trade = 0
 
     def register(self, snapshots: Iterable[FlowResponseSnapshot]) -> tuple[FlowResponseSnapshot, ...]:
         """Register non-UNCLEAR state transitions and return the new events."""
         events = []
         for snapshot in snapshots:
+            try:
+                base = Decimal(str(snapshot.last_price))
+            except (ValueError, TypeError, ArithmeticError, AttributeError):
+                self.rejected_invalid_snapshot += 1
+                continue
+            if not base.is_finite() or base <= _ZERO:
+                self.rejected_invalid_snapshot += 1
+                continue
             previous = self._last_state.get(snapshot.window_sec)
             self._last_state[snapshot.window_sec] = snapshot.state
             if snapshot.state is FlowResponseState.UNCLEAR or snapshot.state is previous:
@@ -377,7 +402,20 @@ class FlowResponseOutcomeTracker:
 
     def observe_trade(self, trade: Any) -> tuple[FlowResponseOutcome, ...]:
         """Update excursions and emit every horizon reached by this trade."""
-        price = Decimal(str(trade.price))
+        try:
+            price = Decimal(str(trade.price))
+            quantity = Decimal(str(trade.quantity))
+        except (ValueError, TypeError, ArithmeticError, AttributeError):
+            self.rejected_invalid_trade += 1
+            return ()
+        if (
+            not price.is_finite()
+            or price <= _ZERO
+            or not quantity.is_finite()
+            or quantity <= _ZERO
+        ):
+            self.rejected_invalid_trade += 1
+            return ()
         outcomes = []
         keep = []
         for pending in self._pending:
@@ -391,6 +429,10 @@ class FlowResponseOutcomeTracker:
             due = sorted(h for h in pending.remaining_horizons if elapsed >= h)
             for horizon_sec in due:
                 base = snapshot.last_price
+                if not base.is_finite() or base <= _ZERO:
+                    self.rejected_invalid_snapshot += 1
+                    pending.remaining_horizons.clear()
+                    break
                 outcomes.append(FlowResponseOutcome(
                     event_time=snapshot.event_time,
                     symbol=snapshot.symbol,

@@ -257,6 +257,15 @@ def normalize_raw(raw: dict[str, Any], profile: ExchangeProfile) -> NormalizedTr
     except (ValueError, TypeError, ArithmeticError) as exc:
         raise NormalizationError(f"unmappable numeric field: {exc}") from exc
 
+    # A zero/non-finite trade is not an executable market trade. Letting it
+    # through corrupts price extrema and can later make forward-return code
+    # divide by a zero observation price. Reject it at the canonical boundary
+    # before storage or any order-flow consumer sees it.
+    if not price.is_finite() or price <= 0:
+        raise NormalizationError("price must be finite and greater than zero")
+    if not quantity.is_finite() or quantity <= 0:
+        raise NormalizationError("quantity must be finite and greater than zero")
+
     return NormalizedTrade(
         event_time=_convert_timestamp(field("event_time"), profile.timestamp_format),
         trade_time=_convert_timestamp(field("trade_time"), profile.timestamp_format),

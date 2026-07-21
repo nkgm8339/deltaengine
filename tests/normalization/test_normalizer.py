@@ -113,6 +113,35 @@ def test_invalid_side_rejected() -> None:
     assert exc.value.code == ERROR_INVALID_TRADE
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("px", 0),
+        ("px", -1),
+        ("px", "NaN"),
+        ("px", "Infinity"),
+        ("qty", 0),
+        ("qty", -1),
+        ("qty", "NaN"),
+        ("qty", "Infinity"),
+    ],
+)
+def test_nonpositive_or_nonfinite_trade_values_rejected(field: str, value) -> None:
+    raw = _raw(1767225601000, 1)
+    raw[field] = value
+    with pytest.raises(NormalizationError) as exc:
+        normalize_raw(raw, EX1)
+    assert exc.value.code == ERROR_INVALID_TRADE
+
+
+def test_data_normalizer_counts_zero_trade_as_rejected() -> None:
+    normalizer = DataNormalizer(EX1)
+    assert normalizer.process(_raw(1767225601000, 1, px=0, qty=0)) == []
+    assert normalizer.flush() == []
+    assert normalizer.processed == 0
+    assert normalizer.rejected == 1
+
+
 def test_binance_boolean_side_rule() -> None:
     binance = ExchangeProfile.from_dict(
         {

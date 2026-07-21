@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -110,6 +110,21 @@ def test_out_of_order_trade_is_rejected_without_corrupting_window() -> None:
     assert det.rejected_out_of_order == 1
 
 
+def test_invalid_trade_is_rejected_without_corrupting_window() -> None:
+    det = detector(min_trades=1)
+    det.process(trade(0, "100", "1", "BUY"))
+    det.process(trade(1, "100", "1", "BUY"))
+    assert det.process(trade(2, "0", "0", "BUY")) == ()
+    for second in range(2, 5):
+        det.process(trade(second, "100", "1", "BUY"))
+
+    snapshot = det.finalize()[0]
+    assert snapshot.state is FlowResponseState.BUY_STALLED
+    assert snapshot.first_price == Decimal("100")
+    assert snapshot.last_price == Decimal("100")
+    assert det.rejected_invalid_trade == 1
+
+
 def test_outcome_tracker_records_raw_forward_returns_and_excursions() -> None:
     det = detector(min_trades=1)
     snapshot = run(det, ["100", "100", "100", "100", "100"], "BUY")
@@ -128,6 +143,31 @@ def test_outcome_tracker_records_raw_forward_returns_and_excursions() -> None:
     assert len(second) == 1 and second[0].horizon_sec == 4
     assert second[0].forward_return_bps == Decimal("200")
     assert tracker.pending_count == 0
+
+
+def test_outcome_tracker_ignores_zero_trade_and_keeps_pending_outcome() -> None:
+    snapshot = run(detector(min_trades=1), ["100"] * 5, "BUY")
+    tracker = FlowResponseOutcomeTracker((2,))
+    assert tracker.register((snapshot,)) == (snapshot,)
+
+    assert tracker.observe_trade(trade(6, "0", "0", "SELL")) == ()
+    assert tracker.pending_count == 1
+    assert tracker.rejected_invalid_trade == 1
+
+    outcome = tracker.observe_trade(trade(7, "99", "1", "SELL"))[0]
+    assert outcome.forward_return_bps == Decimal("-100")
+    assert outcome.max_down_bps == Decimal("-100")
+    assert tracker.pending_count == 0
+
+
+def test_outcome_tracker_rejects_zero_base_snapshot() -> None:
+    snapshot = run(detector(min_trades=1), ["100"] * 5, "BUY")
+    invalid = replace(snapshot, last_price=Decimal("0"))
+    tracker = FlowResponseOutcomeTracker((1,))
+
+    assert tracker.register((invalid,)) == ()
+    assert tracker.pending_count == 0
+    assert tracker.rejected_invalid_snapshot == 1
 
 
 def test_storage_rows_quantize_repeating_derived_decimals() -> None:
