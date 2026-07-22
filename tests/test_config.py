@@ -106,6 +106,9 @@ def test_shipped_config_is_valid() -> None:
         "btcusdt@forceOrder",
     ]
     assert config.database.flush_interval_sec == 5
+    assert config.normalizer.live_reorder_tolerance_ms == 0
+    assert config.webapp.tick_push_interval_ms == 50
+    assert config.webapp.bar_update_interval_sec == pytest.approx(0.2)
     assert config.signal.weight.cvd == pytest.approx(1.0)
     assert config.calibration.cvd_slope_ref is None
     assert config.replay.speed == pytest.approx(1.0)

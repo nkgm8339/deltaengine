@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 PAYLOAD_VERSION = 1
 
@@ -66,10 +66,10 @@ class IntervalGate:
     純粋ロジック (時刻は呼び出し側が渡す) — テスト可能。
     """
 
-    def __init__(self, interval_sec: int) -> None:
-        if interval_sec < 1:
-            raise ValueError("interval_sec must be >= 1")
-        self.interval_sec = interval_sec
+    def __init__(self, interval_sec: float) -> None:
+        if interval_sec <= 0:
+            raise ValueError("interval_sec must be > 0")
+        self.interval_sec = float(interval_sec)
         self._last = None  # monotonic clock value (loop.time())
 
     def ready(self, now) -> bool:
@@ -77,6 +77,53 @@ class IntervalGate:
             self._last = now
             return True
         return False
+
+
+class LatestValuePump:
+    """Send only the newest market value at a bounded cadence.
+
+    The analytics path still consumes every trade. This pump is only for the
+    browser projection, where replaying thousands of stale ticks creates visual
+    latency without adding information. Publish is intentionally synchronous
+    and must be called from the event-loop thread.
+    """
+
+    def __init__(
+        self,
+        send: Callable[[Any], Awaitable[None]],
+        interval_sec: float,
+    ) -> None:
+        if interval_sec <= 0:
+            raise ValueError("interval_sec must be > 0")
+        self._send = send
+        self.interval_sec = float(interval_sec)
+        self._wake = asyncio.Event()
+        self._latest: Any = None
+        self._version = 0
+        self.published = 0
+        self.sent = 0
+
+    def publish(self, value: Any) -> None:
+        self._latest = value
+        self._version += 1
+        self.published += 1
+        self._wake.set()
+
+    @property
+    def coalesced(self) -> int:
+        return max(0, self.published - self.sent)
+
+    async def run(self) -> None:
+        while True:
+            await self._wake.wait()
+            self._wake.clear()
+            value = self._latest
+            version = self._version
+            await self._send(value)
+            self.sent += 1
+            if self._version != version:
+                self._wake.set()
+            await asyncio.sleep(self.interval_sec)
 
 
 class PushBroker:
@@ -118,6 +165,7 @@ class PushBroker:
 
     async def on_trade(self, trade) -> None:
         await self._broadcast(envelope("TICK", trade.event_time, self.symbol, {
+            "trade_id": int(trade.trade_id),
             "price": d2s(trade.price),
             "quantity": d2s(trade.quantity),
             "side": trade.side,
@@ -274,7 +322,14 @@ class PushBroker:
         }))
 
 
-    async def on_bar_update(self, candle, footprint_levels) -> None:
+    async def on_bar_update(
+        self,
+        candle,
+        footprint_levels,
+        *,
+        source_trade_id: Optional[int] = None,
+        source_event_time: Optional[datetime] = None,
+    ) -> None:
         """進行中バーのスナップショット配信 (BAR_UPDATE)。
 
         CANDLE と同形の footprint 構造 (levels 価格降順) + in_progress=true。
@@ -289,6 +344,11 @@ class PushBroker:
             "bar_time": candle.bar_time.astimezone(timezone.utc).isoformat(),
             "timeframe": candle.timeframe,
             "in_progress": True,
+            "source_trade_id": source_trade_id,
+            "source_event_time": (
+                source_event_time.astimezone(timezone.utc).isoformat()
+                if source_event_time is not None else None
+            ),
             "open": d2s(candle.open), "high": d2s(candle.high),
             "low": d2s(candle.low), "close": d2s(candle.close),
             "volume": d2s(candle.volume), "delta": d2s(candle.delta), "cvd": d2s(candle.cvd),

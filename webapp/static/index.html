@@ -276,8 +276,30 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 .combination-guide-table .guide-meaning strong{color:#FFE35D}
 .combination-guide-method{margin-top:10px;color:#B9C3EE;font-size:10px;line-height:1.6}
 .combination-guide-note{margin-top:8px;padding:8px 10px;border:1px solid #FFE35D66;border-radius:7px;background:#3F361633;color:#FFF2A8;font-size:11px;font-weight:800;line-height:1.55}
+.chart-help-btn{width:23px;height:23px;flex-basis:23px;font-size:12px}
+.flow-guide-dialog{width:min(900px,calc(100vw - 36px))}
+.flow-guide-table{min-width:720px}
+.flow-guide-table th:nth-child(2){text-align:left}
+.flow-guide-swatch{display:inline-block;width:64px;height:16px;border:1px solid currentColor;border-radius:4px;vertical-align:middle;box-shadow:inset 0 1px #FFFFFF18}
+.flow-guide-swatch.buy-effective{color:#39F89D;background:#39F89D16}
+.flow-guide-swatch.sell-effective{color:#FF365F;background:#FF365F16}
+.flow-guide-swatch.stalled{color:#FFE35D;background:#FFE35D30}
+.flow-guide-swatch.divergence{color:#A66BFF;background:#A66BFF42}
+.flow-guide-swatch.unclear{color:#6674B5;background:transparent;border-style:dashed}
+.flow-guide-state{font-weight:950;letter-spacing:.02em;white-space:nowrap}
+.flow-guide-state.buy{color:#72FFC0}.flow-guide-state.sell{color:#FF6B86}
+.flow-guide-state.stalled{color:#FFE35D}.flow-guide-state.divergence{color:#C9A9FF}.flow-guide-state.unclear{color:#A3AED9}
+.flow-window-manual{margin-top:12px;padding:11px;border:1px solid #23DFFF66;border-radius:9px;background:#10294755}
+.flow-window-manual-title{color:#23DFFF;font-size:10px;font-weight:950;letter-spacing:.11em}
+.flow-window-manual-summary{margin-top:5px;color:#FFFFFF;font-size:13px;font-weight:950;line-height:1.5}
+.flow-window-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:9px 0 0;padding:0;list-style:none}
+.flow-window-step{padding:8px 9px;border:1px solid #3A477F;border-radius:7px;background:#0B0F2599;color:#DDE3FF;font-size:10px;line-height:1.55}
+.flow-window-step strong{display:block;margin-bottom:2px;color:#FFE35D;font-size:11px;letter-spacing:.04em}
+.flow-window-support{margin-top:8px;color:#B9C3EE;font-size:9px;line-height:1.6}
+.flow-window-candle{margin-top:5px;color:#FFFFFF;font-size:9px;font-weight:850;line-height:1.55}
 #charthint{position:absolute;left:15px;bottom:10px;z-index:4;pointer-events:none;color:#FFFFFF;font-size:9px;font-weight:850;letter-spacing:.06em}
 @media(max-width:700px){#bottom.market-chart-panel{height:440px;min-height:440px;flex-basis:440px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}}
+@media(max-width:700px){.flow-window-steps{grid-template-columns:1fr}}
 </style>
 </head>
 <body class="notranslate">
@@ -332,6 +354,48 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
         </div>
         <div class="combination-guide-method">判定基準：PRICEとCVDは対象足と2本前を比較、Δは対象足の正負、OIは対象足のOPENからCLOSEへの変化。</div>
         <div class="combination-guide-note">これは観測評価であり、売買シグナルではありません。Footprint・板・FLOW RESPONSEと合わせて確認してください。</div>
+      </div>
+    </section>
+  </div>
+
+  <div id="flowresponseguide" class="combination-guide-backdrop" hidden>
+    <section class="combination-guide-dialog flow-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="flowresponseguidetitle" aria-describedby="flowresponseguidedesc">
+      <div class="combination-guide-head">
+        <div>
+          <div id="flowresponseguidetitle" class="combination-guide-title">FLOW RESPONSE STATES</div>
+          <div class="combination-guide-kicker">COLOR &amp; STATE GUIDE</div>
+        </div>
+        <button id="flowresponseguideclose" class="combination-guide-close" type="button" aria-label="Close Flow Response state guide">×</button>
+      </div>
+      <div class="combination-guide-body">
+        <p id="flowresponseguidedesc" class="combination-guide-lead">注文フローの圧力に対して、価格が同方向へ動いたか、停滞したか、逆行したかを7状態で表示します。</p>
+        <div class="combination-guide-table-wrap">
+          <table class="combination-guide-table flow-guide-table">
+            <thead><tr><th>COLOR</th><th>SCREEN STATE</th><th>MEANING</th></tr></thead>
+            <tbody>
+              <tr><td class="guide-dir"><span class="flow-guide-swatch buy-effective" aria-label="pale green"></span></td><td class="flow-guide-state buy">BUY PRESSURE · PRICE UP</td><td class="guide-meaning">買い圧力に従って価格が上昇。</td></tr>
+              <tr><td class="guide-dir"><span class="flow-guide-swatch sell-effective" aria-label="pale red"></span></td><td class="flow-guide-state sell">SELL PRESSURE · PRICE DOWN</td><td class="guide-meaning">売り圧力に従って価格が下落。</td></tr>
+              <tr><td class="guide-dir"><span class="flow-guide-swatch stalled" aria-label="yellow"></span></td><td class="flow-guide-state stalled">BUY PRESSURE · STALLED</td><td class="guide-meaning">買い圧力があるのに価格が停滞。</td></tr>
+              <tr><td class="guide-dir"><span class="flow-guide-swatch stalled" aria-label="yellow"></span></td><td class="flow-guide-state stalled">SELL PRESSURE · STALLED</td><td class="guide-meaning">売り圧力があるのに価格が停滞。</td></tr>
+              <tr><td class="guide-dir"><span class="flow-guide-swatch divergence" aria-label="purple"></span></td><td class="flow-guide-state divergence">BUY PRESSURE · PRICE DOWN</td><td class="guide-meaning">買い圧力なのに価格が下落。内部状態は <strong>BUY_TRAPPED</strong>。</td></tr>
+              <tr><td class="guide-dir"><span class="flow-guide-swatch divergence" aria-label="purple"></span></td><td class="flow-guide-state divergence">SELL PRESSURE · PRICE UP</td><td class="guide-meaning">売り圧力なのに価格が上昇。内部状態は <strong>SELL_TRAPPED</strong>。</td></tr>
+              <tr><td class="guide-dir"><span class="flow-guide-swatch unclear" aria-label="no band"></span></td><td class="flow-guide-state unclear">UNCLEAR</td><td class="guide-meaning">条件不足または中間状態。色なしは「取引なし」という意味ではありません。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="combination-guide-method">読み方：緑・赤＝圧力どおり、黄色＝STALLED（停滞）、紫＝TRAPPED / DIVERGENCE（逆行）。同じ黄色・紫でも、BUY / SELLは状態名で確認します。</div>
+        <div class="flow-window-manual" aria-label="Flow time-window reading manual">
+          <div class="flow-window-manual-title">TIME WINDOW READING MANUAL</div>
+          <div class="flow-window-manual-summary">5mで異変を見る → 1mで始点を確認 → 15mで広がりを確認</div>
+          <ol class="flow-window-steps">
+            <li class="flow-window-step"><strong>1 · MAIN — 5m</strong>普段はFLOW 5mを選択。数本の1分足にまたがる圧力と価格反応を主画面として観察します。</li>
+            <li class="flow-window-step"><strong>2 · START — 1m</strong>5mに黄色・紫が出たらFLOW 1mへ。いつ始まり、どの順序で状態が変わったかを確認します。</li>
+            <li class="flow-window-step"><strong>3 · CONTEXT — 15m</strong>FLOW 15mでも同じ圧力側か確認。長い窓にも広がっていれば、局所的な一瞬より長く続く現象です。</li>
+          </ol>
+          <div class="flow-window-support">補助：30s＝早期発見、3m＝1mと5mの橋渡し、30m＝セッション内の広い背景。複数窓は独立した票ではありません。</div>
+          <div class="flow-window-candle">FLOWの切替は観測窓だけを変えます。ローソク足は1mのままです。</div>
+        </div>
+        <div class="combination-guide-note">これは観測状態であり、売買シグナルではありません。その後の値動きと合わせて検証してください。</div>
       </div>
     </section>
   </div>
@@ -428,6 +492,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     <div class="phead">
       <div id="chartheadline">
         <span id="charttitle"><i></i>PRICE × FLOW RESPONSE</span>
+        <button id="flowresponseguidebtn" class="top-help-btn chart-help-btn" type="button" title="Flow Response color and state guide" aria-label="Open Flow Response color and state guide" aria-haspopup="dialog" aria-controls="flowresponseguide" aria-expanded="false">?</button>
         <span class="legend" id="chartlegend"></span>
         <b id="chartlast" class="dash" style="font-size:13px">—</b>
       </div>
@@ -1581,6 +1646,18 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
 
 (function(){
   const button=$("combinationguidebtn"),backdrop=$("combinationguide"),close=$("combinationguideclose");
+  const setOpen=open=>{
+    backdrop.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");
+    if(open)close.focus();else button.focus();
+  };
+  button.onclick=()=>setOpen(true);
+  close.onclick=()=>setOpen(false);
+  backdrop.addEventListener("click",event=>{if(event.target===backdrop)setOpen(false);});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!backdrop.hidden)setOpen(false);});
+})();
+
+(function(){
+  const button=$("flowresponseguidebtn"),backdrop=$("flowresponseguide"),close=$("flowresponseguideclose");
   const setOpen=open=>{
     backdrop.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");
     if(open)close.focus();else button.focus();

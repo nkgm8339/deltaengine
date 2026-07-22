@@ -17,7 +17,8 @@ def _make_mock_config():
     cfg.webapp.confluence.score_threshold = 40
     cfg.webapp.confluence.strength_threshold = 0.5
     cfg.webapp.oi_poll_interval_sec = 10
-    cfg.webapp.bar_update_interval_sec = 1
+    cfg.webapp.tick_push_interval_ms = 50
+    cfg.webapp.bar_update_interval_sec = 0.2
     cfg.monitor.enabled = False
     cfg.monitor.interval_sec = 5
     cfg.monitor.log_dir = "data/monitor"
@@ -56,6 +57,7 @@ def _make_mock_pipeline():
     p.absorption_detector = None
     p._last_bar_close = None
     p._last_fp_bar = None
+    p.storage_writer = None
     return p
 
 

@@ -114,6 +114,29 @@ def test_pipeline_dead_is_red(tmp_path):
     assert r.state == RED
 
 
+def test_pipeline_dead_persists_exception_type_and_message(tmp_path):
+    mon = _mon(tmp_path)
+    r = mon.evaluate(_snap(
+        T0,
+        pipeline_alive=False,
+        pipeline_error="ZeroDivisionError: division by zero",
+        last_bar_wall=T0,
+    ))
+
+    assert r.checks["pipeline"]["level"] == RED
+    assert r.checks["pipeline"]["detail"] == (
+        "pipeline task dead: ZeroDivisionError: division by zero"
+    )
+    dead = next(a for a in r.new_anomalies if a.type == "PIPELINE_EXCEPTION_DEAD")
+    assert dead.detail == r.checks["pipeline"]["detail"]
+    persisted = json.loads(
+        (tmp_path / "anomalies_20260718.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()[-1]
+    )
+    assert persisted["detail"] == r.checks["pipeline"]["detail"]
+
+
 def test_jsonl_written_and_daily_rotated(tmp_path):
     mon = _mon(tmp_path)
     mon.evaluate(_snap(T0, reconnects=0, last_bar_wall=T0))

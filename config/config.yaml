@@ -26,6 +26,9 @@ websocket:
 normalizer:
   exchange_profile: binance
   dedup_window: 10000
+  # Binance's live trade stream is ordered; do not hold every live trade for
+  # the replay-oriented 500 ms reorder window.
+  live_reorder_tolerance_ms: 0
   reorder_tolerance_ms: 500
 
 queue:
@@ -84,7 +87,8 @@ webapp:
     score_threshold: 40
     strength_threshold: 0.5
   oi_poll_interval_sec: 10
-  bar_update_interval_sec: 1
+  tick_push_interval_ms: 50
+  bar_update_interval_sec: 0.2
 
 ai:
   enabled: false

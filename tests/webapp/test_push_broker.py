@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -42,6 +44,30 @@ def test_envelope_shape():
     assert msg["symbol"] == "BTCUSDT"
     assert msg["time"].endswith("+00:00") or msg["time"].endswith("Z") or "T" in msg["time"]
     assert isinstance(msg["payload"], dict)
+
+
+def test_tick_payload_keeps_trade_id_for_latency_audit():
+    async def run():
+        broker = _make_broker()
+        ws = MagicMock()
+        sent = []
+
+        async def send_text(text):
+            sent.append(json.loads(text))
+
+        ws.send_text = AsyncMock(side_effect=send_text)
+        await broker.register(ws)
+        await broker.on_trade(SimpleNamespace(
+            event_time=_utc("2026-07-23T00:00:00"),
+            trade_id=987654,
+            price=Decimal("50000.1"),
+            quantity=Decimal("0.2"),
+            side="BUY",
+        ))
+        assert sent[0]["type"] == "TICK"
+        assert sent[0]["payload"]["trade_id"] == 987654
+
+    asyncio.run(run())
 
 
 # ── test 2: d2s ───────────────────────────────────────────────────────────────
@@ -449,7 +475,8 @@ def test_ws_hello_payload_version():
     mock_config.webapp.confluence.score_threshold = 40
     mock_config.webapp.confluence.strength_threshold = 0.5
     mock_config.webapp.oi_poll_interval_sec = 10
-    mock_config.webapp.bar_update_interval_sec = 1
+    mock_config.webapp.tick_push_interval_ms = 50
+    mock_config.webapp.bar_update_interval_sec = 0.2
     mock_config.monitor.enabled = False
     mock_config.monitor.interval_sec = 5
     mock_config.monitor.log_dir = "data/monitor"
@@ -855,3 +882,35 @@ def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference
     assert "ロングの利確が主体。" in source
     assert "これは観測評価であり、売買シグナルではありません。" in source
     assert 'event.key==="Escape"&&!backdrop.hidden' in source
+
+
+def test_flow_response_state_guide_explains_all_colors_without_changing_chart():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert 'id="flowresponseguidebtn"' in source
+    assert 'aria-controls="flowresponseguide"' in source
+    assert 'id="flowresponseguideclose"' in source
+    assert "FLOW RESPONSE STATES" in source
+    assert "COLOR &amp; STATE GUIDE" in source
+    assert "BUY PRESSURE · PRICE UP" in source
+    assert "SELL PRESSURE · PRICE DOWN" in source
+    assert "BUY PRESSURE · STALLED" in source
+    assert "SELL PRESSURE · STALLED" in source
+    assert "BUY PRESSURE · PRICE DOWN" in source
+    assert "SELL PRESSURE · PRICE UP" in source
+    assert "BUY_TRAPPED" in source
+    assert "SELL_TRAPPED" in source
+    assert "UNCLEAR" in source
+    assert "TIME WINDOW READING MANUAL" in source
+    assert "5mで異変を見る → 1mで始点を確認 → 15mで広がりを確認" in source
+    assert "1 · MAIN — 5m" in source
+    assert "2 · START — 1m" in source
+    assert "3 · CONTEXT — 15m" in source
+    assert "ローソク足は1mのままです。" in source
+    assert "これは観測状態であり、売買シグナルではありません。" in source
+    assert "flow-guide-swatch stalled" in source
+    assert "flow-guide-swatch divergence" in source
+    assert 'const MC={W:1200,H:500' in source

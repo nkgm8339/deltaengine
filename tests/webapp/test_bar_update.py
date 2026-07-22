@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
-from webapp.push_broker import IntervalGate, PushBroker
+from webapp.push_broker import IntervalGate, LatestValuePump, PushBroker
 
 T0 = datetime(2026, 7, 18, 12, 0, 30, tzinfo=timezone.utc)
 
@@ -33,12 +33,12 @@ def _candle(**over):
 
 
 def test_interval_gate_throttles():
-    gate = IntervalGate(1)
+    gate = IntervalGate(0.2)
     assert gate.ready(100.0) is True
-    assert gate.ready(100.4) is False
-    assert gate.ready(100.9) is False
-    assert gate.ready(101.0) is True
-    assert gate.ready(101.5) is False
+    assert gate.ready(100.1) is False
+    assert gate.ready(100.19) is False
+    assert gate.ready(100.2) is True
+    assert gate.ready(100.3) is False
 
 
 def test_interval_gate_rejects_zero():
@@ -50,6 +50,36 @@ def test_interval_gate_rejects_zero():
         raise AssertionError("IntervalGate(0) must raise")
 
 
+def test_latest_value_pump_coalesces_browser_ticks():
+    async def run():
+        sent = []
+
+        async def send(value):
+            sent.append(value)
+
+        pump = LatestValuePump(send, 0.01)
+        pump.publish(1)
+        pump.publish(2)
+        pump.publish(3)
+        task = asyncio.create_task(pump.run())
+        await asyncio.sleep(0.005)
+        assert sent == [3]
+        pump.publish(4)
+        pump.publish(5)
+        await asyncio.sleep(0.02)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        assert sent == [3, 5]
+        assert pump.published == 5
+        assert pump.sent == 2
+        assert pump.coalesced == 3
+
+    asyncio.run(run())
+
+
 def test_bar_update_payload_shape():
     async def run():
         broker = PushBroker(symbol="BTCUSDT")
@@ -59,12 +89,19 @@ def test_bar_update_payload_shape():
             {"price": Decimal("101"), "bid": Decimal("1"), "ask": Decimal("4")},
             {"price": Decimal("100"), "bid": Decimal("2"), "ask": Decimal("1")},
         ]
-        await broker.on_bar_update(_candle(), levels)
+        await broker.on_bar_update(
+            _candle(),
+            levels,
+            source_trade_id=123,
+            source_event_time=T0,
+        )
         assert len(ws.sent) == 1
         msg = json.loads(ws.sent[0])
         assert msg["type"] == "BAR_UPDATE"
         p = msg["payload"]
         assert p["in_progress"] is True
+        assert p["source_trade_id"] == 123
+        assert p["source_event_time"] == T0.isoformat()
         assert p["open"] == "100" and p["close"] == "101"
         assert p["delta"] == "1.5" and p["cvd"] == "12.25"
         fp = p["footprint"]

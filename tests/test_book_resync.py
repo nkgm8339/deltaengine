@@ -25,6 +25,14 @@ class _Normalizer:
         )
 
 
+class _Recorder:
+    def __init__(self):
+        self.rows = []
+
+    def write(self, row):
+        self.rows.append(row)
+
+
 def _raw(update_id: int) -> dict:
     return {"lastUpdateId": update_id, "bids": [["50000.0", "1.0"]], "asks": [["50001.0", "1.0"]]}
 
@@ -53,6 +61,36 @@ def test_startup_retry_until_success():
         assert book.is_initialized is True
         assert counters.fetch_failures == 2 and counters.resyncs == 0
         assert delays[:2] == [5, 10]
+    asyncio.run(run())
+
+
+def test_successful_snapshot_is_recorded_for_exact_depth_replay():
+    async def run():
+        book = OrderBookStateManager("BTCUSDT")
+        recorder = _Recorder()
+
+        async def fetch(symbol):
+            return _raw(100)
+
+        async def sleep(delay):
+            raise asyncio.CancelledError
+
+        with pytest.raises(asyncio.CancelledError):
+            await _book_resync_supervisor(
+                symbol="BTCUSDT",
+                book_state=book,
+                normalizer=_Normalizer(),
+                fetch_snapshot=fetch,
+                counters=BookResyncCounters(),
+                recorder=recorder,
+                sleep=sleep,
+            )
+
+        assert len(recorder.rows) == 1
+        assert recorder.rows[0]["e"] == "depthSnapshot"
+        assert recorder.rows[0]["u"] == 100
+        assert recorder.rows[0]["b"] == [["50000.0", "1.0"]]
+
     asyncio.run(run())
 
 

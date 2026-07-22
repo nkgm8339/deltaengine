@@ -245,6 +245,7 @@ SCHEMA: dict[str, dict[str, Field]] = {
         "exchange_profile": Field(v_nonempty_str, "binance"),
         "dedup_window": Field(v_int(lo=1), 10000),
         "reorder_tolerance_ms": Field(v_int(lo=0), 500),
+        "live_reorder_tolerance_ms": Field(v_int(lo=0), 0),
     },
     "queue": {
         "default_depth": Field(v_int(lo=1), 10000),
@@ -318,7 +319,8 @@ SCHEMA: dict[str, dict[str, Field]] = {
         "alert_threshold": Field(v_number(lo=0, hi=1), 0.85),
         "confluence": Field(v_confluence, {"score_threshold": 40, "strength_threshold": 0.5}),
         "oi_poll_interval_sec": Field(v_int(lo=1), 10),
-        "bar_update_interval_sec": Field(v_int(lo=1), 1),
+        "tick_push_interval_ms": Field(v_int(lo=10), 50),
+        "bar_update_interval_sec": Field(v_number(gt=0), 0.2),
     },
     "divergence": {
         "equal_pivot_policy": Field(v_enum(frozenset({"first"})), "first"),

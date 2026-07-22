@@ -48,7 +48,7 @@ from .database.schema import (
     signal_to_row,
     trade_to_row,
 )
-from .database.storage import StorageWriter
+from .database.storage import BackgroundStorageWriter, StorageWriter
 from .normalization.normalizer import (
     DataNormalizer,
     ExchangeProfile,
@@ -143,6 +143,7 @@ async def _book_resync_supervisor(
     normalizer: Any,
     fetch_snapshot: Callable,
     counters: BookResyncCounters,
+    recorder: Optional[JsonlRecorder] = None,
     sleep: Callable[[int], Awaitable[None]] = asyncio.sleep,
 ) -> None:
     """Keep the live order book initialized with retry and gap recovery."""
@@ -159,6 +160,8 @@ async def _book_resync_supervisor(
             update = normalizer.process_depth(depth_evt)
             if update is None:
                 raise ValueError("depth snapshot normalization returned None")
+            if recorder is not None:
+                recorder.write(depth_evt)
             book_state.apply(update)
             book_state.apply_initial_sync(update.final_update_id)
             if synced_once:
@@ -845,7 +848,7 @@ class LivePipeline:
             parquet_path=parquet_path or config.database.parquet_path,
             duckdb_path=duckdb_path or config.database.duckdb_path,
             dedup_window=config.normalizer.dedup_window,
-            reorder_tolerance_ms=config.normalizer.reorder_tolerance_ms,
+            reorder_tolerance_ms=config.normalizer.live_reorder_tolerance_ms,
             batch_size=config.database.batch_size,
             flush_interval_sec=config.database.flush_interval_sec,
             queue_depth=config.queue.default_depth,
@@ -918,7 +921,8 @@ class LivePipeline:
 
         ``connect`` defaults to the real Binance transport; inject a fake
         ConnectFn (e.g. over ListTransport) for tests. ``record_path`` captures
-        the forwarded stream as JSON Lines for deterministic replay.
+        the forwarded stream and every applied REST depth snapshot as JSON
+        Lines, so recorded depth diffs can be reconstructed exactly.
         """
         connect = connect or make_binance_connect(ping_interval=self.heartbeat_sec)
 
@@ -993,15 +997,15 @@ class LivePipeline:
             confidence_threshold=self.signal_confidence_threshold,
             absorption_veto_threshold=self.signal_absorption_veto_threshold,
         )
-        storage = StorageWriter(
+        storage = BackgroundStorageWriter(
             self.parquet_path,
             self.duckdb_path,
             batch_size=self.batch_size,
             flush_interval_sec=self.flush_interval_sec,
+            queue_depth=self.queue_depth,
         )
-        # OI polling is a webapp task on this same asyncio loop. It appends
-        # through the pipeline-owned writer so DuckDB keeps a single writer and
-        # OI follows the established batch/interval flush policy.
+        # OI polling appends through the same ordered background writer. All
+        # Parquet/DuckDB I/O stays off the latency-critical market-data loop.
         self.storage_writer = storage
 
         analysis_engine = AnalysisEngine()
@@ -1174,6 +1178,7 @@ class LivePipeline:
                 normalizer=normalizer,
                 fetch_snapshot=fetch_snapshot,
                 counters=self.book_resync_counters,
+                recorder=recorder,
             ))
         deadline = (loop.time() + duration_sec) if duration_sec is not None else None
         trades_in = 0

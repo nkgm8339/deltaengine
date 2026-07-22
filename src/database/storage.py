@@ -17,7 +17,9 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from queue import Empty, Full, Queue
+from threading import Event, Thread
+from typing import Any, Callable, Optional
 
 import duckdb
 import pyarrow as pa
@@ -356,6 +358,199 @@ class StorageWriter:
         self._duck.close()
 
     def __enter__(self) -> "StorageWriter":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
+
+
+_BACKGROUND_STOP = object()
+
+
+class BackgroundStorageWriter:
+    """Non-blocking live-pipeline facade around :class:`StorageWriter`.
+
+    Parquet and DuckDB are synchronous libraries. Running their writes on the
+    market-data asyncio loop pauses WebSocket receive, order-flow calculation,
+    and browser delivery together. This facade preserves the existing storage
+    contract while moving every storage operation to one dedicated thread. A
+    bounded FIFO retains ordering and makes overload explicit instead of
+    silently losing observations.
+
+    The underlying ``StorageWriter`` is created, used, and closed by the same
+    worker thread, so its DuckDB connection never crosses thread boundaries.
+    """
+
+    _METHODS = {
+        "trade": "add_trade",
+        "candle": "add_candle",
+        "signal": "add_signal",
+        "flow_response_event": "add_flow_response_event",
+        "flow_response_outcome": "add_flow_response_outcome",
+        "open_interest_sample": "add_open_interest_sample",
+    }
+
+    def __init__(
+        self,
+        parquet_path: str | Path,
+        duckdb_path: str | Path,
+        *,
+        batch_size: int = 1000,
+        flush_interval_sec: int = 5,
+        queue_depth: int = 10000,
+    ) -> None:
+        if queue_depth < 1:
+            raise ValueError("queue_depth must be >= 1")
+        self._writer_args = (parquet_path, duckdb_path)
+        self._writer_kwargs = {
+            "batch_size": batch_size,
+            "flush_interval_sec": flush_interval_sec,
+        }
+        self._queue: Queue[Any] = Queue(maxsize=queue_depth)
+        self._ready = Event()
+        self._writer: Optional[StorageWriter] = None
+        self._error: Optional[BaseException] = None
+        self._closed = False
+        self.high_watermark = 0
+        self._thread = Thread(
+            target=self._run,
+            name="deltaengine-storage",
+            daemon=True,
+        )
+        self._thread.start()
+        if not self._ready.wait(timeout=30):
+            raise StorageError(ERROR_STORAGE_UNAVAILABLE, "storage worker startup timed out")
+        self._raise_if_failed()
+
+    def _run(self) -> None:
+        writer: Optional[StorageWriter] = None
+        try:
+            writer = StorageWriter(*self._writer_args, **self._writer_kwargs)
+            self._writer = writer
+        except BaseException as exc:  # surface initialization failure to caller
+            self._error = exc
+        finally:
+            self._ready.set()
+        if writer is None:
+            return
+
+        try:
+            while True:
+                try:
+                    command = self._queue.get(timeout=0.1)
+                except Empty:
+                    writer.tick()
+                    continue
+                if command is _BACKGROUND_STOP:
+                    break
+                kind, row = command
+                getattr(writer, self._METHODS[kind])(row)
+                writer.tick()
+        except BaseException as exc:
+            self._error = exc
+        finally:
+            try:
+                writer.close()
+            except BaseException as exc:
+                if self._error is None:
+                    self._error = exc
+
+    def _raise_if_failed(self) -> None:
+        if self._error is not None:
+            raise StorageError(
+                ERROR_STORAGE_UNAVAILABLE,
+                f"background storage worker failed: {self._error}",
+            ) from self._error
+
+    def _enqueue(self, kind: str, row: dict) -> None:
+        self._raise_if_failed()
+        if self._closed:
+            raise StorageError(ERROR_STORAGE_UNAVAILABLE, "background storage writer is closed")
+        try:
+            self._queue.put_nowait((kind, row))
+        except Full as exc:
+            raise StorageError(
+                ERROR_STORAGE_UNAVAILABLE,
+                f"background storage queue full (depth={self._queue.maxsize})",
+            ) from exc
+        self.high_watermark = max(self.high_watermark, self._queue.qsize())
+
+    def add_trade(self, row: dict) -> None:
+        self._enqueue("trade", row)
+
+    def add_candle(self, row: dict) -> None:
+        self._enqueue("candle", row)
+
+    def add_signal(self, row: dict) -> None:
+        self._enqueue("signal", row)
+
+    def add_flow_response_event(self, row: dict) -> None:
+        self._enqueue("flow_response_event", row)
+
+    def add_flow_response_outcome(self, row: dict) -> None:
+        self._enqueue("flow_response_outcome", row)
+
+    def add_open_interest_sample(self, row: dict) -> None:
+        self._enqueue("open_interest_sample", row)
+
+    def tick(self) -> None:
+        """Compatibility hook: only surface worker failure on the live path."""
+        self._raise_if_failed()
+
+    @property
+    def pending(self) -> int:
+        return self._queue.qsize()
+
+    def _counter(self, name: str) -> int:
+        writer = self._writer
+        return int(getattr(writer, name, 0)) if writer is not None else 0
+
+    @property
+    def trades_written(self) -> int:
+        return self._counter("trades_written")
+
+    @property
+    def candles_written(self) -> int:
+        return self._counter("candles_written")
+
+    @property
+    def signals_written(self) -> int:
+        return self._counter("signals_written")
+
+    @property
+    def flow_response_events_written(self) -> int:
+        return self._counter("flow_response_events_written")
+
+    @property
+    def flow_response_outcomes_written(self) -> int:
+        return self._counter("flow_response_outcomes_written")
+
+    @property
+    def open_interest_samples_written(self) -> int:
+        return self._counter("open_interest_samples_written")
+
+    @property
+    def flushes(self) -> int:
+        return self._counter("flushes")
+
+    def close(self, timeout: float = 120.0) -> None:
+        if self._closed:
+            self._raise_if_failed()
+            return
+        self._closed = True
+        while True:
+            self._raise_if_failed()
+            try:
+                self._queue.put(_BACKGROUND_STOP, timeout=0.1)
+                break
+            except Full:
+                continue
+        self._thread.join(timeout=timeout)
+        if self._thread.is_alive():
+            raise StorageError(ERROR_STORAGE_UNAVAILABLE, "storage worker shutdown timed out")
+        self._raise_if_failed()
+
+    def __enter__(self) -> "BackgroundStorageWriter":
         return self
 
     def __exit__(self, *exc: Any) -> None:

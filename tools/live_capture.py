@@ -3,8 +3,10 @@
 Loads the validated configuration and the active exchange profile, connects to
 the live Binance Futures aggTrade stream, and runs the same CVD path used by
 ReplayPipeline (M6): normalize -> CVD -> Parquet/DuckDB. Optionally records the
-forwarded aggTrade stream as JSON Lines so the session can be replayed
-deterministically (M6 replay source).
+forwarded market stream as JSON Lines so the session can be replayed
+deterministically (M6 replay source). Recorded sessions also include REST
+depth snapshots, which are required to reconstruct exact best bid/ask from
+incremental depth updates.
 
 Usage (from the project root):
     python -m tools.live_capture --duration 30 --record data/recordings/btcusdt.jsonl
@@ -33,7 +35,11 @@ def main() -> None:
     parser.add_argument("--config", default="config/config.yaml", help="config YAML path")
     parser.add_argument("--duration", type=float, default=None, help="stop after N seconds")
     parser.add_argument("--max-trades", type=int, default=None, help="stop after N aggTrade events")
-    parser.add_argument("--record", default=None, help="JSON Lines path to record the aggTrade stream")
+    parser.add_argument(
+        "--record",
+        default=None,
+        help="JSON Lines path for trades, depth updates, and REST depth snapshots",
+    )
     args = parser.parse_args()
 
     if args.duration is None and args.max_trades is None:

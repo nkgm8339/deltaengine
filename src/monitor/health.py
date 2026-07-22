@@ -89,6 +89,7 @@ class HealthSnapshot:
     reconnects: int = 0                        # 累積 (connector.reconnect_count)
     exceptions: int = 0                        # 累積 (pipeline 例外カウント)
     pipeline_alive: bool = True                # pipeline タスクが生存しているか
+    pipeline_error: Optional[str] = None        # 例外型と本文（webapp側で最大500文字）
     last_bar_wall: Optional[datetime] = None   # 直近 bar close の壁時計時刻
     last_event_time: Optional[datetime] = None  # 直近処理イベントの event_time
     rss_mb: Optional[int] = None               # 常駐メモリ MB (None=取得不能)
@@ -280,8 +281,22 @@ class HealthMonitor:
             "pipeline exceptions in window: {total}", out,
         )
         if not snap.pipeline_alive:
-            exc_check = {"level": RED, "value": exc_check["value"], "detail": "pipeline task dead"}
-            self._edge_record(PIPELINE_EXCEPTION + "_DEAD", RED, "1", "pipeline task dead", now, out)
+            dead_detail = "pipeline task dead"
+            if snap.pipeline_error:
+                dead_detail = f"{dead_detail}: {snap.pipeline_error}"
+            exc_check = {
+                "level": RED,
+                "value": exc_check["value"],
+                "detail": dead_detail,
+            }
+            self._edge_record(
+                PIPELINE_EXCEPTION + "_DEAD",
+                RED,
+                "1",
+                dead_detail,
+                now,
+                out,
+            )
         checks["pipeline"] = exc_check
 
         # 2. BAR_MISSING — ウォームアップ (起動から 1 bar + 許容) 中は GREEN

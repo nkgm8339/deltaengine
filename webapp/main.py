@@ -19,7 +19,13 @@ from fastapi.staticfiles import StaticFiles
 from src.config import load_config
 from src.pipeline import LivePipeline, ReplayPipeline, load_profile
 from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
-from webapp.push_broker import IntervalGate, PushBroker, PAYLOAD_VERSION, d2s
+from webapp.push_broker import (
+    IntervalGate,
+    LatestValuePump,
+    PushBroker,
+    PAYLOAD_VERSION,
+    d2s,
+)
 from webapp.oi_poller import oi_polling_loop
 from webapp.history import (
     query_candles,
@@ -81,9 +87,10 @@ async def lifespan(app: FastAPI):
     bar_update_gate = IntervalGate(config.webapp.bar_update_interval_sec)
     _loop_for_gate = asyncio.get_event_loop()
 
-    def on_trade_cb(trade):
-        asyncio.create_task(broker.on_trade(trade))
-        # ライブ進行中バー配信 (BAR_UPDATE): interval ごとに形成中バーを配信。
+    async def push_latest_market(trade):
+        # Browser delivery is a latest-value projection. The analytics and
+        # storage paths still consume every normalized trade.
+        await broker.on_trade(trade)
         if bar_update_gate.ready(_loop_for_gate.time()):
             cvd_calc = getattr(pipeline, "cvd_calculator", None)
             fp_calc = getattr(pipeline, "_footprint_calculator", None)
@@ -96,7 +103,20 @@ async def lifespan(app: FastAPI):
                         {"price": lv.price, "bid": lv.sell_volume, "ask": lv.buy_volume}
                         for lv in reversed(fp_calc.current_tick_snapshot())
                     ]
-                asyncio.create_task(broker.on_bar_update(snap, fp_levels))
+                await broker.on_bar_update(
+                    snap,
+                    fp_levels,
+                    source_trade_id=int(trade.trade_id),
+                    source_event_time=trade.event_time,
+                )
+
+    market_push_pump = LatestValuePump(
+        push_latest_market,
+        config.webapp.tick_push_interval_ms / 1000.0,
+    )
+
+    def on_trade_cb(trade):
+        market_push_pump.publish(trade)
 
     def on_candle_cb(candle):
         app.state.last_bar_wall = datetime.now(timezone.utc)
@@ -148,8 +168,10 @@ async def lifespan(app: FastAPI):
     app.state.broker = broker
     app.state.config = config
     app.state.pipeline = pipeline
+    app.state.market_push_pump = market_push_pump
 
     if config.replay.enabled:
+        market_push_task = None
         loop = asyncio.get_event_loop()
         # run_in_executor returns a Future, not a coroutine. asyncio.create_task()
         # rejects Futures (TypeError at lifespan startup) — ensure_future accepts both.
@@ -157,6 +179,7 @@ async def lifespan(app: FastAPI):
             loop.run_in_executor(None, pipeline.run, config.replay.data_path)
         )
     else:
+        market_push_task = asyncio.create_task(market_push_pump.run())
         pipeline_task = asyncio.create_task(pipeline.run_async())
 
     pending_oi_samples: list[dict] = []
@@ -197,6 +220,14 @@ async def lifespan(app: FastAPI):
                 cvd_calc = getattr(pipeline, "cvd_calculator", None)
                 if cvd_calc is not None:
                     stats["tick_per_sec"] = str(getattr(cvd_calc, "processed", 0))
+                stats["ui_ticks_sent"] = str(market_push_pump.sent)
+                stats["ui_ticks_coalesced"] = str(market_push_pump.coalesced)
+                storage = getattr(pipeline, "storage_writer", None)
+                if storage is not None:
+                    stats["storage_queue"] = str(getattr(storage, "pending", 0))
+                    stats["storage_queue_high"] = str(
+                        getattr(storage, "high_watermark", 0)
+                    )
                 ab = getattr(pipeline, "absorption_detector", None)
                 if ab is not None:
                     stats["dropped"] = "0"
@@ -234,13 +265,23 @@ async def lifespan(app: FastAPI):
             try:
                 bm = getattr(pipeline, "book_manager", None)
                 conn = getattr(pipeline, "_connector", None)
-                dead = pipeline_task.done() and pipeline_task.exception() is not None
+                pipeline_error = None
+                dead = False
+                if pipeline_task.done() and not pipeline_task.cancelled():
+                    pipeline_exc = pipeline_task.exception()
+                    if pipeline_exc is not None:
+                        dead = True
+                        error_text = " ".join(str(pipeline_exc).splitlines())
+                        pipeline_error = (
+                            f"{type(pipeline_exc).__name__}: {error_text}"
+                        )[:500]
                 snap = HealthSnapshot(
                     sample_time=datetime.now(timezone.utc),
                     gaps_detected=(bm.gaps_detected if bm is not None else 0),
                     reconnects=(conn.reconnect_count if conn is not None else 0),
                     exceptions=(1 if dead else 0),
                     pipeline_alive=not dead,
+                    pipeline_error=pipeline_error,
                     last_bar_wall=app.state.last_bar_wall,
                     last_event_time=getattr(pipeline, "_last_event_time", None),
                     rss_mb=read_rss_mb(),
@@ -253,6 +294,8 @@ async def lifespan(app: FastAPI):
 
     health_task = asyncio.create_task(_health_loop()) if m.enabled else None
     tasks = [pipeline_task, stats_task]
+    if market_push_task is not None:
+        tasks.append(market_push_task)
     if oi_task is not None:
         tasks.append(oi_task)
     if health_task is not None:
@@ -417,6 +460,15 @@ async def api_stats(request: Request):
     ab = getattr(pipeline, "absorption_detector", None)
     if ab is not None:
         stats["absorption_events"] = ab.events_detected
+    storage = getattr(pipeline, "storage_writer", None)
+    if storage is not None:
+        stats["storage_queue_pending"] = getattr(storage, "pending", 0)
+        stats["storage_queue_high_watermark"] = getattr(storage, "high_watermark", 0)
+    market_push_pump = getattr(request.app.state, "market_push_pump", None)
+    if market_push_pump is not None:
+        stats["ui_ticks_published"] = market_push_pump.published
+        stats["ui_ticks_sent"] = market_push_pump.sent
+        stats["ui_ticks_coalesced"] = market_push_pump.coalesced
     return JSONResponse(stats)
 
 
