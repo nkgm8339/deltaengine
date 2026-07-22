@@ -430,6 +430,7 @@ def test_ws_hello_payload_version():
     mock_pipeline.on_candle = None
     mock_pipeline.on_analysis = None
     mock_pipeline.on_liquidation = None
+    mock_pipeline.on_flow_event = None
     mock_pipeline.on_webapp_flow_event = None
     mock_pipeline.book_manager = None
     mock_pipeline.cvd_calculator = None
@@ -703,3 +704,100 @@ def test_on_flow_response_serializes_observations_without_signal_language():
     assert payload["windows"][0]["state"] == "BUY_STALLED"
     assert payload["windows"][0]["pressure_ratio"] == "0.6"
     assert payload["windows"][0]["relative_volume"] is None
+
+
+def test_on_flow_event_accepts_native_detector_event_and_keeps_event_time():
+    from src.orderflow.flow_detector import FlowEvent
+
+    broker = _make_broker()
+    sent = []
+
+    async def fake_send_text(text):
+        import json
+        sent.append(json.loads(text))
+
+    fake_ws = MagicMock()
+    fake_ws.send_text = AsyncMock(side_effect=fake_send_text)
+    event = FlowEvent(
+        event_time=_utc("2024-01-01T12:00:07"), kind="large_trade", side="BUY",
+        price=Decimal("42000.5"), strength=Decimal("0.91"),
+        detail={"quantity": "7.5"},
+    )
+
+    async def run():
+        await broker.register(fake_ws)
+        await broker.on_flow_event(event)
+
+    asyncio.run(run())
+    assert sent[0]["type"] == "FLOW"
+    assert sent[0]["payload"] == {
+        "event_time": "2024-01-01T12:00:07+00:00",
+        "category": "LARGE_TRADE",
+        "side": "BUY",
+        "strength": "0.91",
+        "price": "42000.5",
+        "detector": "large_trade",
+        "detail": {"quantity": "7.5"},
+    }
+
+
+def test_on_analysis_flow_events_include_original_timestamp_for_candle_markers():
+    from src.orderflow.flow_detector import FlowEvent
+
+    broker = _make_broker()
+    sent = []
+
+    async def fake_send_text(text):
+        import json
+        sent.append(json.loads(text))
+
+    fake_ws = MagicMock()
+    fake_ws.send_text = AsyncMock(side_effect=fake_send_text)
+    analysis_result = MagicMock(
+        analysis_time=_utc("2024-01-01T12:01:00"), market_state="BULL",
+        risk_level="LOW", reasons=(),
+    )
+    signal_result = MagicMock(
+        signal="BUY", confidence=Decimal("0.75"), composite=None, reasons=(),
+    )
+    event = FlowEvent(
+        event_time=_utc("2024-01-01T12:00:07"), kind="sweep", side="SELL",
+        price=Decimal("42001"), strength=Decimal("0.88"), detail={"levels": 4},
+    )
+
+    async def run():
+        await broker.register(fake_ws)
+        await broker.on_analysis(
+            analysis_result, signal_result, {}, None, flow_events=[event],
+        )
+
+    asyncio.run(run())
+    item = sent[0]["payload"]["flow_events"][0]
+    assert item["event_time"] == "2024-01-01T12:00:07+00:00"
+    assert item["category"] == "SWEEP"
+    assert item["price"] == "42001"
+
+
+def test_main_wires_native_and_webapp_flow_events_to_broker():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "main.py",
+    ).read_text(encoding="utf-8")
+    assert "pipeline.on_flow_event = on_webapp_flow_cb" in source
+    assert "pipeline.on_webapp_flow_event = on_webapp_flow_cb" in source
+
+
+def test_flow_event_marker_ui_is_two_hour_in_memory_observation_only():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert "FLOW_EVENT_RETENTION_MS=2*60*60*1000" in source
+    assert "function ingestFlowEvent(" in source
+    assert "function flowEventBuckets(" in source
+    assert "function flowEventMarkersSvg(" in source
+    assert "FLOW EVENTS · 2H MEMORY" in source
+    assert "flowEventsDetail(events)" in source
+    assert "/api/history/flow-events" not in source

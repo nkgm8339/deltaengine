@@ -48,6 +48,7 @@ def _make_mock_pipeline():
     p.on_candle = None
     p.on_analysis = None
     p.on_liquidation = None
+    p.on_flow_event = None
     p.on_webapp_flow_event = None
     p.book_manager = None
     p.volume_ref_tracker = None

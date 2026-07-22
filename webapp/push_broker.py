@@ -192,17 +192,24 @@ class PushBroker:
                 "price_high": d2s(absorption_result.price_high),
             },
             "flow_events": None if not flow_events else [
-                {"kind": fe.kind, "side": fe.side, "strength": d2s(fe.strength),
-                 "price": d2s(fe.price), "detail": fe.detail if isinstance(fe.detail, dict) else {}}
+                {"event_time": fe.event_time.astimezone(timezone.utc).isoformat(),
+                 "category": fe.kind.upper(), "kind": fe.kind, "side": fe.side,
+                 "strength": d2s(fe.strength), "price": d2s(fe.price),
+                 "detector": fe.kind,
+                 "detail": fe.detail if isinstance(fe.detail, dict) else {}}
                 for fe in flow_events
             ],
         }))
 
     async def on_flow_event(self, ev) -> None:
+        category = str(getattr(ev, "category", getattr(ev, "kind", "UNKNOWN"))).upper()
+        detector = str(getattr(ev, "detector", getattr(ev, "kind", category)))
+        detail = getattr(ev, "detail", {})
         await self._broadcast(envelope("FLOW", ev.event_time, self.symbol, {
             "event_time": ev.event_time.astimezone(timezone.utc).isoformat(),
-            "category": ev.category, "side": ev.side,
-            "strength": d2s(ev.strength), "detector": ev.detector, "detail": ev.detail,
+            "category": category, "side": ev.side,
+            "strength": d2s(ev.strength), "price": d2s(getattr(ev, "price", None)),
+            "detector": detector, "detail": detail,
         }))
 
     async def on_flow_response(self, snapshots) -> None:

@@ -241,6 +241,11 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #charttip .ct-grid{display:grid;grid-template-columns:repeat(4,auto);gap:2px 10px}
 #charttip .ct-v{color:#FFFFFF;font-weight:900}
 #charttip .ct-k{color:#DDE3FF}.ct-buy{color:#39F89D}.ct-sell{color:#FF365F}.ct-flow{margin-top:5px;padding-top:5px;border-top:1px solid #56629B;font-weight:900}
+#charttip .ct-events{margin-top:6px;padding-top:6px;border-top:1px solid #56629B}
+#charttip .ct-events-title{margin-bottom:4px;color:#FFFFFF;font-size:10px;font-weight:950;letter-spacing:.08em}
+#charttip .ct-event{display:grid;grid-template-columns:17px minmax(0,1fr) auto;align-items:center;gap:5px;margin:2px 0;color:#FFFFFF;font-size:10px}
+#charttip .ct-event-mark{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;font-weight:950;color:#090D20}
+#charttip .ct-event-meta{color:#DDE3FF;font-size:9px;white-space:nowrap}
 #charthint{position:absolute;left:15px;bottom:10px;z-index:4;pointer-events:none;color:#FFFFFF;font-size:9px;font-weight:850;letter-spacing:.06em}
 @media(max-width:700px){#bottom.market-chart-panel{height:440px;min-height:440px;flex-basis:440px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}}
 </style>
@@ -402,9 +407,9 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 // UIは Payload のみを参照する。判定ロジック禁止（表示整形のみ）。
 // 対応 Payload version:
 const UI_PAYLOAD_VERSION = 1;
-// FLOWカテゴリ色（バッジ専用名前空間。未知カテゴリは白 UNKNOWN）
-const CAT = {DELTA:"#FF365F",IMBALANCE:"#23DFFF",ABSORPTION:"#A66BFF",
-             EXHAUSTION:"#FFE35D",ICEBERG:"#F6F7FF"};
+// FLOWカテゴリ色（イベント一覧とチャートマーカーで共有）
+const CAT={LARGE_TRADE:"#FF4FA3",SWEEP:"#23DFFF",EXHAUSTION:"#FFE35D",
+  UNFINISHED_AUCTION:"#A66BFF",TAPE:"#F6F7FF",ABSORPTION:"#39F89D"};
 const BUY="#39F89D",SELL="#FF365F",WARN="#FFE35D",INFO="#A66BFF",DIS="#A3AED9",TXT="#F6F7FF",LINE="#3A477F",SUB="#C5CDF5";
 const $=id=>document.getElementById(id);
 const N=s=>s==null?null:Number(s);           // 表示専用変換
@@ -421,12 +426,12 @@ const S={
   bars:[],            // CANDLE履歴（最大300）
   barView:-1,         // -1 = 最新追従（price lock）
   zoom:1, lock:true,
-  analysis:null, flows:[], alerts:[],
+  analysis:null, flows:[], flowMarkerEvents:[], flowEventKeys:new Set(), alerts:[],
   series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[], "BTCUSDT 1M":[] },
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
-  liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],
+  liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,
 };
-const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],totalBars:0,selectedTime:null,priceScale:null};
+const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],currentEventBuckets:new Map(),totalBars:0,selectedTime:null,priceScale:null};
 
 // ---------------- WebSocket ----------------
 let ws=null, backoff=1000;
@@ -453,6 +458,8 @@ function handle(m){
   // §6.2 段階的縮退: 不一致でもWarningのみ表示し描画継続。全面停止しない。
   if(m.v!=null&&m.v!==UI_PAYLOAD_VERSION)versionWarn(m.v);
   S.symbol=m.symbol||S.symbol;
+  const messageTime=Date.parse(m.time);
+  if(Number.isFinite(messageTime))S.marketTime=S.marketTime==null?messageTime:Math.max(S.marketTime,messageTime);
   const p=m.payload||{};
   try{
     switch(m.type){
@@ -464,11 +471,9 @@ function handle(m){
       case "ANALYSIS":
         S.analysis=p; renderAnalysis();
         if(p.flow_events&&p.flow_events.length){
-          for(const fe of p.flow_events){
-            const dup=S.flows.some(f=>f.category===(fe.kind||"").toUpperCase()&&f.side===fe.side&&f.strength===fe.strength);
-            if(!dup){S.flows.unshift({event_time:m.time,category:(fe.kind||"").toUpperCase(),side:fe.side,strength:fe.strength,detector:fe.kind||"",detail:JSON.stringify(fe.detail||{})});if(S.flows.length>40)S.flows.pop();}
-          }
-          renderFlow();
+          let added=false;
+          for(const fe of p.flow_events)if(ingestFlowEvent(fe,m.time))added=true;
+          if(added){renderFlow();renderChart();}
         }
         break;
       case "FLOW": onFlow(m,p); break;
@@ -502,6 +507,7 @@ function onCandle(p){
   if(same>=0)S.bars[same]=p;else S.bars.push(p);
   S.bars.sort((a,b)=>Date.parse(a.bar_time)-Date.parse(b.bar_time));
   if(S.bars.length>300)S.bars.splice(0,S.bars.length-300);
+  if(pruneFlowEvents())renderFlow();
   pushSeries("CVD+Δ",{cvd:N(p.cvd),delta:N(p.delta)});
   pushSeries("VOLUME",N(p.volume));
   renderCvdSlope();
@@ -530,12 +536,45 @@ const ALERT_CFG={threshold:0.85,maxHistory:8,durationSec:3};
 try{Object.assign(ALERT_CFG,JSON.parse(localStorage.getItem("deltaengine.alerts")||"{}"));}catch(e){}
 function saveAlertCfg(){try{localStorage.setItem("deltaengine.alerts",JSON.stringify(ALERT_CFG));}catch(e){}}
 const FLOW_DEFS={
-  LARGE_TRADE:{icon:"◉",label:"LARGE",full:"LARGE TRADE",meaning:"Large trade at or above the reference size",formula:"Quantity / (reference quantity × 4)"},
-  SWEEP:{icon:"↗",label:"SWEEP",meaning:"Multiple price levels crossed quickly",formula:"Levels / (required levels × 3)"},
-  EXHAUSTION:{icon:"◇",label:"EXH",full:"EXHAUSTION",meaning:"Volume exhaustion at the price extreme",formula:"1 − edge volume / threshold"},
-  UNFINISHED_AUCTION:{icon:"⚖",label:"U/A",full:"UNFINISHED AUCTION",meaning:"Both-side volume remains at the high or low",formula:"Smaller side / (minimum volume × 4)"},
-  TAPE:{icon:"≋",label:"TAPE",meaning:"Aggressor-side trade imbalance",formula:"|BUY ratio − 50%| × 2"}
+  LARGE_TRADE:{icon:"◉",mark:"L",label:"LARGE",full:"LARGE TRADE",meaning:"Large trade at or above the reference size",formula:"Quantity / (reference quantity × 4)"},
+  SWEEP:{icon:"↯",mark:"S",label:"SWEEP",meaning:"Multiple price levels crossed quickly",formula:"Levels / (required levels × 3)"},
+  EXHAUSTION:{icon:"◇",mark:"E",label:"EXH",full:"EXHAUSTION",meaning:"Volume exhaustion at the price extreme",formula:"1 − edge volume / threshold"},
+  UNFINISHED_AUCTION:{icon:"⚖",mark:"U",label:"U/A",full:"UNFINISHED AUCTION",meaning:"Both-side volume remains at the high or low",formula:"Smaller side / (minimum volume × 4)"},
+  TAPE:{icon:"≋",mark:"T",label:"TAPE",meaning:"Aggressor-side trade imbalance",formula:"|BUY ratio − 50%| × 2"}
 };
+const FLOW_EVENT_RETENTION_MS=2*60*60*1000,FLOW_EVENT_HARD_CAP=20000;
+function flowEventDetailKey(detail){
+  if(detail==null)return "";
+  if(typeof detail==="string")return detail;
+  try{return JSON.stringify(detail,Object.keys(detail).sort());}catch(_){return String(detail);}
+}
+function normalizeFlowEvent(raw,fallbackTime){
+  const eventTime=raw.event_time||fallbackTime,time=Date.parse(eventTime);
+  if(!Number.isFinite(time))return null;
+  const category=String(raw.category||raw.kind||"UNKNOWN").toUpperCase();
+  const side=String(raw.side||"NEUTRAL").toUpperCase();
+  const rawStrength=N(raw.strength),rawPrice=N(raw.price),detail=raw.detail??{};
+  const strength=Number.isFinite(rawStrength)?rawStrength:0,price=Number.isFinite(rawPrice)?rawPrice:null;
+  const event={event_time:new Date(time).toISOString(),time,category,side,
+    strength,price,detector:String(raw.detector||raw.kind||category),detail};
+  event.key=`${time}|${category}|${side}|${price??""}|${event.strength}|${flowEventDetailKey(detail)}`;
+  return event;
+}
+function pruneFlowEvents(){
+  if(S.marketTime==null)return false;
+  const cutoff=S.marketTime-FLOW_EVENT_RETENTION_MS,before=S.flowMarkerEvents.length;
+  S.flowMarkerEvents=S.flowMarkerEvents.filter(e=>e.time>=cutoff);
+  if(S.flowMarkerEvents.length>FLOW_EVENT_HARD_CAP)S.flowMarkerEvents.splice(0,S.flowMarkerEvents.length-FLOW_EVENT_HARD_CAP);
+  if(S.flowMarkerEvents.length!==before)S.flowEventKeys=new Set(S.flowMarkerEvents.map(e=>e.key));
+  S.flows=S.flows.filter(e=>e.time>=cutoff).slice(0,40);
+  return S.flowMarkerEvents.length!==before;
+}
+function ingestFlowEvent(raw,fallbackTime){
+  const event=normalizeFlowEvent(raw,fallbackTime);if(!event||S.flowEventKeys.has(event.key))return null;
+  S.marketTime=S.marketTime==null?event.time:Math.max(S.marketTime,event.time);
+  S.flowEventKeys.add(event.key);S.flowMarkerEvents.push(event);S.flows.unshift(event);
+  if(S.flows.length>40)S.flows.pop();pruneFlowEvents();return event;
+}
 const FLOW_CFG={};
 for(const k of Object.keys(FLOW_DEFS))FLOW_CFG[k]={threshold:0.85};
 try{Object.assign(FLOW_CFG,JSON.parse(localStorage.getItem("deltaengine.flow")||"{}"));}catch(e){}
@@ -545,11 +584,11 @@ function renderFlowInfo(){
   document.querySelectorAll("[data-flow-key]").forEach(inp=>inp.onchange=()=>{const v=Number(inp.value);if(Number.isFinite(v)&&v>=0&&v<=1){FLOW_CFG[inp.dataset.flowKey].threshold=v;saveFlowCfg();}});
 }
 function onFlow(m,p){
-  S.flows.unshift(p); if(S.flows.length>40)S.flows.pop();
-  renderFlow();
-  const th=FLOW_CFG[p.category]?.threshold ?? ALERT_CFG.threshold;
-  if(N(p.strength)>=th){
-    const a={t:(p.event_time||m.time).slice(11,19),cat:p.category,side:p.side,strength:p.strength};
+  const event=ingestFlowEvent(p,m.time);if(!event)return;
+  renderFlow();renderChart();
+  const th=FLOW_CFG[event.category]?.threshold ?? ALERT_CFG.threshold;
+  if(N(event.strength)>=th){
+    const a={t:event.event_time.slice(11,19),cat:event.category,side:event.side,strength:event.strength};
     S.alerts.unshift(a); while(S.alerts.length>ALERT_CFG.maxHistory)S.alerts.pop();
     toast(a); renderAlerts();
   }
@@ -965,6 +1004,56 @@ function flowForBar(bar){
   }
   return best;
 }
+function flowEventBuckets(bars){
+  const buckets=new Map(bars.map(b=>[b.time,[]]));if(!bars.length)return buckets;
+  const timeframeMs=fpTfSeconds(bars[0].timeframe)*1000;
+  for(const event of S.flowMarkerEvents){
+    const barTime=Math.floor(event.time/timeframeMs)*timeframeMs,bucket=buckets.get(barTime);
+    if(bucket)bucket.push(event);
+  }
+  return buckets;
+}
+function flowMarkerMeta(category){
+  const def=FLOW_DEFS[category];
+  return {mark:def?.mark||category.slice(0,1)||"?",label:def?.full||def?.label||category,
+    color:CAT[category]||"#FFFFFF"};
+}
+function aggregateFlowEvents(events){
+  const groups=new Map();
+  for(const event of events){
+    let group=groups.get(event.category);
+    if(!group){group={category:event.category,count:0,maxStrength:-1,primary:event,sides:new Set()};groups.set(event.category,group);}
+    group.count+=1;group.sides.add(event.side);
+    if(event.strength>=group.maxStrength){group.maxStrength=event.strength;group.primary=event;}
+  }
+  return [...groups.values()].map(group=>{
+    const directional=[...group.sides].filter(side=>side==="BUY"||side==="SELL");
+    group.side=directional.length===1?directional[0]:directional.length>1?"MIXED":"NEUTRAL";
+    return group;
+  }).sort((a,b)=>b.maxStrength-a.maxStrength||b.count-a.count||a.category.localeCompare(b.category));
+}
+function flowEventMarkersSvg(bars,buckets,slot,priceScale){
+  return bars.map((bar,index)=>{
+    const events=buckets.get(bar.time)||[];if(!events.length)return "";
+    const groups=aggregateFlowEvents(events),primary=groups[0],meta=flowMarkerMeta(primary.category);
+    const x=MC.L+(index+.5)*slot,buy=primary.side==="BUY";
+    const rawY=buy?priceScale.y(bar.l)+10:priceScale.y(bar.h)-10;
+    const y=Math.max(MC.price.top+7,Math.min(MC.price.bottom-7,rawY));
+    const sideColor=primary.side==="BUY"?BUY:primary.side==="SELL"?SELL:"#FFFFFF";
+    if(slot<10)return `<g class="flow-event-marker" pointer-events="none"><circle cx="${x}" cy="${y}" r="3.1" fill="${meta.color}" stroke="${sideColor}" stroke-width="1.2"/></g>`;
+    const multiple=groups.length>1||events.length>1,w=multiple?17:13,label=multiple?`${meta.mark}+`:meta.mark;
+    const summary=groups.map(g=>`${flowMarkerMeta(g.category).label} ×${g.count}`).join(" · ");
+    return `<g class="flow-event-marker" pointer-events="none"><title>FLOW EVENTS · ${summary}</title><rect x="${x-w/2}" y="${y-6.5}" width="${w}" height="13" rx="4" fill="${meta.color}" fill-opacity=".96" stroke="${sideColor}" stroke-width="1.4"/><text x="${x}" y="${y+3}" text-anchor="middle" fill="#090D20" font-size="8" font-weight="950">${label}</text></g>`;
+  }).join("");
+}
+function flowEventsDetail(events){
+  if(!events.length)return "";
+  const rows=aggregateFlowEvents(events).map(group=>{
+    const meta=flowMarkerMeta(group.category),sideColor=group.side==="BUY"?BUY:group.side==="SELL"?SELL:DIS;
+    return `<div class="ct-event"><span class="ct-event-mark" style="background:${meta.color}">${meta.mark}</span><span><b>${meta.label}</b> <span style="color:${sideColor}">${group.side}</span></span><span class="ct-event-meta">×${group.count} · MAX ${fmt(group.maxStrength,2)}</span></div>`;
+  }).join("");
+  return `<div class="ct-events"><div class="ct-events-title">FLOW EVENTS · 2H MEMORY</div>${rows}</div>`;
+}
 const CVD_PATTERNS=[
   {no:'1',name:'UPTREND',klass:'ok',price:1,cvd:1,delta:1,summary:'Cumulative and recent flow favor buys; price is rising'},
   {no:'2',name:'UPTREND PULLBACK',klass:'warn',price:1,cvd:1,delta:-1,summary:'Cumulative flow favors buys; recent flow sells; price remains higher'},
@@ -992,10 +1081,10 @@ function renderChart(){
   CHART.offset=Math.max(0,Math.min(CHART.offset,maxOffset));
   const end=Math.max(0,all.length-CHART.offset),start=Math.max(0,end-CHART.visible);
   const bars=all.slice(start,end),n=bars.length;
-  CHART.currentBars=bars;CHART.currentFlows=bars.map(flowForBar);
+  CHART.currentBars=bars;CHART.currentFlows=bars.map(flowForBar);CHART.currentEventBuckets=flowEventBuckets(bars);
   $("chartbars").textContent=`${CHART.visible} bars`;
   $("chartlive").classList.toggle("on",CHART.offset===0);
-  $("chartlegend").innerHTML=`<span><i style="background:${BUY}"></i>PRICE</span><span><i style="background:#23DFFF"></i>CVD</span><span><i style="background:${INFO}"></i>Δ</span><span><i style="background:${WARN}"></i>STALLED</span><span><i style="background:${INFO}"></i>DIVERGENCE ${flowWindowText(CHART.windowSec)}</span>`;
+  $("chartlegend").innerHTML=`<span><i style="background:${BUY}"></i>PRICE</span><span><i style="background:#23DFFF"></i>CVD</span><span><i style="background:${INFO}"></i>Δ</span><span><i style="background:${WARN}"></i>STALLED</span><span><i style="background:${INFO}"></i>DIVERGENCE ${flowWindowText(CHART.windowSec)}</span><span><i style="background:#FFFFFF"></i>EVENTS 2H</span>`;
   const frame=`
     <defs>
       <linearGradient id="cvdFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#23DFFF" stop-opacity=".20"/><stop offset="100%" stop-color="#23DFFF" stop-opacity="0"/></linearGradient>
@@ -1048,6 +1137,7 @@ function renderChart(){
     const yo=priceScale.y(b.o),yc=priceScale.y(b.c),yh=priceScale.y(b.h),yl=priceScale.y(b.l);
     return `<line x1="${x}" x2="${x}" y1="${yh}" y2="${yl}" stroke="${col}" stroke-width="1.35" opacity=".95"/><rect x="${x-body/2}" y="${Math.min(yo,yc)}" width="${body}" height="${Math.max(1.8,Math.abs(yc-yo))}" rx="1" fill="${col}" ${b.live?`stroke="#FFFFFF" stroke-width=".8"`:""}/>`;
   }).join("");
+  const eventMarkers=flowEventMarkersSvg(bars,CHART.currentEventBuckets,slot,priceScale);
   const cvdPath=bars.map((b,i)=>`${i?"L":"M"}${(MC.L+(i+.5)*slot).toFixed(2)},${cvdScale.y(b.cvd).toFixed(2)}`).join(" ");
   const deltaMid=(MC.cvd.top+MC.cvd.bottom)/2;
   const deltas=bars.map((b,i)=>{
@@ -1062,7 +1152,7 @@ function renderChart(){
   const last=bars[n-1],lastY=priceScale.y(last.c),lastCol=last.c>=last.o?BUY:SELL;
   const lastLine=`<line x1="${MC.L}" x2="${MC.R}" y1="${lastY}" y2="${lastY}" stroke="${lastCol}" stroke-width="1" stroke-dasharray="5,5" opacity=".82"/><rect x="${MC.R}" y="${lastY-9}" width="82" height="18" rx="3" fill="#11162F" stroke="${lastCol}" stroke-width="1.2"/><text x="${MC.R+41}" y="${lastY+4}" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="950">${last.c.toFixed(priceDigits)}</text>`;
   const cross=`<g id="chartcross" style="display:none" pointer-events="none"><rect id="chartselectshade" y="${MC.price.top}" height="${MC.vol.bottom-MC.price.top}" fill="#FFFFFF" fill-opacity=".055"/><line id="chartcrossx" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#FFFFFF" stroke-width="1.35" stroke-dasharray="4,3" opacity=".95"/><line id="chartcrossy" x1="${MC.L}" x2="${MC.R}" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="4,3" opacity=".72"/></g>`;
-  $("chart").innerHTML=frame+grid.join("")+`<g clip-path="url(#priceClip)">${flowBands}${candles}</g>${lastLine}<g clip-path="url(#cvdClip)">${deltas}<path d="${cvdPath} L${MC.L+(n-.5)*slot},${MC.cvd.bottom} L${MC.L+.5*slot},${MC.cvd.bottom} Z" fill="url(#cvdFill)"/><path d="${cvdPath}" fill="none" stroke="#59E8FF" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/></g><g clip-path="url(#volClip)">${volumes}</g>${cross}`;
+  $("chart").innerHTML=frame+grid.join("")+`<g clip-path="url(#priceClip)">${flowBands}${candles}${eventMarkers}</g>${lastLine}<g clip-path="url(#cvdClip)">${deltas}<path d="${cvdPath} L${MC.L+(n-.5)*slot},${MC.cvd.bottom} L${MC.L+.5*slot},${MC.cvd.bottom} Z" fill="url(#cvdFill)"/><path d="${cvdPath}" fill="none" stroke="#59E8FF" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/></g><g clip-path="url(#volClip)">${volumes}</g>${cross}`;
   const cl=$("chartlast");cl.classList.remove("dash");cl.textContent=last.c.toFixed(priceDigits);cl.style.color=lastCol;
   restoreChartSelection();
 }
@@ -1078,7 +1168,7 @@ function chartDirection(label,value){
 function selectChartIndex(index){
   const bars=CHART.currentBars;
   if(!bars.length||index<0||index>=bars.length)return;
-  const b=bars[index],flow=CHART.currentFlows[index],slot=(MC.R-MC.L)/bars.length,x=MC.L+(index+.5)*slot;
+  const b=bars[index],flow=CHART.currentFlows[index],events=CHART.currentEventBuckets.get(b.time)||[],slot=(MC.R-MC.L)/bars.length,x=MC.L+(index+.5)*slot;
   CHART.selectedTime=b.time;
   const g=$("chartcross"),shade=$("chartselectshade"),xl=$("chartcrossx"),yl=$("chartcrossy");
   if(!g||!shade||!xl||!yl)return;
@@ -1094,7 +1184,7 @@ function selectChartIndex(index){
   const pattern=classifyCvdPattern(patternBars,patternIndex);
   const directions=pattern?`${chartDirection("PRICE",pattern.price)}<span> / </span>${chartDirection("CVD",pattern.cvd)}<span> / </span>${chartDirection("Δ",pattern.delta)}`:"";
   const patternHtml=pattern?`<div class="ct-pattern ${pattern.klass}">${pattern.no} ${pattern.name}<div class="ct-dirs">${directions}</div><span style="font-weight:800;opacity:.95">${pattern.summary}</span></div>`:`<div class="ct-pattern warn">— NO 8-PATTERN CLASSIFICATION</div>`;
-  tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div>${patternHtml}<div class="ct-grid"><span class="ct-k">O</span><span class="ct-v">${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span class="ct-v">${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span class="ct-v">${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="ct-v">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span class="ct-v">${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="ct-v">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span class="ct-v">${compact(b.volume)}</span></div><div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW RESPONSE · ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:#FFFFFF;font-weight:800">${flowFacts}</span></div>`;
+  tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div>${patternHtml}<div class="ct-grid"><span class="ct-k">O</span><span class="ct-v">${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span class="ct-v">${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span class="ct-v">${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="ct-v">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span class="ct-v">${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="ct-v">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span class="ct-v">${compact(b.volume)}</span></div>${flowEventsDetail(events)}<div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW RESPONSE · ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:#FFFFFF;font-weight:800">${flowFacts}</span></div>`;
   tip.scrollTop=0;
 }
 function restoreChartSelection(){

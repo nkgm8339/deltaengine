@@ -137,6 +137,7 @@ async def lifespan(app: FastAPI):
     pipeline.on_candle = on_candle_cb
     pipeline.on_analysis = on_analysis_cb
     pipeline.on_liquidation = on_liquidation_cb
+    pipeline.on_flow_event = on_webapp_flow_cb
     pipeline.on_webapp_flow_event = on_webapp_flow_cb
     pipeline.on_flow_response = on_flow_response_cb
 
