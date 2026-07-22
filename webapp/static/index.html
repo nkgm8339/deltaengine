@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
 
 <style>
 :root{
@@ -22,10 +26,6 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 /* top bar */
 #topbar{display:flex;flex-direction:row;align-items:center;gap:18px;padding:0 16px;height:48px;flex-shrink:0;white-space:nowrap;overflow:hidden}
 #price{font-size:22px;font-weight:700;line-height:48px;flex-shrink:0}
-#chg{font-size:13px;font-weight:600}
-#sigchip{display:flex;align-items:center;gap:8px;padding:4px 12px;border-radius:6px;
-  border:1px solid var(--line)}
-#sigchip b{font-size:15px;letter-spacing:.15em}
 .kv{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
 .kv .k{font-size:9px;letter-spacing:.15em;color:var(--dis)}
 .kv .v{font-size:13px;font-weight:600}
@@ -37,7 +37,7 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 #main{display:flex;gap:6px;flex:1;min-height:max-content}
 #left{width:256px;flex-shrink:0}
 #center{flex:4.4;display:flex;flex-direction:column;gap:6px;min-width:0;grid-column:span 2;width:80%;justify-self:end}
-#flowrow,#flowpanel,#abspanel{width:calc(160% - 80px)!important;margin-left:0;margin-right:auto}
+#flowrow,#flowpanel,#abspanel,#imbpanel{width:calc(160% - 80px)!important;margin-left:0;margin-right:auto}
 #right{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}#right>.panel{flex-shrink:0}
 /* order book */
 #bookbody{flex:1;display:flex;flex-direction:column;justify-content:center;
@@ -106,35 +106,6 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 .fstr{width:38px;text-align:right;font-weight:600}
 .legend{display:flex;gap:9px;font-size:8px;letter-spacing:.08em;color:var(--dis);align-items:center}
 .legend i{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px}
-/* right */
-#mstate{padding:12px;display:flex}
-  border-radius:6px;font-size:17px;font-weight:900;letter-spacing:.15em;transition:all .3s}
-#confl{padding:9px 14px}
-.cchip{display:flex;flex-direction:column;align-items:center;padding:4px 0;border-radius:5px;
-  background:var(--panel2);border:1px solid var(--line)}
-.cchip.on{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3)}
-.cchip b{font-size:12px;color:var(--dis)}
-.cchip.on b{color:var(--buy)}
-.cchip span{font-size:7px;letter-spacing:.06em;color:var(--dis);margin-top:2px}
-.cchip.on span{color:var(--text)}
-#whypanel{flex:1 0 auto}
-#whybody{padding:10px 16px;display:flex;flex-direction:column;flex:1}
-#whytop{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-#whysig{font-size:21px;font-weight:900;letter-spacing:.12em}
-#whyconf{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--warn)}
-#vetobadge{display:none;margin:0 0 6px;padding:4px 6px;border-radius:5px;background:rgba(255,196,0,.1);border:1px solid rgba(255,196,0,.35);color:var(--warn)}
-#scores{display:flex;flex-direction:column;gap:6px}
-.srow{display:flex;flex-direction:column;gap:3px;padding:3px 0}
-.srow .top{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:11px}
-.srow .name{font-weight:900;letter-spacing:.05em}
-.srow .val{font-weight:800}
-.srow .track{height:6px;border-radius:999px;background:#0B0F25;border:1px solid #344074;overflow:hidden}
-.srow .fill{height:100%;border-radius:999px}
-#whydivider{height:1px;background:var(--line);margin:2px 0 6px}
-#whyfoot{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;text-align:center}
-.mchip{padding:5px 0;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
-.mchip .k{font-size:8px;letter-spacing:.15em;color:var(--dis)}
-.mchip .v{font-size:11px;font-weight:700}
 /* bottom */
 #bottom{height:112px;flex-shrink:0}
 #tabs{display:flex;gap:3px}
@@ -151,8 +122,7 @@ body{background:var(--bg);color:var(--text);overflow:auto;
   font-size:13px;font-weight:700;letter-spacing:.06em;background:rgba(17,22,31,.96);
   backdrop-filter:blur(8px);animation:drop .2s ease-out}
 @keyframes drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
-/* ALERTS history: normal-flow panel in the right column (below SIGNAL — WHY).
-   No longer position:fixed so it can't overlap other panels. */
+/* ALERTS history: normal-flow panel; never position:fixed. */
 #alerthist{border-radius:8px;background:var(--panel);border:1px solid var(--line);
   overflow:hidden;display:none;flex-shrink:0}
 #alerthist .ah-head{padding:5px 12px;border-bottom:1px solid var(--line);
@@ -183,11 +153,8 @@ body{
 .ptitle{color:#C5CDF5;font-weight:800}.hint{color:#A3AED9}.dash{color:#A3AED9}
 #topbar{height:70px;gap:22px;padding:0 22px;background:linear-gradient(105deg,#121733,#1A1740 56%,#102C51)}
 #sym{color:#23DFFF!important;font-size:12px!important;font-weight:900!important;letter-spacing:.15em!important}
-#price,#chg,.kv .v,.brow,.fprow,.frow,#chartlast,.mchip .v{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#price,.kv .v,.brow,.fprow,.frow,#chartlast{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
 #price{font-size:35px;letter-spacing:-.045em;line-height:1;text-shadow:0 0 20px #23DFFF60}
-#chg{padding:8px 12px;border:1px solid #39F89DBB;border-radius:8px;background:linear-gradient(105deg,#0D5F5B,#1FAE79 58%,#B9E657);color:#F5FFF8;box-shadow:inset 0 1px #FFFFFF44,0 0 18px #39F89D45}
-#sigchip{border-color:#C8FF74;background:linear-gradient(105deg,#33DCA2,#75F36A 55%,#EDFF70);box-shadow:inset 0 1px #FFFFFF8C,0 0 23px #39F89D8C}
-#sigchip b,#conftop{color:#07140E;font-weight:950}
 .kv .k{color:#A3AED9}.kv .v{font-size:14px;color:#F6F7FF}
 #devbtn{color:#C5CDF5}#devbtn.on{color:#FFE35D}
 #main,#center,#right{gap:12px}#left{width:266px}#right{width:333px}
@@ -203,8 +170,6 @@ body{
 .fp-price{color:#CDD4FF}.fp-bar{box-shadow:0 0 9px currentColor}.badge.poc{background:#D6A928;color:#161004}.badge.va{border-color:#FFE35D;color:#FFF08A}
 .ctl button{color:#C5CDF5}.ctl button.lock{color:#FFE35D}
 #flowbody{padding:7px 14px}.frow{gap:10px;border-bottom-color:#2A315D;font-weight:800}.fcat{border-radius:4px;font-weight:900}.legend{color:#C5CDF5}
-.cchip{border-color:#56629B;background:linear-gradient(145deg,#1D2448,#101530);color:#C7D0FB}.cchip.on{border-color:#8EFFB8;background:linear-gradient(145deg,#17635A,#1AA465 52%,#79CF51);box-shadow:inset 0 1px #FFFFFF4B,0 0 13px #39F89D55}.cchip.on b,.cchip.on span{color:#EAFFC9}
-.mchip{background:linear-gradient(145deg,#1D2448,#101530);border-color:#56629B}.mchip .k{color:#C5CDF5}
 #tabs button{color:#D3DBFF;border-radius:5px}#tabs button.on{color:#161004;font-weight:900;background:linear-gradient(105deg,#1375B5,#16B6D8 52%,#A66BFF);box-shadow:inset 0 1px #FFFFFF66,0 0 13px #23DFFF88}
 #chartwrap{background:repeating-linear-gradient(0deg,transparent 0 29px,#2D356020 30px),repeating-linear-gradient(90deg,transparent 0 72px,#2D356020 73px)}
 .toast,#devov,#hpop{border-color:#56629B!important;background:linear-gradient(145deg,#1B2146F5,#0E1230F5)!important;box-shadow:0 13px 32px #0008}
@@ -225,10 +190,6 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #topbar{gap:22px;padding:0 22px;height:70px}
 #topbar>#sym{color:#23DFFF!important;font-size:12px!important;font-weight:900;letter-spacing:.15em}
 #price{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;font-size:35px;line-height:1;font-weight:900;text-shadow:0 0 20px #23DFFF60;flex:0 0 200px;width:200px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#chg{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;font-size:20px;font-weight:900;padding:8px 12px;border:1px solid #4B5563;background:#000;color:#D1D5DB;border-radius:8px;box-shadow:none}
-#sigchip{padding:9px 17px;border:1px solid #4B5563;border-radius:9px;background:#000;box-shadow:none}
-#sigchip b,#conftop{color:#D1D5DB;font-size:20px!important;font-weight:900}
-#sigchip b{letter-spacing:.12em}
 
 #main{gap:12px}
 #center,#right{gap:12px}
@@ -253,16 +214,19 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #chartlast{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-shadow:0 0 12px #23DFFF88}
 /* Market chart: price is primary, CVD and volume share the same time axis. */
 #bottom.market-chart-panel{height:500px;min-height:500px;flex:0 0 500px;overflow:hidden}
-#bottom.market-chart-panel .phead{gap:12px;flex-wrap:wrap;padding-top:6px;padding-bottom:6px}
+#bottom.market-chart-panel .phead{height:72px;min-height:72px;flex:0 0 72px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:6px;padding:6px 14px}
+#chartheadline{height:27px;display:flex;align-items:center;gap:12px;min-width:0;overflow:hidden}
 #charttitle{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:950;letter-spacing:.13em;color:#E8ECFF}
 #charttitle i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#23DFFF;box-shadow:0 0 12px #23DFFF}
-#chartcontrols{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}
+#chartcontrols{height:27px;display:flex;align-items:center;gap:6px;min-width:0;width:100%;overflow:hidden}
 #chartcontrols label{display:flex;align-items:center;gap:5px;color:var(--dis);font-size:10px;font-weight:850;letter-spacing:.08em}
 #chartcontrols select,#chartcontrols button{height:27px;border:1px solid #4A568C;border-radius:6px;background:#0B0F25;color:#DCE3FF;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;padding:0 8px;cursor:pointer}
 #chartcontrols button{min-width:29px;padding:0 7px}
 #chartcontrols button:hover,#chartcontrols button.on{border-color:#23DFFF;color:#23DFFF;background:#102947}
 #chartbars{min-width:54px;text-align:center;color:#FFFFFF;font:900 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
-#chartlegend{font-size:10px;white-space:nowrap}
+#cvdslope{flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#chartlegend{margin-left:auto;min-width:0;font-size:10px;white-space:nowrap;overflow:hidden}
+#chartlast{min-width:110px;text-align:right;white-space:nowrap}
 #chartwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:8px;flex:1;min-height:0;padding:0 4px 4px;background:#090D20;touch-action:none;overflow:hidden}
 #chart{display:block;width:100%;height:100%;min-width:0;cursor:crosshair;outline:none}
 #charttip{display:block;position:relative;z-index:8;pointer-events:none;min-width:0;width:100%;height:100%;overflow-y:auto;padding:10px 11px;border:1px solid #56629B;border-radius:8px;background:#0B1028F2;box-shadow:inset 3px 0 14px #0005;color:#FFFFFF;font:750 11px/1.55 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
@@ -278,10 +242,10 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #charttip .ct-v{color:#FFFFFF;font-weight:900}
 #charttip .ct-k{color:#DDE3FF}.ct-buy{color:#39F89D}.ct-sell{color:#FF365F}.ct-flow{margin-top:5px;padding-top:5px;border-top:1px solid #56629B;font-weight:900}
 #charthint{position:absolute;left:15px;bottom:10px;z-index:4;pointer-events:none;color:#FFFFFF;font-size:9px;font-weight:850;letter-spacing:.06em}
-@media(max-width:700px){#bottom.market-chart-panel{height:440px;min-height:440px;flex-basis:440px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}#chartcontrols{width:100%;margin-left:0}}
+@media(max-width:700px){#bottom.market-chart-panel{height:440px;min-height:440px;flex-basis:440px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}}
 </style>
 </head>
-<body>
+<body class="notranslate">
 <div id="banner"></div>
 <div id="toasts"></div>
 <div id="appgrid">
@@ -289,7 +253,6 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
   <div id="topbar" class="panel">
     <span style="font-size:13px;font-weight:700;letter-spacing:.15em;color:var(--sub)" id="sym">—</span>
     <span id="price" class="dash">—</span>
-    <span id="chg" class="dash">—</span>
     <span style="flex:1"></span>
     <span class="kv"><span class="k">ATR(14)</span><span class="v dash" id="atr">—</span></span>
     <span class="kv"><span class="k">SPREAD</span><span class="v" id="spread">—</span></span>
@@ -347,13 +310,13 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
       <div id="flowrow" style="display:block;width:100%;flex-shrink:0">
       <div id="flowpanel" class="panel" style="width:100%;position:relative;overflow:visible">
         <div class="phead">
-          <span style="display:flex;align-items:center;gap:6px"><span class="ptitle">FLOW EVENTS</span><button id="flowinfobtn" title="Flowイベント設定" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:11px;line-height:1;padding:2px 5px">⚙</button></span>
+          <span style="display:flex;align-items:center;gap:6px"><span class="ptitle">FLOW EVENTS</span><button id="flowinfobtn" title="Flow event settings" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:11px;line-height:1;padding:2px 5px">⚙</button></span>
           <span class="legend" id="flowlegend"></span>
         </div>
         <div id="flowinfopop" style="display:none;position:fixed;z-index:100;left:0;top:0;width:430px;max-height:calc(100vh - 20px);overflow:auto;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:7px;box-shadow:0 10px 24px #0008;color:var(--sub);font-size:10px;line-height:1.45">
           <div style="color:var(--text);font-weight:800;margin-bottom:6px">FLOW EVENTS / STRENGTH</div>
-          <table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--dis);text-align:left"><th>イベント</th><th>意味</th><th>強度</th><th>通知≥</th></tr></thead><tbody id="flowinfobody"></tbody></table>
-          <div style="margin-top:7px;color:var(--warn)">強度は0.00〜1.00の内部スコアで、確率や利益率ではありません。</div>
+          <table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--dis);text-align:left"><th>EVENT</th><th>MEANING</th><th>STRENGTH</th><th>ALERT ≥</th></tr></thead><tbody id="flowinfobody"></tbody></table>
+          <div style="margin-top:7px;color:var(--warn)">Strength is an internal 0.00–1.00 score, not probability or expected return.</div>
         </div>
         <div id="flowbody"></div>
       </div>
@@ -361,7 +324,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     </div>
 
     <div id="right">
-      <div class="panel" style="position:relative">
+      <div id="imbpanel" class="panel" style="position:relative">
         <div class="phead">
           <span class="ptitle">IMBALANCE</span>
           <span style="display:flex;align-items:center;gap:8px">
@@ -370,76 +333,63 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
           </span>
         </div>
         <div id="imbgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
-          <div style="margin-bottom:6px">倍率 <input id="imbratioin" type="number" min="1" max="20" step="0.5" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
-          <div style="margin-bottom:6px">段数 <input id="imbstackin" type="number" min="2" max="20" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
-          <div>下限 <input id="imbminvin" type="number" min="0" step="0.001" style="width:72px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <div style="margin-bottom:6px">Ratio <input id="imbratioin" type="number" min="1" max="20" step="0.5" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <div style="margin-bottom:6px">Stack count <input id="imbstackin" type="number" min="2" max="20" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <div>Minimum volume <input id="imbminvin" type="number" min="0" step="0.001" style="width:72px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
         </div>
         <div id="imbbody" style="padding:8px 12px"><div class="dash" style="text-align:center">—</div></div>
       </div>
       <div id="abspanel" class="panel" style="position:relative">
         <div class="phead"><span class="ptitle">ABSORPTION</span><span style="display:flex;align-items:center;gap:8px"><span id="abshint" class="hint" style="font-size:11px">—</span><button id="absgear" title="stall ticks / volume ×" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></span></div>
         <div id="absgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
-          <div style="margin-bottom:6px">停滞ticks <input id="absstallin" type="number" min="1" max="20" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
-          <div style="margin-bottom:6px">出来高倍率 <input id="absmultin" type="number" min="1" max="10" step="0.5" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
-          <button id="absapply" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;padding:2px 8px">反映</button>
+          <div style="margin-bottom:6px">Stall ticks <input id="absstallin" type="number" min="1" max="20" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <div style="margin-bottom:6px">Volume multiplier <input id="absmultin" type="number" min="1" max="10" step="0.5" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+          <button id="absapply" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;padding:2px 8px">APPLY</button>
         </div>
         <div id="absbody" style="padding:8px 12px"><div class="dash" style="text-align:center">—</div></div>
       </div>
-      <div id="whypanel" class="panel" style="position:relative">
-        <div class="phead">
-          <span class="ptitle">SIGNAL — WHY</span>
-          <span style="font-size:11px;color:var(--sub)">CONF <b id="whyconf" style="font-size:14px;color:var(--text)">—</b></span>
-        </div>
-        <div id="whybody">
-          <div id="whytop"><span id="whysig" class="dash">—</span></div>
-          <div id="vetobadge"></div>
-          <div id="scores"></div>
-          <div id="whyfoot">
-            <div class="mchip"><div class="k">RISK</div><div class="v dash" id="risk">—</div></div>
-            <div class="mchip"><div class="k">EXP. RR</div><div class="v dash" id="rr">—</div></div>
-            <div class="mchip"><div class="k">VETO</div><div class="v dash" id="veto">—</div></div>
-          </div>
-        </div>
-      </div>      <div id="alerthist" style="position:relative"><div class="ah-head" style="display:flex;align-items:center;justify-content:space-between">🕘 ALERTS <button id="alertgear" title="ライブ通知設定" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></div><div id="alertsetpop" style="display:none;position:absolute;right:8px;top:30px;z-index:50;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)"><div style="margin-bottom:6px">強度閾値 <input id="alertthrin" type="number" min="0" max="1" step="0.05" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div style="margin-bottom:6px">履歴件数 <input id="alerthistin" type="number" min="1" max="50" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div>表示秒数 <input id="alertsecsin" type="number" min="1" max="30" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div></div><div id="alertrows"></div></div>
+      <div id="alerthist" style="position:relative"><div class="ah-head" style="display:flex;align-items:center;justify-content:space-between">🕘 ALERTS <button id="alertgear" title="Live alert settings" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></div><div id="alertsetpop" style="display:none;position:absolute;right:8px;top:30px;z-index:50;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)"><div style="margin-bottom:6px">Strength threshold <input id="alertthrin" type="number" min="0" max="1" step="0.05" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div style="margin-bottom:6px">History size <input id="alerthistin" type="number" min="1" max="50" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div>Display seconds <input id="alertsecsin" type="number" min="1" max="30" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div></div><div id="alertrows"></div></div>
     </div>
   </div>
 
   <div id="bottom" class="panel market-chart-panel">
     <div class="phead">
-      <span id="charttitle"><i></i>PRICE × FLOW RESPONSE</span>
+      <div id="chartheadline">
+        <span id="charttitle"><i></i>PRICE × FLOW RESPONSE</span>
+        <span class="legend" id="chartlegend"></span>
+        <b id="chartlast" class="dash" style="font-size:13px">—</b>
+      </div>
       <span id="chartcontrols">
         <label>FLOW
-          <select id="chartflowwindow" title="背景帯に表示するフロー時間窓">
+          <select id="chartflowwindow" title="Flow-response window shown as chart background">
             <option value="30">30s</option><option value="60">1m</option>
             <option value="180">3m</option><option value="300">5m</option>
             <option value="900">15m</option><option value="1800">30m</option>
           </select>
         </label>
-        <button id="chartzoomout" title="表示本数を増やす">−</button>
+        <button id="chartzoomout" title="Show more bars">−</button>
         <span id="chartbars">80 bars</span>
-        <button id="chartzoomin" title="表示本数を減らす">＋</button>
-        <button id="chartlive" class="on" title="最新足へ戻る">LIVE</button>
+        <button id="chartzoomin" title="Show fewer bars">＋</button>
+        <button id="chartlive" class="on" title="Return to latest bar">LIVE</button>
         <span id="cvdslope" class="dash" style="font-size:12px;font-weight:800;letter-spacing:.04em">—</span>
-        <button id="cvdgear" title="CVD 方式・窓">⚙</button>
-        <span class="legend" id="chartlegend"></span>
-        <b id="chartlast" class="dash" style="font-size:13px">—</b>
+        <button id="cvdgear" title="CVD method and window">⚙</button>
       </span>
     </div>
     <div id="cvddiv" style="display:none;margin:2px 12px 0;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700"></div>
     <div id="flowresponse" style="display:none;margin:4px 12px 0;gap:7px;flex-wrap:wrap;font-size:12px;line-height:1.45"></div>
     <div id="cvdgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
-      <div style="margin-bottom:6px">方式
+      <div style="margin-bottom:6px">Method
         <select id="cvdmethod" style="background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px">
-          <option value="regression">回帰</option>
-          <option value="difference">差分</option>
+          <option value="regression">REGRESSION</option>
+          <option value="difference">DIFFERENCE</option>
         </select>
       </div>
-      <div>窓 <input id="cvdwindow" type="number" min="2" max="140" value="20" style="width:56px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
+      <div>Window <input id="cvdwindow" type="number" min="2" max="140" value="20" style="width:56px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
     </div>
     <div id="chartwrap">
       <svg id="chart" preserveAspectRatio="none" viewBox="0 0 1200 500" aria-label="Price, CVD and volume chart"></svg>
-      <div id="charttip"><div class="ct-empty">ローソク足をクリック<br>← → で1本ずつ移動</div></div>
-      <div id="charthint">CLICK SELECT · ← → MOVE · WHEEL ZOOM · DRAG PAN</div>
+      <div id="charttip"><div class="ct-empty">CLICK A CANDLE<br>← → MOVE ONE BAR<br>RIGHT CLICK TO CLEAR</div></div>
+      <div id="charthint">CLICK SELECT · RIGHT CLICK CLEAR · ← → MOVE · WHEEL ZOOM · DRAG PAN</div>
     </div>
   </div>
 </div>
@@ -467,7 +417,7 @@ function fpTfSeconds(tf){                     // timeframe string → seconds (f
 
 // ---------------- state（全てPayload由来） ----------------
 const S={
-  symbol:"—", price:null, prevPrice:null, firstOpen:null,
+  symbol:"—", price:null, prevPrice:null,
   bars:[],            // CANDLE履歴（最大300）
   barView:-1,         // -1 = 最新追従（price lock）
   zoom:1, lock:true,
@@ -497,7 +447,7 @@ function setLive(on){
 
 function versionWarn(serverV){
   const b=$("banner"); b.style.display="block";
-  b.textContent=`⚠ PAYLOAD VERSION MISMATCH — server v${serverV} / ui v${UI_PAYLOAD_VERSION}（描画は継続。表示欠落の可能性あり）`;
+  b.textContent=`⚠ PAYLOAD VERSION MISMATCH — server v${serverV} / ui v${UI_PAYLOAD_VERSION} — rendering continues; some fields may be missing`;
 }
 function handle(m){
   // §6.2 段階的縮退: 不一致でもWarningのみ表示し描画継続。全面停止しない。
@@ -536,7 +486,6 @@ function handle(m){
 // ---------------- handlers ----------------
 function onTick(m,p){
   S.prevPrice=S.price; S.price=N(p.price);
-  if(S.firstOpen==null&&S.price!=null)S.firstOpen=S.price;
   S.lastTickAt=Date.now();
   const sv=Date.parse(m.time);
   S.lastTickServerMs=isNaN(sv)?null:sv;
@@ -581,11 +530,11 @@ const ALERT_CFG={threshold:0.85,maxHistory:8,durationSec:3};
 try{Object.assign(ALERT_CFG,JSON.parse(localStorage.getItem("deltaengine.alerts")||"{}"));}catch(e){}
 function saveAlertCfg(){try{localStorage.setItem("deltaengine.alerts",JSON.stringify(ALERT_CFG));}catch(e){}}
 const FLOW_DEFS={
-  LARGE_TRADE:{icon:"◉",label:"LARGE",full:"LARGE TRADE",meaning:"基準数量以上の大口約定",formula:"数量 ÷ (基準数量×4)"},
-  SWEEP:{icon:"↗",label:"SWEEP",meaning:"短時間の複数価格レベル通過",formula:"レベル数 ÷ (必要レベル数×3)"},
-  EXHAUSTION:{icon:"◇",label:"EXH",full:"EXHAUSTION",meaning:"端の価格帯の出来高枯れ",formula:"1 − 端出来高 ÷ 閾値"},
-  UNFINISHED_AUCTION:{icon:"⚖",label:"U/A",full:"UNFINISHED AUCTION",meaning:"高値／安値で双方の出来高が残る",formula:"小さい側 ÷ (最低出来高×4)"},
-  TAPE:{icon:"≋",label:"TAPE",meaning:"約定方向の偏り",formula:"|BUY比率−50%|×2"}
+  LARGE_TRADE:{icon:"◉",label:"LARGE",full:"LARGE TRADE",meaning:"Large trade at or above the reference size",formula:"Quantity / (reference quantity × 4)"},
+  SWEEP:{icon:"↗",label:"SWEEP",meaning:"Multiple price levels crossed quickly",formula:"Levels / (required levels × 3)"},
+  EXHAUSTION:{icon:"◇",label:"EXH",full:"EXHAUSTION",meaning:"Volume exhaustion at the price extreme",formula:"1 − edge volume / threshold"},
+  UNFINISHED_AUCTION:{icon:"⚖",label:"U/A",full:"UNFINISHED AUCTION",meaning:"Both-side volume remains at the high or low",formula:"Smaller side / (minimum volume × 4)"},
+  TAPE:{icon:"≋",label:"TAPE",meaning:"Aggressor-side trade imbalance",formula:"|BUY ratio − 50%| × 2"}
 };
 const FLOW_CFG={};
 for(const k of Object.keys(FLOW_DEFS))FLOW_CFG[k]={threshold:0.85};
@@ -645,10 +594,6 @@ function renderTop(){
   const pe=$("price"); pe.classList.remove("dash");
   pe.textContent=S.price.toLocaleString(undefined,{minimumFractionDigits:1});
   pe.style.color=up?BUY:SELL;
-  if(S.firstOpen==null)S.firstOpen=S.price;
-  if(S.firstOpen){const c=(S.price-S.firstOpen)/S.firstOpen*100;
-    const ce=$("chg"); ce.classList.remove("dash");
-    ce.textContent=(c>=0?"↑ +":"↓ −")+Math.abs(c).toFixed(2)+"%"; ce.style.color="#D1D5DB";}
   if(S.latency!=null){const le=$("lat"); le.textContent=S.latency+"ms";
     le.style.color=S.latency<60?BUY:S.latency<120?WARN:SELL;}
   const last=S.bars[S.bars.length-1];
@@ -886,11 +831,11 @@ function renderAbsorption(){
   const buy=ABS.classification==="BUY_ABSORPTION";
   const c=buy?BUY:SELL;
   const pct=Math.round(N(ABS.strength)*100);
-  hint.textContent=buy?"買 ABS":"売 ABS";
+  hint.textContent=buy?"BUY ABS":"SELL ABS";
   hint.style.color=c;
   el.innerHTML=
     `<div style="display:flex;flex-direction:column;gap:6px">`
-    +`<div style="font-size:15px;color:${c};font-weight:600">${buy?"買 ABS":"売 ABS"}</div>`
+    +`<div style="font-size:15px;color:${c};font-weight:600">${buy?"BUY ABS":"SELL ABS"}</div>`
     +`<div style="display:flex;align-items:center;gap:8px"><span style="color:${SUB};font-size:11px">strength</span>`
     +`<div style="flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${c}"></div></div>`
     +`<span style="color:${c};font-size:12px">${pct}%</span></div>`
@@ -939,22 +884,10 @@ if(flowTop&&mainCol&&centerCol){mainCol.insertBefore(flowTop,centerCol);flowTop.
 if(flowTop&&flowRow){flowTop.appendChild(flowRow);flowRow.style.width="100%";}
 const absPanel=$("abspanel");
 if(flowTop&&absPanel){flowTop.appendChild(absPanel);absPanel.style.flex="0 0 auto";if(flowRow)absPanel.style.width=flowRow.offsetWidth+"px";}
+const imbPanel=$("imbpanel");
+if(flowTop&&imbPanel){flowTop.appendChild(imbPanel);imbPanel.style.flex="0 0 auto";if(flowRow)imbPanel.style.width=flowRow.offsetWidth+"px";}
 if(rightCol&&leftCol){rightCol.appendChild(leftCol);leftCol.style.width="100%";leftCol.style.flex="0 0 auto";}
 if(flowTop&&alertPanel){flowTop.appendChild(alertPanel);alertPanel.style.display="none";alertPanel.style.flex="0 0 auto";alertPanel.style.width="100%";alertPanel.style.minWidth="0";}
-function sigColor(s){
-  const v=String(s??'').toUpperCase();
-  if(v.includes('BULL')||v.includes('BUY'))return BUY;
-  if(v.includes('BEAR')||v.includes('SELL'))return SELL;
-  if(v.includes('WARN')||v.includes('STALL'))return WARN;
-  return SUB;
-}
-function scoreRow(name,val,{composite=false,zeroToOne=false}={}){
-  const v=N(val);
-  const col=composite?INFO:v==null?DIS:v>=0?BUY:SELL;
-  const width=v==null?0:zeroToOne?Math.min(Math.abs(v)*100,100):Math.min(Math.abs(v),100);
-  const disp=v==null?'—':(v>0&&!composite&&!zeroToOne?'+':'')+(zeroToOne?v.toFixed(2):Math.round(v));
-  return `<div class="srow"><div class="top"><span class="name" style="color:${composite?INFO:TXT}">${name}</span><span class="val" style="color:${col}">${disp}</span></div><div class="track"><div class="fill" style="width:${width}%;background:${col};box-shadow:0 0 8px ${col}55"></div></div></div>`;
-}
 function renderAnalysis(){
   const a=S.analysis; if(!a)return;
   renderCvdDivergence(a.divergence);
@@ -971,27 +904,12 @@ function renderAnalysis(){
   renderImbalance();
   ABS=a.absorption||null;
   renderAbsorption();
-  const sig=a.signal||a.market_state||'—';
-  const ws=$('whysig'); if(ws){ws.classList.remove('dash');ws.textContent=sig;ws.style.color=sigColor(sig);}
-  const wc=$('whyconf'); if(wc){wc.textContent=a.confidence==null?'—':Math.round(N(a.confidence)*100)+'%';}
-  const vb=$('vetobadge'); if(vb){if(a.veto&&a.veto!=='NONE'){vb.style.display='block';vb.textContent='⚠ '+a.veto;}else vb.style.display='none';}
-  const sc=a.scores||{};
-  const cvdRow=a.cvd_unref
-    ?`<div class="srow"><div class="top"><span class="name" style="color:${TXT}">CVD</span><span class="val" style="color:${WARN}">UNREF</span></div><div class="track"><div class="fill" style="width:0%"></div></div></div>`
-    :scoreRow('CVD',sc.cvd);
-  const scoresEl=$('scores'); if(scoresEl){scoresEl.innerHTML=
-    cvdRow+scoreRow('FOOTPRINT',sc.footprint)+scoreRow('IMBALANCE',sc.imbalance)+
-    scoreRow('ABSORPTION',sc.absorption,{zeroToOne:true})+scoreRow('FLOW',sc.flow,{zeroToOne:true})+
-    `<div id="whydivider"></div>`+scoreRow('COMPOSITE',a.composite,{composite:true});}
-  const rk=$('risk'); if(rk){rk.classList.remove('dash');rk.textContent=a.risk_level??'—';rk.style.color=a.risk_level==='LOW'?BUY:a.risk_level==='MEDIUM'?WARN:a.risk_level==='HIGH'?SELL:DIS;}
-  const rr=$('rr'); if(rr){rr.classList.remove('dash');rr.textContent=a.expected_rr==null?'—':a.expected_rr;}
-  const veto=$('veto'); if(veto){veto.classList.remove('dash');veto.textContent=a.veto??'—';veto.style.color=a.veto&&a.veto!=='NONE'?WARN:DIS;}
 }// market chart — shared time axis: PRICE / CVD+DELTA / VOLUME
 const MC={W:1200,H:500,L:18,R:1110,price:{top:20,bottom:286},cvd:{top:318,bottom:408},vol:{top:438,bottom:480}};
 const FLOW_RESPONSE_LABELS={
-  BUY_EFFECTIVE:"買い圧力・上昇",SELL_EFFECTIVE:"売り圧力・下落",
-  BUY_STALLED:"買い圧力・価格停滞",SELL_STALLED:"売り圧力・価格停滞",
-  BUY_TRAPPED:"買い圧力・逆行",SELL_TRAPPED:"売り圧力・逆行",UNCLEAR:"不明"
+  BUY_EFFECTIVE:"BUY PRESSURE · PRICE UP",SELL_EFFECTIVE:"SELL PRESSURE · PRICE DOWN",
+  BUY_STALLED:"BUY PRESSURE · STALLED",SELL_STALLED:"SELL PRESSURE · STALLED",
+  BUY_TRAPPED:"BUY PRESSURE · PRICE DOWN",SELL_TRAPPED:"SELL PRESSURE · PRICE UP",UNCLEAR:"UNCLEAR"
 };
 const FLOW_RANK={UNCLEAR:0,BUY_EFFECTIVE:1,SELL_EFFECTIVE:1,BUY_STALLED:2,SELL_STALLED:2,BUY_TRAPPED:3,SELL_TRAPPED:3};
 function flowWindowText(sec){return sec<60?`${sec}s`:sec%60===0?`${sec/60}m`:`${sec}s`;}
@@ -1048,14 +966,14 @@ function flowForBar(bar){
   return best;
 }
 const CVD_PATTERNS=[
-  {no:'①',name:'上昇トレンド',klass:'ok',price:1,cvd:1,delta:1,summary:'累積も直近も買い優勢で、価格も上昇'},
-  {no:'②',name:'上昇中の押し',klass:'warn',price:1,cvd:1,delta:-1,summary:'累積は買い優勢、直近は売り、価格はまだ上'},
-  {no:'③',name:'上昇の戻し',klass:'warn',price:1,cvd:-1,delta:1,summary:'累積は売り優勢だが、直近買いで価格上昇'},
-  {no:'④',name:'上昇ダイバージェンス',klass:'bad',price:1,cvd:-1,delta:-1,summary:'売り優勢なのに価格が上昇'},
-  {no:'⑤',name:'下落ダイバージェンス',klass:'bad',price:-1,cvd:1,delta:1,summary:'買い優勢なのに価格が下落'},
-  {no:'⑥',name:'下落中の押し',klass:'warn',price:-1,cvd:1,delta:-1,summary:'累積は買い優勢だが、直近売りで価格下落'},
-  {no:'⑦',name:'下落の戻し',klass:'warn',price:-1,cvd:-1,delta:1,summary:'累積は売り優勢だが、直近買いが入った'},
-  {no:'⑧',name:'下降トレンド',klass:'ok',price:-1,cvd:-1,delta:-1,summary:'累積も直近も売り優勢で、価格も下落'},
+  {no:'1',name:'UPTREND',klass:'ok',price:1,cvd:1,delta:1,summary:'Cumulative and recent flow favor buys; price is rising'},
+  {no:'2',name:'UPTREND PULLBACK',klass:'warn',price:1,cvd:1,delta:-1,summary:'Cumulative flow favors buys; recent flow sells; price remains higher'},
+  {no:'3',name:'UPWARD REBOUND',klass:'warn',price:1,cvd:-1,delta:1,summary:'Cumulative flow favors sells; recent buying accompanies a price rise'},
+  {no:'4',name:'UPWARD DIVERGENCE',klass:'bad',price:1,cvd:-1,delta:-1,summary:'Price rises despite selling pressure'},
+  {no:'5',name:'DOWNWARD DIVERGENCE',klass:'bad',price:-1,cvd:1,delta:1,summary:'Price falls despite buying pressure'},
+  {no:'6',name:'DOWNTREND PULLBACK',klass:'warn',price:-1,cvd:1,delta:-1,summary:'Cumulative flow favors buys; recent selling accompanies a price fall'},
+  {no:'7',name:'DOWNWARD REBOUND',klass:'warn',price:-1,cvd:-1,delta:1,summary:'Cumulative flow favors sells; recent buying has entered'},
+  {no:'8',name:'DOWNTREND',klass:'ok',price:-1,cvd:-1,delta:-1,summary:'Cumulative and recent flow favor sells; price is falling'},
 ];
 function classifyCvdPattern(bars,index){
   if(!bars||index==null||index<2||index>=bars.length)return null;
@@ -1077,7 +995,7 @@ function renderChart(){
   CHART.currentBars=bars;CHART.currentFlows=bars.map(flowForBar);
   $("chartbars").textContent=`${CHART.visible} bars`;
   $("chartlive").classList.toggle("on",CHART.offset===0);
-  $("chartlegend").innerHTML=`<span><i style="background:${BUY}"></i>PRICE</span><span><i style="background:#23DFFF"></i>CVD</span><span><i style="background:${INFO}"></i>Δ</span><span><i style="background:${WARN}"></i>停滞</span><span><i style="background:${INFO}"></i>逆行 ${flowWindowText(CHART.windowSec)}</span>`;
+  $("chartlegend").innerHTML=`<span><i style="background:${BUY}"></i>PRICE</span><span><i style="background:#23DFFF"></i>CVD</span><span><i style="background:${INFO}"></i>Δ</span><span><i style="background:${WARN}"></i>STALLED</span><span><i style="background:${INFO}"></i>DIVERGENCE ${flowWindowText(CHART.windowSec)}</span>`;
   const frame=`
     <defs>
       <linearGradient id="cvdFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#23DFFF" stop-opacity=".20"/><stop offset="100%" stop-color="#23DFFF" stop-opacity="0"/></linearGradient>
@@ -1169,13 +1087,13 @@ function selectChartIndex(index){
   shade.setAttribute("x",MC.L+index*slot);shade.setAttribute("width",slot);
   xl.setAttribute("x1",x);xl.setAttribute("x2",x);
   yl.setAttribute("y1",closeY);yl.setAttribute("y2",closeY);
-  const d=new Date(b.time),time=d.toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  const d=new Date(b.time),time=d.toLocaleString("en-GB",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
   const priceDigits=chartPriceDigits(b.h-b.l,b.c),tip=$("charttip"),flowName=flow?FLOW_RESPONSE_LABELS[flow.state]||flow.state:"—",fv=flow&&flowVisual(flow.state);
-  const flowFacts=flow?`圧力 ${flow.pressure_ratio>=0?"+":""}${fmt(flow.pressure_ratio*100,0)}% · 価格 ${flow.price_change_bps>=0?"+":""}${fmt(flow.price_change_bps,1)}bp · 継続 ${fmt(flow.persistence*100,0)}%${flow.relative_volume==null?"":` · 出来高 ×${fmt(flow.relative_volume,1)}`}`:"データなし";
+  const flowFacts=flow?`PRESSURE ${flow.pressure_ratio>=0?"+":""}${fmt(flow.pressure_ratio*100,0)}% · PRICE ${flow.price_change_bps>=0?"+":""}${fmt(flow.price_change_bps,1)}bp · PERSISTENCE ${fmt(flow.persistence*100,0)}%${flow.relative_volume==null?"":` · VOLUME ×${fmt(flow.relative_volume,1)}`}`:"NO DATA";
   const patternBars=marketBars(),patternIndex=patternBars.findIndex(row=>row.time===b.time);
   const pattern=classifyCvdPattern(patternBars,patternIndex);
-  const directions=pattern?`${chartDirection("価格",pattern.price)}<span> ／ </span>${chartDirection("CVD",pattern.cvd)}<span> ／ </span>${chartDirection("Δ",pattern.delta)}`:"";
-  const patternHtml=pattern?`<div class="ct-pattern ${pattern.klass}">${pattern.no} ${pattern.name}<div class="ct-dirs">${directions}</div><span style="font-weight:800;opacity:.95">${pattern.summary}</span></div>`:`<div class="ct-pattern warn">— 8パターン判定なし</div>`;
+  const directions=pattern?`${chartDirection("PRICE",pattern.price)}<span> / </span>${chartDirection("CVD",pattern.cvd)}<span> / </span>${chartDirection("Δ",pattern.delta)}`:"";
+  const patternHtml=pattern?`<div class="ct-pattern ${pattern.klass}">${pattern.no} ${pattern.name}<div class="ct-dirs">${directions}</div><span style="font-weight:800;opacity:.95">${pattern.summary}</span></div>`:`<div class="ct-pattern warn">— NO 8-PATTERN CLASSIFICATION</div>`;
   tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div>${patternHtml}<div class="ct-grid"><span class="ct-k">O</span><span class="ct-v">${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span class="ct-v">${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span class="ct-v">${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="ct-v">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span class="ct-v">${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="ct-v">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span class="ct-v">${compact(b.volume)}</span></div><div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW RESPONSE · ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:#FFFFFF;font-weight:800">${flowFacts}</span></div>`;
   tip.scrollTop=0;
 }
@@ -1183,6 +1101,13 @@ function restoreChartSelection(){
   if(CHART.selectedTime==null)return;
   const index=CHART.currentBars.findIndex(b=>b.time===CHART.selectedTime);
   if(index>=0)selectChartIndex(index);
+}
+function clearChartSelection(){
+  CHART.selectedTime=null;
+  const g=$("chartcross");if(g)g.style.display="none";
+  const tip=$("charttip");
+  tip.innerHTML='<div class="ct-empty">CLICK A CANDLE<br>← → MOVE ONE BAR<br>RIGHT CLICK TO CLEAR</div>';
+  tip.scrollTop=0;
 }
 function chartIndexFromPointer(e){
   const svg=$("chart"),bars=CHART.currentBars;if(!bars.length)return -1;
@@ -1205,7 +1130,7 @@ function moveChartSelection(step){
 }
 function initMarketChart(){
   const svg=$("chart"),flowSelect=$("chartflowwindow");
-  svg.tabIndex=0;svg.setAttribute("aria-label","Price, CVD and volume chart. Click a candle, then use left and right arrow keys.");
+  svg.tabIndex=0;svg.setAttribute("aria-label","Price, CVD and volume chart. Click a candle, use left and right arrow keys to move, or right-click to clear.");
   try{const saved=Number(localStorage.getItem("deltaengine.chart.flowWindow"));if([30,60,180,300,900,1800].includes(saved))CHART.windowSec=saved;}catch(_){ }
   flowSelect.value=String(CHART.windowSec);
   flowSelect.onchange=()=>{CHART.windowSec=Number(flowSelect.value);try{localStorage.setItem("deltaengine.chart.flowWindow",String(CHART.windowSec));}catch(_){ }renderChart();};
@@ -1224,6 +1149,7 @@ function initMarketChart(){
   });
   const endDrag=e=>{const drag=CHART.drag;if(!drag)return;CHART.drag=null;try{svg.releasePointerCapture(e.pointerId);}catch(_){ }if(!drag.moved){const index=chartIndexFromPointer(e);if(index>=0)selectChartIndex(index);}};
   svg.addEventListener("pointerup",endDrag);svg.addEventListener("pointercancel",()=>{CHART.drag=null;});
+  svg.addEventListener("contextmenu",e=>{e.preventDefault();clearChartSelection();});
   svg.addEventListener("keydown",e=>{if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;e.preventDefault();moveChartSelection(e.key==="ArrowLeft"?-1:1);});
   renderChart();
 }
@@ -1293,7 +1219,7 @@ function renderCvdSlope(){
     return;
   }
   el.style.color=r.slope>0?BUY:r.slope<0?SELL:DIS;
-  el.textContent=`CVD SLOPE ${r.slope>=0?"+":""}${String(r.slope)}/bar (${r.method==="regression"?"回帰":"差分"}·${r.w})`;
+  el.textContent=`CVD SLOPE ${r.slope>=0?"+":""}${String(r.slope)}/bar (${r.method==="regression"?"REGRESSION":"DIFFERENCE"} · ${r.w})`;
 }
 function renderCvdDivergence(d){
   const el=$("cvddiv");
@@ -1312,19 +1238,15 @@ function renderCvdDivergence(d){
 function renderFlowResponse(){
   const el=$("flowresponse"),rows=S.flowResponse||[];
   if(!rows.length){el.style.display="none";el.innerHTML="";return;}
-  const labels={
-    BUY_EFFECTIVE:"買い圧力・上昇",SELL_EFFECTIVE:"売り圧力・下落",
-    BUY_STALLED:"買い圧力・価格停滞",SELL_STALLED:"売り圧力・価格停滞",
-    BUY_TRAPPED:"買い圧力・逆行",SELL_TRAPPED:"売り圧力・逆行",UNCLEAR:"不明"
-  };
+  const labels=FLOW_RESPONSE_LABELS;
   const color=s=>s==="BUY_EFFECTIVE"?BUY:s==="SELL_EFFECTIVE"?SELL:
     s.includes("STALLED")?WARN:s.includes("TRAPPED")?INFO:DIS;
   const tf=s=>s<60?`${s}s`:s%60===0?`${s/60}m`:`${s}s`;
   el.style.display="flex";
   el.innerHTML=rows.slice().sort((a,b)=>a.window_sec-b.window_sec).map(r=>{
     const p=N(r.pressure_ratio),b=N(r.price_change_bps),rv=N(r.relative_volume);
-    const facts=`圧力 ${(p>=0?"+":"")}${fmt(p*100,0)}% · 価格 ${(b>=0?"+":"")}${fmt(b,1)}bp${rv==null?"":` · 出来高 ×${fmt(rv,1)}`}`;
-    return `<span title="観測状態。売買指示・確率ではありません。${facts}" style="border:1px solid ${color(r.state)}55;background:${color(r.state)}12;color:${color(r.state)};border-radius:5px;padding:4px 7px"><b>${tf(r.window_sec)}</b> ${labels[r.state]||r.state} <span style="color:${SUB}">${facts}</span></span>`;
+    const facts=`PRESSURE ${(p>=0?"+":"")}${fmt(p*100,0)}% · PRICE ${(b>=0?"+":"")}${fmt(b,1)}bp${rv==null?"":` · VOLUME ×${fmt(rv,1)}`}`;
+    return `<span title="Observed state. Not a trade signal or probability. ${facts}" style="border:1px solid ${color(r.state)}55;background:${color(r.state)}12;color:${color(r.state)};border-radius:5px;padding:4px 7px"><b>${tf(r.window_sec)}</b> ${labels[r.state]||r.state} <span style="color:${SUB}">${facts}</span></span>`;
   }).join("");
 }
 (function(){
@@ -1446,23 +1368,23 @@ fetch("/api/version").then(r=>r.json())
     const causes = [];
     if (cur.dpr !== prev.dpr){
       if (cur.outerW === prev.outerW && cur.outerH === prev.outerH)
-        causes.push("BROWSER_ZOOM（Ctrl+ホイール/Ctrl+±。Ctrl+0で復旧）");
+        causes.push("BROWSER_ZOOM (Ctrl+wheel or Ctrl+±; press Ctrl+0 to reset)");
       else
-        causes.push("OS_DISPLAY_SCALING（Windowsの拡大率変更）");
+        causes.push("OS_DISPLAY_SCALING (Windows display scale changed)");
     }
     if (cur.vvScale !== prev.vvScale && cur.vvScale !== 1)
       causes.push("PINCH_ZOOM（visualViewport scale=" + cur.vvScale + "）");
     if (cur.outerW !== prev.outerW || cur.outerH !== prev.outerH)
-      causes.push("WINDOW_RESIZE（ウィンドウ寸法変更）");
+      causes.push("WINDOW_RESIZE (window dimensions changed)");
     if ((cur.innerW !== prev.innerW || cur.innerH !== prev.innerH)
         && cur.outerW === prev.outerW && cur.outerH === prev.outerH
         && cur.dpr === prev.dpr)
-      causes.push("BROWSER_CHROME（DevToolsドッキング/サイドバー等）");
+      causes.push("BROWSER_CHROME (DevTools docking, sidebar, or browser UI changed)");
     if (causes.length === 0){
       for (const k in cur.panels){
         if (prev.panels[k] !== cur.panels[k]){
-          causes.push("INTERNAL_LAYOUT（環境変数不変のままパネル寸法変化: " + k
-            + " " + prev.panels[k] + "→" + cur.panels[k] + "）");
+          causes.push("INTERNAL_LAYOUT (panel size changed while environment remained constant: " + k
+            + " " + prev.panels[k] + "→" + cur.panels[k] + ")");
           break;
         }
       }
