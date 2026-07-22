@@ -30,6 +30,8 @@ from .schema import (
     FLOW_RESPONSE_EVENTS_SCHEMA,
     FLOW_RESPONSE_OUTCOMES_DDL,
     FLOW_RESPONSE_OUTCOMES_SCHEMA,
+    OPEN_INTEREST_SAMPLES_DDL,
+    OPEN_INTEREST_SAMPLES_SCHEMA,
     SIGNALS_DDL,
     SIGNALS_SCHEMA,
     TRADES_DDL,
@@ -77,6 +79,7 @@ class DuckDbWriter:
         self._con.execute(SIGNALS_DDL)
         self._con.execute(FLOW_RESPONSE_EVENTS_DDL)
         self._con.execute(FLOW_RESPONSE_OUTCOMES_DDL)
+        self._con.execute(OPEN_INTEREST_SAMPLES_DDL)
         self.duplicates = 0
 
     def _insert(self, table: str, arrow_table: pa.Table) -> int:
@@ -121,6 +124,9 @@ class DuckDbWriter:
     def insert_flow_response_outcomes(self, arrow_table: pa.Table) -> int:
         return self._insert("flow_response_outcomes", arrow_table)
 
+    def insert_open_interest_samples(self, arrow_table: pa.Table) -> int:
+        return self._insert("open_interest_samples", arrow_table)
+
     def count(self, table: str) -> int:
         return self._con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
 
@@ -159,6 +165,7 @@ class StorageWriter:
         self._signals: list[dict] = []
         self._flow_response_events: list[dict] = []
         self._flow_response_outcomes: list[dict] = []
+        self._open_interest_samples: list[dict] = []
         self._last_flush = clock()
         self._seq = 0
         # counters
@@ -167,6 +174,7 @@ class StorageWriter:
         self.signals_written = 0
         self.flow_response_events_written = 0
         self.flow_response_outcomes_written = 0
+        self.open_interest_samples_written = 0
         self.flushes = 0
 
     @classmethod
@@ -208,11 +216,17 @@ class StorageWriter:
         if len(self._flow_response_outcomes) >= self.batch_size:
             self.flush()
 
+    def add_open_interest_sample(self, row: dict) -> None:
+        self._open_interest_samples.append(row)
+        if len(self._open_interest_samples) >= self.batch_size:
+            self.flush()
+
     def tick(self) -> None:
         """Time-based flush: call periodically; flushes if the interval elapsed."""
         if (self._clock() - self._last_flush) >= self.flush_interval_sec and (
             self._trades or self._candles or self._signals
             or self._flow_response_events or self._flow_response_outcomes
+            or self._open_interest_samples
         ):
             self.flush()
 
@@ -238,6 +252,47 @@ class StorageWriter:
                 pq.write_table(group_table, target, compression="snappy")
             except Exception as exc:  # noqa: BLE001
                 raise StorageError(ERROR_PARQUET_WRITE, f"parquet write failed: {exc}") from exc
+
+    def _write_open_interest_parquet(self, rows: list[dict]) -> None:
+        """Upsert OI samples into one compact Parquet file per UTC hour.
+
+        The shared five-second storage flush would otherwise create roughly one
+        tiny file per ten-second OI poll. Rewriting a bounded hourly file keeps
+        reload durability while avoiding thousands of one-row files per day.
+        """
+        groups: dict[tuple[Path, int], list[dict]] = {}
+        for row in rows:
+            when = row["source_time"]
+            directory = _partition_dir(
+                self._pq_base / "open_interest_samples", row["symbol"], when,
+            )
+            groups.setdefault((directory, when.hour), []).append(row)
+
+        for (directory, hour), new_rows in groups.items():
+            directory.mkdir(parents=True, exist_ok=True)
+            target = directory / f"hour-{hour:02d}.parquet"
+            merged: dict[tuple[datetime, str], dict] = {}
+            if target.exists():
+                try:
+                    for row in pq.ParquetFile(str(target)).read().to_pylist():
+                        merged[(row["source_time"], row["symbol"])] = row
+                except Exception as exc:  # noqa: BLE001
+                    raise StorageError(
+                        ERROR_PARQUET_WRITE, f"OI parquet read failed: {exc}"
+                    ) from exc
+            for row in new_rows:
+                merged[(row["source_time"], row["symbol"])] = row
+            ordered = sorted(merged.values(), key=lambda row: row["source_time"])
+            table = pa.Table.from_pylist(ordered, schema=OPEN_INTEREST_SAMPLES_SCHEMA)
+            temporary = directory / f".hour-{hour:02d}-{self._seq:06d}.tmp.parquet"
+            try:
+                pq.write_table(table, temporary, compression="snappy")
+                temporary.replace(target)
+            except Exception as exc:  # noqa: BLE001
+                temporary.unlink(missing_ok=True)
+                raise StorageError(
+                    ERROR_PARQUET_WRITE, f"OI parquet write failed: {exc}"
+                ) from exc
 
     def flush(self) -> None:
         if self._trades:
@@ -276,6 +331,14 @@ class StorageWriter:
             inserted = self._duck.insert_flow_response_outcomes(arrow)
             self.flow_response_outcomes_written += inserted
             self._flow_response_outcomes = []
+        if self._open_interest_samples:
+            arrow = pa.Table.from_pylist(
+                self._open_interest_samples, schema=OPEN_INTEREST_SAMPLES_SCHEMA,
+            )
+            self._write_open_interest_parquet(self._open_interest_samples)
+            inserted = self._duck.insert_open_interest_samples(arrow)
+            self.open_interest_samples_written += inserted
+            self._open_interest_samples = []
         self._seq += 1
         self._last_flush = self._clock()
         self.flushes += 1

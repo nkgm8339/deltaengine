@@ -165,6 +165,52 @@ def test_flow_response_history_returns_oldest_first():
     history_query.assert_called_once_with(":memory:", "BTCUSDT", 10000)
 
 
+def test_open_interest_history_returns_oldest_first():
+    mock_pipeline = _make_mock_pipeline()
+    mock_config = _make_mock_config()
+    newest_first = [
+        {"source_time": "2026-07-22T00:00:20+00:00", "open_interest": "102"},
+        {"source_time": "2026-07-22T00:00:10+00:00", "open_interest": "101"},
+    ]
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.query_open_interest_samples", return_value=newest_first) as history_query, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get("/api/history/open-interest?limit=99999")
+
+    assert response.status_code == 200
+    samples = response.json()["samples"]
+    assert [row["open_interest"] for row in samples] == ["101", "102"]
+    history_query.assert_called_once_with(":memory:", "BTCUSDT", 5000)
+
+
+def test_replay_does_not_start_live_oi_poller():
+    mock_pipeline = _make_mock_pipeline()
+    mock_pipeline.run = MagicMock(return_value=None)
+    mock_config = _make_mock_config()
+    mock_config.replay.enabled = True
+    mock_config.replay.data_path = "recording.jsonl"
+    oi_poller = AsyncMock()
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.ReplayPipeline") as MockPipeline, \
+         patch("webapp.main.oi_polling_loop", new=oi_poller):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get("/api/history/open-interest")
+
+    assert response.status_code == 200
+    assert response.json() == {"samples": []}
+    oi_poller.assert_not_called()
+
+
 def test_api_health_unknown_before_first_sample():
     """monitor 無効 (health loop 未稼働) では UNKNOWN を返す。"""
     mock_pipeline = _make_mock_pipeline()

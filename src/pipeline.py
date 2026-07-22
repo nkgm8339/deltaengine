@@ -999,6 +999,10 @@ class LivePipeline:
             batch_size=self.batch_size,
             flush_interval_sec=self.flush_interval_sec,
         )
+        # OI polling is a webapp task on this same asyncio loop. It appends
+        # through the pipeline-owned writer so DuckDB keeps a single writer and
+        # OI follows the established batch/interval flush policy.
+        self.storage_writer = storage
 
         analysis_engine = AnalysisEngine()
 

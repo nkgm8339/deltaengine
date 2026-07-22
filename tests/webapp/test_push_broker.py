@@ -801,3 +801,57 @@ def test_flow_event_marker_ui_is_two_hour_in_memory_observation_only():
     assert "FLOW EVENTS · 2H MEMORY" in source
     assert "flowEventsDetail(events)" in source
     assert "/api/history/flow-events" not in source
+
+
+def test_flow_event_candle_markers_are_individually_toggleable():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert "CANDLE MARK" in source
+    assert "chartMarker:true" in source
+    assert 'data-flow-marker-key="${k}"' in source
+    assert "function isFlowMarkerEnabled(category)" in source
+    assert "if(!isFlowMarkerEnabled(event.category))continue;" in source
+    assert "saveFlowCfg();renderChart();" in source
+    assert 'localStorage.setItem("deltaengine.flow"' in source
+
+
+def test_oi_context_ui_keeps_three_stage_chart_and_uses_persisted_real_samples():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert "BINANCE OI · Δ1M · Δ5M" in source
+    assert "function normalizeOiSample(" in source
+    assert "function oiContextForBar(" in source
+    assert "OPEN INTEREST · BINANCE USDⓈ-M" in source
+    assert 'fetch("/api/history/open-interest?limit=2500")' in source
+    assert "NO ALIGNED DATA · NOT FILLED" in source
+    assert 'const MC={W:1200,H:500' in source
+    assert '<text x="28" y="335"' in source
+    assert '<text x="28" y="454"' in source
+
+
+def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert 'id="combinationguidebtn"' in source
+    assert 'aria-controls="combinationguide"' in source
+    assert 'role="dialog"' in source
+    assert "PRICE × CVD × Δ × OI" in source
+    assert "非常に強い上昇。" in source
+    assert "ショートカバー主体。" in source
+    assert "非常に強い下落。" in source
+    assert "ロングの投げ売り・手仕舞い。" in source
+    assert "反発候補。" in source
+    assert "ショートの利確（買い戻し）の可能性が高い。" in source
+    assert "上昇中に売りが増加。" in source
+    assert "ロングの利確が主体。" in source
+    assert "これは観測評価であり、売買シグナルではありません。" in source
+    assert 'event.key==="Escape"&&!backdrop.hidden' in source

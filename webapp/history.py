@@ -75,6 +75,47 @@ def query_flow_response_events(
         con.close()
 
 
+def query_open_interest_samples(
+    db_path: str,
+    symbol: str,
+    limit: int = 2500,
+) -> list[dict]:
+    """Return persisted exchange OI observations, newest first."""
+    con = duckdb.connect(db_path)
+    try:
+        table_exists = con.execute(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_name = 'open_interest_samples'"
+        ).fetchone()[0]
+        if not table_exists:
+            return []
+        rows = con.execute(
+            "SELECT source_time, received_time, open_interest, source "
+            "FROM open_interest_samples WHERE symbol = ? "
+            "ORDER BY source_time DESC LIMIT ?",
+            [symbol, limit],
+        ).fetchall()
+        result = []
+        for source_time, received_time, open_interest, source in rows:
+            result.append({
+                "source_time": _utc_iso(source_time),
+                "received_time": _utc_iso(received_time),
+                "open_interest": str(open_interest) if open_interest is not None else None,
+                "source": source,
+            })
+        return result
+    finally:
+        con.close()
+
+
+def _utc_iso(value):
+    if not isinstance(value, datetime):
+        return str(value) if value is not None else None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
+
+
 def query_signals(db_path: str, symbol: str, limit: int = 200) -> list[dict]:
     """Return latest `limit` signals for symbol, newest first."""
     con = duckdb.connect(db_path, read_only=True)

@@ -80,6 +80,33 @@ CREATE TABLE IF NOT EXISTS candles (
 TRADES_COLUMNS = [f.name for f in TRADES_SCHEMA]
 CANDLES_COLUMNS = [f.name for f in CANDLES_SCHEMA]
 
+# --- open-interest raw observations -----------------------------------------
+# Binance USD-M Futures snapshots are stored independently from candles so the
+# original exchange observation remains available for later as-of joins and
+# recalculation. Missing polls stay missing; no forward-filled value is stored.
+OPEN_INTEREST_SAMPLES_SCHEMA = pa.schema(
+    [
+        ("source_time", TIMESTAMP),
+        ("received_time", TIMESTAMP),
+        ("symbol", pa.string()),
+        ("open_interest", DECIMAL),
+        ("source", pa.string()),
+    ]
+)
+
+OPEN_INTEREST_SAMPLES_DDL = """
+CREATE TABLE IF NOT EXISTS open_interest_samples (
+    source_time TIMESTAMP,
+    received_time TIMESTAMP,
+    symbol VARCHAR,
+    open_interest DECIMAL(20,8),
+    source VARCHAR,
+    PRIMARY KEY (source_time, symbol)
+);
+"""
+
+OPEN_INTEREST_SAMPLES_COLUMNS = [f.name for f in OPEN_INTEREST_SAMPLES_SCHEMA]
+
 # --- signals (M11) -----------------------------------------------------------
 # ParquetSchema_v3.1 §4 / DuckDBDDL_v3.1 §3.
 # confidence is DOUBLE (not DECIMAL) per the spec — stored as float64 in Parquet.

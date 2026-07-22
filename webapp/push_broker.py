@@ -247,9 +247,30 @@ class PushBroker:
             "side": liq.side, "price": d2s(liq.price), "quantity": d2s(liq.quantity),
         }))
 
-    async def on_oi(self, event_time: datetime, open_interest: Decimal, prev: Optional[Decimal]) -> None:
+    async def on_oi(
+        self,
+        event_time: datetime,
+        open_interest: Decimal,
+        prev: Optional[Decimal],
+        *,
+        received_time: Optional[datetime] = None,
+        source: str = "BINANCE_USDM",
+        poll_interval_sec: int = 10,
+    ) -> None:
+        change = open_interest - prev if prev is not None else None
+        change_pct = (
+            (change / prev) * Decimal("100")
+            if change is not None and prev is not None and prev > 0 else None
+        )
         await self._broadcast(envelope("OI", event_time, self.symbol, {
             "open_interest": d2s(open_interest), "prev": d2s(prev),
+            "change": d2s(change), "change_pct": d2s(change_pct),
+            "source_time": event_time.astimezone(timezone.utc).isoformat(),
+            "received_time": (
+                received_time or datetime.now(timezone.utc)
+            ).astimezone(timezone.utc).isoformat(),
+            "source": source,
+            "poll_interval_sec": poll_interval_sec,
         }))
 
 

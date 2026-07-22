@@ -21,7 +21,11 @@ from src.pipeline import LivePipeline, ReplayPipeline, load_profile
 from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
 from webapp.push_broker import IntervalGate, PushBroker, PAYLOAD_VERSION, d2s
 from webapp.oi_poller import oi_polling_loop
-from webapp.history import query_candles, query_flow_response_events
+from webapp.history import (
+    query_candles,
+    query_flow_response_events,
+    query_open_interest_samples,
+)
 from webapp.version import resolve_version
 
 logger = logging.getLogger("webapp.main")
@@ -155,9 +159,30 @@ async def lifespan(app: FastAPI):
     else:
         pipeline_task = asyncio.create_task(pipeline.run_async())
 
-    oi_task = asyncio.create_task(
-        oi_polling_loop(broker, config.market.symbol, config.webapp.oi_poll_interval_sec)
-    )
+    pending_oi_samples: list[dict] = []
+
+    def store_oi_sample(sample: dict) -> None:
+        storage = getattr(pipeline, "storage_writer", None)
+        if storage is None:
+            pending_oi_samples.append(sample)
+            if len(pending_oi_samples) > 100:
+                pending_oi_samples.pop(0)
+            return
+        if pending_oi_samples:
+            for pending in pending_oi_samples:
+                storage.add_open_interest_sample(pending)
+            pending_oi_samples.clear()
+        storage.add_open_interest_sample(sample)
+
+    # Never mix present-day Binance OI with historical replay candles.
+    oi_task = None
+    if not config.replay.enabled:
+        oi_task = asyncio.create_task(oi_polling_loop(
+            broker,
+            config.market.symbol,
+            config.webapp.oi_poll_interval_sec,
+            on_sample=store_oi_sample,
+        ))
 
     async def _stats_loop():
         while True:
@@ -227,7 +252,9 @@ async def lifespan(app: FastAPI):
                 logger.exception("health loop iteration failed")
 
     health_task = asyncio.create_task(_health_loop()) if m.enabled else None
-    tasks = [pipeline_task, oi_task, stats_task]
+    tasks = [pipeline_task, stats_task]
+    if oi_task is not None:
+        tasks.append(oi_task)
     if health_task is not None:
         tasks.append(health_task)
     app.state.tasks = tasks
@@ -345,6 +372,26 @@ async def api_flow_response_history(request: Request, limit: int = 5000):
         logger.exception("flow-response history query failed")
         newest_first = []
     return JSONResponse({"events": list(reversed(newest_first))})
+
+
+@app.get("/api/history/open-interest")
+async def api_open_interest_history(request: Request, limit: int = 2500):
+    """Return raw official OI observations oldest-first for candle alignment."""
+    config = getattr(request.app.state, "config", None)
+    if config is None or config.replay.enabled:
+        return JSONResponse({"samples": []})
+    safe_limit = max(100, min(int(limit), 5000))
+    try:
+        newest_first = await asyncio.to_thread(
+            query_open_interest_samples,
+            config.database.duckdb_path,
+            config.market.symbol,
+            safe_limit,
+        )
+    except Exception:
+        logger.exception("open-interest history query failed")
+        newest_first = []
+    return JSONResponse({"samples": list(reversed(newest_first))})
 
 
 @app.get("/api/stats")
