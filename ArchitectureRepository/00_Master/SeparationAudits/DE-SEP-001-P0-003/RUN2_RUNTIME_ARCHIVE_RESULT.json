@@ -1,0 +1,23 @@
+{
+  "audit_id": "DE-SEP-001-P0-003",
+  "status": "PASS",
+  "capture_started_utc": "2026-07-23T10:28:31.9366801Z",
+  "capture_completed_utc": "2026-07-23T10:43:36.6561258Z",
+  "final_archive": "I:\\マイドライブ\\DeltaEngine_Preservation\\DE-SEP-001-P0-003\\ONE_M_RUNTIME_FORENSIC.zip",
+  "final_archive_size_bytes": 405563839,
+  "final_archive_sha256": "720758725714F8F41AEF9D2FDD927338F01BED31AB9208D0BEC9E02F0B93F4D7",
+  "external_reread_hash_match": true,
+  "entry_count": 56945,
+  "stable_count": 56938,
+  "active_count": 7,
+  "pending_active_snapshot_count": 0,
+  "restore_pass_count": 56945,
+  "source_post_hash_match_count": 56938,
+  "duckdb_restore_status": "PASS",
+  "duckdb_table_count": 6,
+  "duckdb_period_table_count": 6,
+  "verify_root": "C:\\Users\\user\\AppData\\Local\\Temp\\DE-SEP-001-P0-003_VERIFY_C_20260723T102831929Z",
+  "verify_root_removed": true,
+  "source_product_modified": false,
+  "source_product_process_stopped_or_restarted": false
+}

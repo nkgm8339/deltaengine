@@ -1,0 +1,10 @@
+{
+  "audit_id": "DE-SEP-001-P0-003",
+  "updated_utc": "2026-07-23T10:43:38.7815305Z",
+  "phase": "COMPLETE",
+  "completed": 56945,
+  "total": 56945,
+  "detail": "archive_sha256=720758725714F8F41AEF9D2FDD927338F01BED31AB9208D0BEC9E02F0B93F4D7",
+  "partial_archive": "I:\\マイドライブ\\DeltaEngine_Preservation\\DE-SEP-001-P0-003\\C_STAGE\\ONE_M_RUNTIME_FORENSIC.20260723T102831929Z.partial.zip",
+  "final_archive": "I:\\マイドライブ\\DeltaEngine_Preservation\\DE-SEP-001-P0-003\\ONE_M_RUNTIME_FORENSIC.zip"
+}

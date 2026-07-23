@@ -1,0 +1,2 @@
+PROGRESS phase=PRECHECK_COMPLETE completed=0/56945 detail=manifest, entry safety, source existence, and no-overwrite checks passed
+RUN2_RUNTIME_PREFLIGHT_PASS rows=56945 stable=56939 active=6 partial=I:\マイドライブ\DeltaEngine_Preservation\DE-SEP-001-P0-003\C_STAGE\ONE_M_RUNTIME_FORENSIC.20260723T095817977Z.partial.zip

@@ -1,0 +1,22 @@
+{
+  "audit_id": "DE-SEP-001-P0-004",
+  "decision_time": "2026-07-23T20:21:00+09:00",
+  "inventory_complete": true,
+  "enumeration_error_count": 0,
+  "unclassified_count": 0,
+  "source_abd_count": 138,
+  "runtime_count": 56945,
+  "stable_runtime_count": 56938,
+  "active_runtime_count": 7,
+  "live_safe_evidence_all_pass": true,
+  "expected_active_exclusive_hash_failures": 5,
+  "unexpected_hash_failure_count": 0,
+  "duckdb_sample_stable": true,
+  "parquet_sample_stable": true,
+  "gate_0a_r_required": false,
+  "gate_0a_r_reason": "Known active files reject ordinary exclusive hashing, but all seven process-owned paths passed their application-consistent shared-prefix, zero-length, or atomic-JSON method. No unknown writer remains.",
+  "plan_2_ready": true,
+  "one_m_stop_restart_performed": false,
+  "observer_stop_restart_performed": false,
+  "product_write_performed": false
+}

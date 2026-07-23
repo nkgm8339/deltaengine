@@ -1,0 +1,116 @@
+{
+  "audit_id": "DE-SEP-001-P0-004",
+  "captured_utc": "2026-07-23T11:08:23.1355964Z",
+  "outer_head": "c",
+  "outer_branch": "m",
+  "gitlink_entry": "160000 895a160c321f6d56d668b5a67774c89662242199 0\tDelta_Engine_Pro4web",
+  "inner_head": "8",
+  "inner_branch": "m",
+  "inner_modified_count": 0,
+  "inner_untracked_count": 12,
+  "tags": [
+    "a5bc76168b13f7fd26474ef3645333ca54f7c0b9 refs/tags/DELTAENGINE-REBIRTH-20260721",
+    "ca1eb09b2a4a096023b30fdaec0b8a4e7ef0e025 refs/tags/DELTAENGINE-REBIRTH-HOTFIX-20260721",
+    "4e63224cd52d554f9bdd4a8e588c4b6593a791a6 refs/tags/SAFE-20260719"
+  ],
+  "remotes": [],
+  "one_m_file_count": 58775,
+  "one_m_total_bytes": 1766748060,
+  "class_summary": [
+    {
+      "classification": "A",
+      "file_count": 101,
+      "bytes": 831314
+    },
+    {
+      "classification": "B",
+      "file_count": 34,
+      "bytes": 189139
+    },
+    {
+      "classification": "C",
+      "file_count": 56945,
+      "bytes": 1285980572
+    },
+    {
+      "classification": "D",
+      "file_count": 3,
+      "bytes": 1591
+    },
+    {
+      "classification": "E",
+      "file_count": 1692,
+      "bytes": 479745444
+    }
+  ],
+  "runtime_summary": [
+    {
+      "runtime_state": "ACTIVE_RUNTIME",
+      "file_count": 7,
+      "bytes": 611860560
+    },
+    {
+      "runtime_state": "STABLE_DATA",
+      "file_count": 56938,
+      "bytes": 674120012
+    }
+  ],
+  "activity_changes": [
+    {
+      "relative_path": "data\\execution_costs\\quotes_go1_20260723_094459.csv",
+      "state": "CHANGED",
+      "before": "552457201|2026-07-23T11:08:23.4114384Z",
+      "after": "553563704|2026-07-23T11:10:52.6085101Z"
+    },
+    {
+      "relative_path": "data\\execution_costs\\status.json",
+      "state": "CHANGED",
+      "before": "1615|2026-07-23T11:08:26.7127563Z",
+      "after": "1618|2026-07-23T11:10:46.8999465Z"
+    },
+    {
+      "relative_path": "data\\latency\\webapp_brushup.stderr.log",
+      "state": "CHANGED",
+      "before": "59392468|2026-07-23T11:07:04.6292010Z",
+      "after": "59458948|2026-07-23T11:10:25.6861332Z"
+    },
+    {
+      "relative_path": "data\\latency\\webapp_brushup.stdout.log",
+      "state": "CHANGED",
+      "before": "1306|2026-07-23T10:04:10.2761656Z",
+      "after": "1495|2026-07-23T10:58:27.5205167Z"
+    }
+  ],
+  "enumeration_errors_start": [],
+  "enumeration_errors_end": [],
+  "reparse_link_count": 2,
+  "hardlink_multiple_count": 3,
+  "duckdb_hash_before": "27E246039BA40C6FFDFB48A02BE6C7C09868D751E6E9A7F4C86DB80DAD2212D1",
+  "duckdb_hash_after": "27E246039BA40C6FFDFB48A02BE6C7C09868D751E6E9A7F4C86DB80DAD2212D1",
+  "duckdb_hash_stable": true,
+  "parquet_before": {
+    "count": 56888,
+    "bytes": 224469382,
+    "latest": "2026-07-23T03:05:23.6140234Z"
+  },
+  "parquet_after": {
+    "count": 56888,
+    "bytes": 224469382,
+    "latest": "2026-07-23T03:05:23.6140234Z"
+  },
+  "health_status": "RED",
+  "health_error": "",
+  "python_version": "Python 3.13.12",
+  "python_executable": "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+  "requirements_sha256": "D97B05378476E478FAD17F82392ABEC1412C234272480EA8A1724765232EE1D8",
+  "pip_freeze_sha256": "1DCFCD8C83CF3FA8FA343841CEBE196C85A004509E95707C05A42AC8CD29353E",
+  "thirty_m_file_count": 148,
+  "gate_0a_r_required": true,
+  "gate_0a_r_reasons": [
+    "Hash failure: data\\execution_costs\\observer_go1_20260723_094459.stderr.log - ERROR: The process cannot access the file 'C:\\Users\\user\\Desktop\\DeltaEngine\\Delta_Engine_Pro4web\\data\\execution_costs\\observer_go1_20260723_094459.stderr.log' because it is being used by another process.",
+    "Hash failure: data\\execution_costs\\observer_go1_20260723_094459.stdout.log - ERROR: The process cannot access the file 'C:\\Users\\user\\Desktop\\DeltaEngine\\Delta_Engine_Pro4web\\data\\execution_costs\\observer_go1_20260723_094459.stdout.log' because it is being used by another process.",
+    "Hash failure: data\\execution_costs\\quotes_go1_20260723_094459.csv - ERROR: The process cannot access the file 'C:\\Users\\user\\Desktop\\DeltaEngine\\Delta_Engine_Pro4web\\data\\execution_costs\\quotes_go1_20260723_094459.csv' because it is being used by another process.",
+    "Hash failure: data\\latency\\webapp_brushup.stderr.log - ERROR: The process cannot access the file 'C:\\Users\\user\\Desktop\\DeltaEngine\\Delta_Engine_Pro4web\\data\\latency\\webapp_brushup.stderr.log' because it is being used by another process.",
+    "Hash failure: data\\latency\\webapp_brushup.stdout.log - ERROR: The process cannot access the file 'C:\\Users\\user\\Desktop\\DeltaEngine\\Delta_Engine_Pro4web\\data\\latency\\webapp_brushup.stdout.log' because it is being used by another process."
+  ]
+}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeltaEngine — Visual Mock</title>
+<style>
+  :root {
+    --void:#080916; --base:#0d1022; --panel:#121733; --panel-hi:#192048;
+    --line:#2b3567; --ink:#f6f7ff; --muted:#9da8d4;
+    --cyan:#23dfff; --violet:#a66bff; --lime:#39f89d; --pink:#ff4fa3;
+    --orange:#ff9d3d; --yellow:#ffe35d; --red:#ff365f;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; min-width:1180px; background:var(--void); color:var(--ink);
+    font-family:Inter,"Segoe UI",Meiryo,sans-serif; font-variant-numeric:tabular-nums;
+    overflow:hidden;
+  }
+  body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.62;
+    background:radial-gradient(circle at 15% 4%,#3a167d55,transparent 25%),
+      radial-gradient(circle at 89% 22%,#00d9ff29,transparent 28%),
+      linear-gradient(110deg,transparent 25%,#6c45ff10 50%,transparent 70%); }
+  .app { height:100vh; min-height:680px; padding:12px; display:grid; grid-template-rows:70px 1fr 166px; gap:12px; }
+  .panel { background:linear-gradient(145deg,#171c3bf2,#0d1024f2); border:1px solid var(--line); border-radius:13px;
+    box-shadow:0 13px 32px #0008, inset 0 1px #ffffff0e; overflow:hidden; }
+  .panel-head { min-height:37px; padding:0 14px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid #344074; background:#151a38aa; }
+  .eyebrow { color:#c5cdf5; font-size:11px; font-weight:800; letter-spacing:.14em; }
+  .live-dot { display:inline-block; width:8px; height:8px; margin-right:7px; border-radius:50%; background:var(--lime); box-shadow:0 0 12px var(--lime); animation:pulse 1.3s infinite; }
+  .topbar { display:flex; align-items:center; gap:25px; padding:0 22px; }
+  .brand { color:var(--cyan); font-size:12px; font-weight:900; letter-spacing:.15em; }
+  .price { font-size:35px; line-height:1; font-weight:900; letter-spacing:-.045em; text-shadow:0 0 20px #23dfff60; }
+  .price,.change,.stat b,.book-row,.mid,.fp-row,.flow-row,.chart-number { font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace; }
+  .up { color:#72ffc0; text-shadow:0 0 10px #39f89d8c; } .down { color:#ff8298; text-shadow:0 0 10px #ff365f8c; } .warning { color:#fff08a; text-shadow:0 0 10px #ffe35d78; }
+  .change { font-size:15px; font-weight:850; padding:8px 12px; border:1px solid #39f89dbb; background:linear-gradient(105deg,#0d5f5b,#1fae79 58%,#b9e657); border-radius:8px; color:#f5fff8; box-shadow:inset 0 1px #ffffff44,0 0 18px #39f89d45; }
+  .signal { padding:9px 17px; border:1px solid #c8ff74; border-radius:9px; color:#07140e; background:linear-gradient(105deg,#33dca2,#75f36a 55%,#edff70);
+    box-shadow:inset 0 1px #ffffff8c,0 0 23px #39f89d8c; font-size:16px; font-weight:950; letter-spacing:.12em; }
+  .stats { margin-left:auto; display:flex; gap:22px; } .stat { display:grid; gap:3px; text-align:right; }
+  .stat b { font-size:15px; } .stat span { color:var(--muted); font-size:9px; font-weight:800; letter-spacing:.11em; }
+  .layout { min-height:0; display:grid; grid-template-columns:266px minmax(480px,1fr) 333px; gap:12px; }
+  .middle,.right { min-height:0; display:grid; gap:12px; } .middle { grid-template-rows:minmax(0,1fr) 178px; } .right { grid-template-rows:100px 126px minmax(0,1fr); }
+  .book { padding:7px 10px; display:grid; grid-template-rows:repeat(16,1fr); gap:3px; height:calc(100% - 37px); }
+  .book-row { position:relative; min-height:22px; display:flex; align-items:center; justify-content:space-between; padding:0 7px; font-size:12px; font-weight:750; overflow:hidden; }
+  .book-row::before { content:""; position:absolute; right:0; top:0; bottom:0; width:var(--depth); opacity:.52; }
+  .ask::before { background:linear-gradient(90deg,transparent,#ff4fa360); } .bid::before { background:linear-gradient(90deg,transparent,#23dfff55); }
+  .book-row span { position:relative; } .book-row .qty { color:#d8defc; } .book-row .ask-price { color:#ff8fc7; } .book-row .bid-price { color:#7eecff; }
+  .mid { display:flex; align-items:center; justify-content:center; color:#161004; font-size:14px; font-weight:900; letter-spacing:.08em; border:1px solid #ffe35d; background:#d6a928; border-radius:7px; box-shadow:0 0 14px #ffe35d38; }
+  .footprint { padding:9px 14px; height:calc(100% - 37px); display:flex; flex-direction:column; gap:4px; }
+  .fp-labels,.fp-row { display:grid; grid-template-columns:115px 1fr 1fr 69px 34px; align-items:center; gap:8px; }
+  .fp-labels { color:var(--muted); padding:0 4px 5px; font-size:9px; font-weight:800; letter-spacing:.1em; border-bottom:1px solid #344074; }
+  .fp-row { flex:1; min-height:22px; padding:0 4px; font-size:12px; font-weight:800; border-radius:5px; }
+  .fp-row.hot { background:linear-gradient(90deg,#a66bff15,#ff4fa31a); border-left:3px solid var(--violet); box-shadow:inset 0 0 18px #a66bff12; }
+  .fp-price { color:#cdd4ff; } .bar { height:12px; border-radius:2px; } .sellbar { justify-self:end; background:linear-gradient(90deg,#ff365f55,var(--red)); box-shadow:0 0 8px #ff365f66; } .buybar { background:#39f89d; box-shadow:0 0 9px #39f89d80; }
+  .delta { text-align:right; } .marker { color:var(--yellow); font-size:16px; text-shadow:0 0 10px var(--yellow); }
+  .flow { padding:7px 14px; display:flex; flex-direction:column; gap:5px; }
+  .flow-row { flex:1; display:grid; grid-template-columns:70px 108px 48px 1fr 52px; align-items:center; gap:10px; border-bottom:1px solid #2a315d; font-size:11px; font-weight:800; }
+  .tag { text-align:center; padding:4px; border-radius:4px; font-size:9px; letter-spacing:.07em; font-weight:900; } .tag.abs { color:#fff0d2; background:linear-gradient(110deg,#8c2539,#e84c57 54%,#ff9d3d); border:1px solid #ffad76; box-shadow:0 0 11px #ff5f6d35; } .tag.imb { color:#e5fbff; background:linear-gradient(110deg,#155a8d,#1765c0 52%,#a66bff); border:1px solid #75dcff; box-shadow:0 0 11px #23dfff35; }
+  .strength { height:7px; border-radius:10px; background:#252d57; overflow:hidden; } .strength i { display:block; height:100%; width:84%; background:linear-gradient(90deg,var(--violet),var(--pink)); box-shadow:0 0 9px var(--pink); }
+  .state { display:flex; align-items:center; justify-content:center; height:calc(100% - 37px); padding:11px; }
+  .state strong { width:100%; text-align:center; padding:13px; border-radius:9px; color:#fff9ff; background:linear-gradient(100deg,#4a319b,#9a57f6 48%,#ef70df); box-shadow:inset 0 1px #ffffff74,0 0 22px #a66bff99; font-size:19px; letter-spacing:.1em; }
+  .confluence { height:calc(100% - 37px); display:grid; grid-template-columns:repeat(5,1fr); align-items:center; gap:6px; padding:12px; }
+  .conf { display:grid; place-items:center; gap:4px; height:64px; border-radius:7px; border:1px solid #56629b; background:linear-gradient(145deg,#1d2448,#101530); color:#c7d0fb; font-size:8px; font-weight:850; letter-spacing:.04em; } .conf b { font-size:16px; } .conf.on { color:#eaffc9; border-color:#8effb8; background:linear-gradient(145deg,#17635a,#1aa465 52%,#79cf51); box-shadow:inset 0 1px #ffffff4b,0 0 13px #39f89d55; }
+  .why { padding:15px; height:calc(100% - 37px); display:flex; flex-direction:column; gap:13px; } .why-top { display:flex; justify-content:space-between; align-items:center; } .why-top b { font-size:23px; letter-spacing:.1em; }
+  .score-head { display:flex; justify-content:space-between; margin-bottom:5px; font-size:11px; font-weight:850; } .score-track { height:10px; border-radius:20px; background:#252d57; overflow:hidden; } .score-fill { height:100%; border-radius:20px; background:linear-gradient(90deg,var(--cyan),var(--violet)); box-shadow:0 0 12px var(--cyan); }
+  .score-fill.pink { background:linear-gradient(90deg,var(--orange),var(--pink)); box-shadow:0 0 12px var(--pink); }
+  .chart { position:relative; padding:9px 14px 13px; height:calc(100% - 37px); background:repeating-linear-gradient(0deg,transparent 0 29px,#2d356020 30px),repeating-linear-gradient(90deg,transparent 0 72px,#2d356020 73px); }
+  .chart-tabs { display:flex; gap:7px; } .tab { color:#d3dbff; font-size:10px; font-weight:850; letter-spacing:.08em; padding:5px 9px; border-radius:5px; } .tab.on { color:#f8fbff; background:linear-gradient(105deg,#1375b5,#16b6d8 52%,#a66bff); box-shadow:inset 0 1px #ffffff66,0 0 13px #23dfff88; }
+  svg { width:100%; height:100%; overflow:visible; } .chart-number { position:absolute; right:15px; top:9px; color:var(--cyan); font-weight:900; font-size:18px; text-shadow:0 0 12px #23dfff88; }
+  @keyframes pulse { 50% { opacity:.38; transform:scale(.72); } }
+  @keyframes scan { to { transform:translateX(100%); } }
+  .scan { position:absolute; top:0; bottom:0; width:80px; background:linear-gradient(90deg,transparent,#23dfff12,transparent); animation:scan 4s linear infinite; }
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="panel topbar"><span class="brand">Δ DELTAENGINE / COMMAND CENTER</span><b class="price">118,462.5</b><span class="change up">▲ +2.84%</span><span class="signal">LONG BIAS</span><div class="stats"><div class="stat"><span>SPREAD</span><b>0.5</b></div><div class="stat"><span>LATENCY</span><b class="up"><i class="live-dot"></i>18ms</b></div><div class="stat"><span>MARKET</span><b>BTCUSDT</b></div></div></header>
+  <section class="layout">
+    <section class="panel"><div class="panel-head"><span class="eyebrow">ORDER BOOK</span><span class="eyebrow"><i class="live-dot"></i>LIVE DEPTH</span></div><div class="book" id="book"></div></section>
+    <section class="middle"><section class="panel"><div class="panel-head"><span class="eyebrow">FOOTPRINT <span class="warning">● FORMING 1m</span></span><span class="eyebrow">BTCUSDT · 11:42:18</span></div><div class="footprint" id="footprint"></div></section><section class="panel"><div class="panel-head"><span class="eyebrow">FLOW EVENTS</span><span class="eyebrow warning">HIGH INTENSITY</span></div><div class="flow" id="flow"></div></section></section>
+    <aside class="right"><section class="panel"><div class="panel-head"><span class="eyebrow">MARKET STATE</span><span class="eyebrow">SIGNAL ENGINE</span></div><div class="state"><strong>BREAKOUT</strong></div></section><section class="panel"><div class="panel-head"><span class="eyebrow">CONFLUENCE</span><span class="warning">★★★★★</span></div><div class="confluence"><div class="conf on"><b>✓</b>CVD</div><div class="conf on"><b>✓</b>FLOW</div><div class="conf on"><b>✓</b>IMB</div><div class="conf"><b>—</b>ABS</div><div class="conf on"><b>✓</b>VOL</div></div></section><section class="panel"><div class="panel-head"><span class="eyebrow">SIGNAL — WHY</span><span class="eyebrow up">91% CONF.</span></div><div class="why"><div class="why-top"><b class="up">BUY</b><span class="tag imb">MOMENTUM UP</span></div><div><div class="score-head"><span>CVD PRESSURE</span><span class="up">+84</span></div><div class="score-track"><div class="score-fill" style="width:84%"></div></div></div><div><div class="score-head"><span>ORDER FLOW</span><span class="up">0.78</span></div><div class="score-track"><div class="score-fill" style="width:78%"></div></div></div><div><div class="score-head"><span>EXHAUSTION RISK</span><span class="warning">0.33</span></div><div class="score-track"><div class="score-fill pink" style="width:33%"></div></div></div></div></section></aside>
+  </section>
+  <section class="panel"><div class="panel-head"><div class="chart-tabs"><span class="tab on">CVD + Δ</span><span class="tab">VOLUME</span><span class="tab">OI</span><span class="tab">LIQUIDATION</span></div><span class="eyebrow"><i class="live-dot"></i>REALTIME</span></div><div class="chart"><span class="chart-number">+4,286</span><div class="scan"></div><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#23dfff" stop-opacity=".42"/><stop offset="1" stop-color="#23dfff" stop-opacity="0"/></linearGradient></defs><path d="M0 77 L40 73 65 76 90 62 124 66 157 51 180 59 210 44 255 54 290 41 329 48 360 32 398 39 430 27 470 37 505 29 548 42 586 23 618 30 650 20 690 25 722 14 764 21 800 11 835 17 868 6 900 14 930 8 960 12 1000 3 L1000 100 L0 100Z" fill="url(#area)"/><path d="M0 77 L40 73 65 76 90 62 124 66 157 51 180 59 210 44 255 54 290 41 329 48 360 32 398 39 430 27 470 37 505 29 548 42 586 23 618 30 650 20 690 25 722 14 764 21 800 11 835 17 868 6 900 14 930 8 960 12 1000 3" fill="none" stroke="#23dfff" stroke-width="2.2"/></svg></div></section>
+</main>
+<script>
+  const book=document.querySelector('#book');
+  const asks=['118,466.0','118,465.5','118,465.0','118,464.5','118,464.0','118,463.5','118,463.0'];
+  const bids=['118,462.0','118,461.5','118,461.0','118,460.5','118,460.0','118,459.5','118,459.0'];
+  book.innerHTML=asks.map((p,i)=>`<div class="book-row ask" style="--depth:${30+i*9}%"><span class="ask-price">${p}</span><span class="qty">${(1.4+i*.71).toFixed(2)} BTC</span></div>`).join('')+'<div class="mid">⚡ MID 118,462.5</div>'+bids.map((p,i)=>`<div class="book-row bid" style="--depth:${92-i*9}%"><span class="bid-price">${p}</span><span class="qty">${(6.8-i*.66).toFixed(2)} BTC</span></div>`).join('');
+  const rows=[['118,468.0',31,66,'+35'],['118,467.5',42,87,'+45'],['118,467.0',58,36,'−22'],['118,466.5',69,82,'+66'],['118,466.0',92,40,'+17'],['118,465.5',35,77,'+51'],['118,465.0',57,95,'+74'],['118,464.5',85,44,'−41'],['118,464.0',25,69,'+44'],['118,463.5',71,38,'−33'],['118,463.0',46,89,'+59']];
+  document.querySelector('#footprint').innerHTML='<div class="fp-labels"><span>PRICE</span><span>BID</span><span>ASK</span><span>DELTA</span><span>SIG</span></div>'+rows.map((r,i)=>`<div class="fp-row ${i===6?'hot':''}"><span class="fp-price">${r[0]} ${i===6?' <b class="warning">POC</b>':''}</span><i class="bar sellbar" style="width:${r[1]}%"></i><i class="bar buybar" style="width:${r[2]}%"></i><span class="delta ${r[3][0]==='+'?'up':'down'}">${r[3]}</span><span class="marker">${i===6?'◆':''}</span></div>`).join('');
+  const events=[['11:42:18','ABSORPTION','BUY','abs','91%'],['11:42:14','IMBALANCE','BUY','imb','86%'],['11:42:08','ICEBERG','BUY','abs','76%'],['11:42:01','DELTA SURGE','BUY','imb','82%']];
+  document.querySelector('#flow').innerHTML=events.map((e,i)=>`<div class="flow-row"><span class="warning">${e[0]}</span><span class="tag ${e[3]}">${e[1]}</span><span class="up">${e[2]}</span><span class="strength"><i style="width:${91-i*5}%"></i></span><span>${e[4]}</span></div>`).join('');
+</script>
+</body>
+</html>

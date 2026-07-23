@@ -1,0 +1,8 @@
+Missing external root: I:\„Éû„Ç§„Éâ„É©„Ç§„Éñ\DeltaEngine_Preservation\DE-SEP-001-P0-003
+î≠ê∂èÍèä C:\Users\user\Desktop\DeltaEngine\ArchitectureRepository\00_Master\SeparationAudits\DE-SEP-001-P0-003\RUN2_CAP
+TURE_RUNTIME.ps1:219 ï∂éö:76
++ ... PathType Container)) { throw "Missing external root: $ExternalRoot" }
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Missing externa...-SEP-001-P0-003:String) [], RuntimeException
+    + FullyQualifiedErrorId : Missing external root: I:\„Éû„Ç§„Éâ„É©„Ç§„Éñ\DeltaEngine_Preservation\DE-SEP-001-P0-003
+ 

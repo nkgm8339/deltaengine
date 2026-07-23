@@ -1,0 +1,70 @@
+diff --git a/.gitignore b/.gitignore
+index a3c0e4f..12f0d06 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -21,6 +21,12 @@ latency_test_tmp/
+ /data/latency/internal_latency_after_brushup.json
+ /data/latency/report.json
+ /data/latency/report_live.json
++/data/execution_costs/*.csv
++/data/execution_costs/*.json
++/data/execution_costs/*.log
++/data/execution_costs/*.pid
++/data/strategy_research/*.json
++/data/strategy_research/*.md
+ /data/monitor/anomalies_*.jsonl
+ /data/recordings/*_clean*.jsonl
+ /mt5/*.ex5
+diff --git a/LATENCY_OBSERVER.md b/LATENCY_OBSERVER.md
+index 8266962..361df33 100644
+--- a/LATENCY_OBSERVER.md
++++ b/LATENCY_OBSERVER.md
+@@ -104,3 +104,34 @@ reset, or reversed sequence. Its clock-offset-independent p95/p99 receive
+ jitter fell from 29.8/48.8 ms to 12.3/18.4 ms. The remaining several-hundred
+ millisecond Binance-to-HFM response must not be attributed to DeltaEngine's
+ internal path.
++
++## Multi-venue execution-cost observation
++
++The separate GO-1 collector compares executable public Bid/Ask quotes without
++touching Flow Price Response, the three-panel chart, or any trading function:
++
++```powershell
++python -m tools.observe_execution_costs --duration-sec 86400
++```
++
++It records Binance Futures as a sensor, HFM from local MT5 files, bitFlyer
++Crypto CFD (`FX_BTC_JPY`), and GMO Coin leverage (`BTC_JPY`) on one local
++arrival clock. Raw quotes, a ten-second health file, and the final report are
++written under `data/execution_costs/`. The final report is generated
++automatically after the requested duration.
++
++JPY and USD price levels are never subtracted. Each venue's own spread is
++normalized to basis points; JPY venues are compared with Binance through an
++implied JPY-per-USDT ratio so combined FX/local-basis drift remains visible.
++Configured fees are in `config/execution_costs.yaml`; account-specific and
++time-dependent holding charges remain explicitly uncounted until verified.
++
++For a second HFM InfinityX terminal, attach the existing observation-only EA
++with this input value:
++
++```text
++QuoteFileName=DeltaEngine_HFM_InfinityX_quotes_utf8.jsonl
++```
++
++Until that file exists, the health report shows `HFM_INFINITYX` as waiting and
++does not substitute an advertised spread for a measured quote.
+diff --git a/requirements.txt b/requirements.txt
+index 16c5057..4fd25a3 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -8,6 +8,9 @@ duckdb>=1.0
+ # websockets: Phase6 real WebSocket transport to Binance Futures (WebSocket_v3.2).
+ # Auto ping/pong handling; the ExchangeConnector wraps it as a thin ConnectFn adapter.
+ websockets>=12.0
++# Explicit CA bundle for public venue TLS on Windows hosts without an OpenSSL
++# default CA file (certificate verification remains enabled).
++certifi>=2024.2.2
+ 
+ # aiohttp: HTTP client for REST depth snapshot (binance_rest.py).
+ aiohttp>=3.9

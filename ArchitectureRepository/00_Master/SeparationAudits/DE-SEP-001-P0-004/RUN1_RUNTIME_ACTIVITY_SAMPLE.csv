@@ -1,0 +1,5 @@
+"relative_path","state","before","after"
+"data\execution_costs\quotes_go1_20260723_094459.csv","CHANGED","552457201|2026-07-23T11:08:23.4114384Z","553563704|2026-07-23T11:10:52.6085101Z"
+"data\execution_costs\status.json","CHANGED","1615|2026-07-23T11:08:26.7127563Z","1618|2026-07-23T11:10:46.8999465Z"
+"data\latency\webapp_brushup.stderr.log","CHANGED","59392468|2026-07-23T11:07:04.6292010Z","59458948|2026-07-23T11:10:25.6861332Z"
+"data\latency\webapp_brushup.stdout.log","CHANGED","1306|2026-07-23T10:04:10.2761656Z","1495|2026-07-23T10:58:27.5205167Z"

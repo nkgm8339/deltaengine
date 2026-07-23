@@ -1,0 +1,37 @@
+{
+  "state": "RED",
+  "sample_time": "2026-07-23T18:11:28.470348+09:00",
+  "checks": {
+    "sequence_gap": {
+      "level": "GREEN",
+      "value": "0",
+      "detail": "book gaps in window: 0"
+    },
+    "ws_reconnect": {
+      "level": "GREEN",
+      "value": "0",
+      "detail": "reconnects in window: 0"
+    },
+    "pipeline": {
+      "level": "RED",
+      "value": "0",
+      "detail": "pipeline task dead: StorageError: [E4003] background storage worker failed: [E4001] OI parquet write failed: [WinError 5] アクセスが拒否されました。: 'data\\\\parquet\\\\open_interest_samples\\\\symbol=BTCUSDT\\\\year=2026\\\\month=07\\\\day=23\\\\.hour-03-003417.tmp.parquet' -> 'data\\\\parquet\\\\open_interest_samples\\\\symbol=BTCUSDT\\\\year=2026\\\\month=07\\\\day=23\\\\hour-03.parquet'"
+    },
+    "bar_flow": {
+      "level": "RED",
+      "value": "21988",
+      "detail": "no bar close for 21988s"
+    },
+    "latency": {
+      "level": "RED",
+      "value": "21964731",
+      "detail": "event lag 21964731ms"
+    },
+    "memory": {
+      "level": "GREEN",
+      "value": "-",
+      "detail": "rss unavailable"
+    }
+  },
+  "anomalies_today": 56
+}

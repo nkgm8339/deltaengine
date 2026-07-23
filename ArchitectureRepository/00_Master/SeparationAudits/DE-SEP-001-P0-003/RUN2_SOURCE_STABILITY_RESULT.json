@@ -1,0 +1,9 @@
+{
+  "audit_id": "DE-SEP-001-P0-003",
+  "captured_utc": "2026-07-23T10:48:53.2528591Z",
+  "pre_rows": 138,
+  "post_rows": 138,
+  "mismatch_count": 0,
+  "result": "PASS",
+  "scope": "classification A/B/D source stability only"
+}

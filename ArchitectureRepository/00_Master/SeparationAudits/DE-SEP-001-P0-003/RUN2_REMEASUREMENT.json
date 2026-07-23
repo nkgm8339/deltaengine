@@ -1,0 +1,102 @@
+{
+  "audit_id": "DE-SEP-001-P0-003",
+  "captured_utc": "2026-07-23T09:11:37.3615827Z",
+  "outer_head": "c133792031dca308e01b6c4824facc283bec3426",
+  "outer_branch": "master",
+  "gitlink_entry": "160000 895a160c321f6d56d668b5a67774c89662242199 0\tDelta_Engine_Pro4web",
+  "inner_head": "895a160c321f6d56d668b5a67774c89662242199",
+  "inner_branch": "master",
+  "inner_modified_count": 0,
+  "inner_untracked_count": 13,
+  "tags": [
+    "a5bc76168b13f7fd26474ef3645333ca54f7c0b9 refs/tags/DELTAENGINE-REBIRTH-20260721\nca1eb09b2a4a096023b30fdaec0b8a4e7ef0e025 refs/tags/DELTAENGINE-REBIRTH-HOTFIX-20260721\n4e63224cd52d554f9bdd4a8e588c4b6593a791a6 refs/tags/SAFE-20260719"
+  ],
+  "remotes": [],
+  "one_m_file_count": 57207,
+  "one_m_total_bytes": 1101749471,
+  "class_summary": [
+    {
+      "classification": "A",
+      "file_count": 101,
+      "bytes": 831314
+    },
+    {
+      "classification": "B",
+      "file_count": 34,
+      "bytes": 189139
+    },
+    {
+      "classification": "C",
+      "file_count": 56945,
+      "bytes": 1098673560
+    },
+    {
+      "classification": "D",
+      "file_count": 3,
+      "bytes": 1591
+    },
+    {
+      "classification": "E",
+      "file_count": 124,
+      "bytes": 2053867
+    }
+  ],
+  "runtime_summary": [
+    {
+      "runtime_state": "ACTIVE_RUNTIME",
+      "file_count": 6,
+      "bytes": 424545709
+    },
+    {
+      "runtime_state": "STABLE_DATA",
+      "file_count": 56939,
+      "bytes": 674127851
+    }
+  ],
+  "activity_changes": [
+    {
+      "relative_path": "data\\execution_costs\\quotes_go1_20260723_094459.csv",
+      "state": "CHANGED",
+      "before": "387024343|2026-07-23T07:42:09.1052439Z",
+      "after": "389723571|2026-07-23T07:44:15.7126269Z"
+    },
+    {
+      "relative_path": "data\\execution_costs\\status.json",
+      "state": "CHANGED",
+      "before": "1557|2026-07-23T07:42:00.9899817Z",
+      "after": "1559|2026-07-23T07:44:21.1186714Z"
+    },
+    {
+      "relative_path": "data\\latency\\webapp_brushup.stderr.log",
+      "state": "CHANGED",
+      "before": "37518881|2026-07-23T07:42:04.5977321Z",
+      "after": "37894661|2026-07-23T07:44:17.0178057Z"
+    }
+  ],
+  "hash_error_count": 0,
+  "reparse_link_count": 2,
+  "hardlink_multiple_count": 2,
+  "duckdb_inventory_hash": "27E246039BA40C6FFDFB48A02BE6C7C09868D751E6E9A7F4C86DB80DAD2212D1",
+  "duckdb_current_hash": "27E246039BA40C6FFDFB48A02BE6C7C09868D751E6E9A7F4C86DB80DAD2212D1",
+  "duckdb_hash_stable": true,
+  "parquet_inventory": {
+    "count": 56888,
+    "bytes": 224469382,
+    "latest": "2026-07-23T03:05:23.6140234Z"
+  },
+  "parquet_current": {
+    "count": 56888,
+    "bytes": 224469382,
+    "latest": "2026-07-23T03:05:23.6140234Z"
+  },
+  "health_status": "RED",
+  "health_error": "",
+  "python_version": "Python 3.13.12",
+  "python_executable": "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+  "requirements_sha256": "D97B05378476E478FAD17F82392ABEC1412C234272480EA8A1724765232EE1D8",
+  "pip_freeze_sha256": "1DCFCD8C83CF3FA8FA343841CEBE196C85A004509E95707C05A42AC8CD29353E",
+  "process_count": 2,
+  "thirty_m_file_count": 148,
+  "gate_0a_r_required": false,
+  "gate_0a_r_reasons": []
+}

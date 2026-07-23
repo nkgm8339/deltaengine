@@ -1,0 +1,5 @@
+[31;1mGet-CimInstance: [0mC:\Users\user\Desktop\DeltaEngine\ArchitectureRepository\00_Master\SeparationAudits\DE-SEP-001-P0-003\RUN2_REMEASURE.ps1:314[0m
+[31;1m[0m[36;1mLine |[0m
+[31;1m[0m[36;1m[36;1m 314 | [0m $processRows = @([36;1mGet-CimInstance Win32_Process[0m | Where-Object { $_.Pr c[0m
+[31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mƒNƒ‰ƒCƒAƒ“ƒg‚ª CIM ƒŠƒ\[ƒX‚Ö‚ÌƒAƒNƒZƒX‚ğæ“¾‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B[0m

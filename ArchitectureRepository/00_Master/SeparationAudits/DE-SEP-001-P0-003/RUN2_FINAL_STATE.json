@@ -1,0 +1,66 @@
+{
+  "audit_id": "DE-SEP-001-P0-003",
+  "updated_utc": "2026-07-23T10:48:53.2845343Z",
+  "plan": "DE-SEP-001-RUN-2",
+  "status": "BLOCKED_B_COMPLETENESS",
+  "gate_0b_ready": false,
+  "gate_0b_blockers": [
+    "SEP-BASE-004: existing B archive contains 12/138 required product entries; 126 missing"
+  ],
+  "history_archive": {
+    "status": "PASS",
+    "bytes": 1801273,
+    "sha256": "830C4318B9379D4C5737B4F2865A1B635930E21306EF409B713F06310D65CCD4"
+  },
+  "worktree_archive": {
+    "status": "FAIL_COMPLETENESS",
+    "bytes": 30581,
+    "sha256": "FC7638BA7EA97CD2D328B528262AAFFC7BCA4FEBF1E13C14F2E8CD5FACD7D286",
+    "expected_product_entries": 138,
+    "matching_product_entries": 12,
+    "missing_product_entries": 126,
+    "extraneous_entries": 2
+  },
+  "runtime_archive": {
+    "status": "PASS",
+    "bytes": 405563839,
+    "sha256": "720758725714F8F41AEF9D2FDD927338F01BED31AB9208D0BEC9E02F0B93F4D7",
+    "entries": 56945,
+    "stable": 56938,
+    "active": 7,
+    "pending": 0,
+    "restore_pass": 56945,
+    "duckdb_status": "PASS",
+    "duckdb_tables": 6,
+    "duckdb_periods": 6
+  },
+  "source_stability": {
+    "status": "PASS",
+    "pre": 138,
+    "post": 138,
+    "mismatch": 0
+  },
+  "git": {
+    "outer_head": "c133792031dca308e01b6c4824facc283bec3426",
+    "inner_head": "895a160c321f6d56d668b5a67774c89662242199",
+    "inner_modified": 3,
+    "inner_untracked": 9,
+    "thirty_m_independent_git": false
+  },
+  "product": {
+    "one_m_alive": true,
+    "observer_alive": true,
+    "health": "RED",
+    "product_source_modified": false,
+    "product_process_stopped_or_restarted": false,
+    "flow_price_response_modified": false,
+    "three_panel_chart_modified": false
+  },
+  "failed_runtime_partials_preserved": 2,
+  "audit_artifacts_checksum_generated": false,
+  "phase_1_started": false,
+  "next_user_decision": [
+    "strict P0-004 full recapture",
+    "explicit policy deviation for separately named supplemental full B archive"
+  ]
+}

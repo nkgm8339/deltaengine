@@ -1,0 +1,4 @@
+"relative_path","state","before","after"
+"data\execution_costs\quotes_go1_20260723_094459.csv","CHANGED","387024343|2026-07-23T07:42:09.1052439Z","389723571|2026-07-23T07:44:15.7126269Z"
+"data\execution_costs\status.json","CHANGED","1557|2026-07-23T07:42:00.9899817Z","1559|2026-07-23T07:44:21.1186714Z"
+"data\latency\webapp_brushup.stderr.log","CHANGED","37518881|2026-07-23T07:42:04.5977321Z","37894661|2026-07-23T07:44:17.0178057Z"

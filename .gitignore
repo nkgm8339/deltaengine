@@ -1,0 +1,18 @@
+# Clone runtime outputs and transient state
+Delta_Engine_Pro4web/data/
+Delta_Engine_Pro4web/data_clone/
+Delta_Engine_Pro4web/logs/
+Delta_Engine_Pro4web/temp/
+Delta_Engine_Pro4web/__pycache__/
+Delta_Engine_Pro4web/.pytest_cache/
+Delta_Engine_Pro4web/.pytest-*/
+.tmp.*/
+pytest-cache-files-*/
+.pytest-*/
+
+# Historical backups and generated release artifacts
+DeltaEngine_BACKUP_20260719/
+archive/
+*.zip
+*.pdf
+*.png

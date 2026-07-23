@@ -1,0 +1,40 @@
+# Binance exchange profile — field mapping for the DataNormalizer.
+# Canonical sample: docs/40_Reference/YAMLReference_v3.3.md §4
+# Selected by normalizer.exchange_profile in config.yaml.
+# NOTE: profile-content validation is implemented in the DataNormalizer (M3),
+# not in M1 config loading.
+# Phase6→BugFix_Live: subscribe_streams uses `@trade` (config.yaml). The Binance
+# Futures @trade payload carries the individual trade id in field `t`. The
+# aggregate trade id `a` is also present but is not used as dedup key.
+# trade_id is therefore mapped to `t`.
+# NOTE: @aggTrade stream is unavailable on Binance Futures /ws + SUBSCRIBE
+# endpoint (confirmed via ws_probe2.py). ADR-006 records this decision.
+profile_name: binance
+field_mapping:
+  event_time: E
+  trade_time: T
+  trade_id: t
+  trade_id_fallback: a
+  symbol: s
+  price: p
+  quantity: q
+  side_field: m
+  side_rule: "m == true → SELL, m == false → BUY"
+timestamp_format: epoch_ms
+# Order Book depth mapping (B-1). Binance Futures @depth@100ms sends
+# e="depthUpdate" for incremental diff updates. "depthSnapshot" is the label
+# that the acquisition layer attaches to a REST-fetched initial snapshot before
+# handing it to the normalizer (REST snapshot path is B-2 scope; not yet wired).
+order_book_mapping:
+  event_type_field: e
+  event_type_snapshot: depthSnapshot
+  event_type_diff: depthUpdate
+  symbol_field: s
+  event_time_field: E
+  first_update_id_field: U
+  final_update_id_field: u
+  bids_field: b
+  asks_field: a
+  level_price_index: 0
+  level_quantity_index: 1
+  previous_final_update_id_field: pu

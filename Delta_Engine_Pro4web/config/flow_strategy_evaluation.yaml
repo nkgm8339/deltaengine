@@ -1,0 +1,37 @@
+as_of: "2026-07-23"
+symbol: BTCUSDT
+clean_start: "2026-07-21T09:30:41Z"
+stable_file_age_sec: 120
+train_fraction: 0.60
+split_embargo_sec: 3600
+horizons_sec: [900, 1800, 3600]
+roundtrip_cost_bps: [1.5, 3.0]
+stress_cost_multiple: 1.5
+
+strategy_a:
+  name: MODERATE_FLOW_CONTINUATION
+  window_sec: 300
+  state_suffix: _EFFECTIVE
+  # Central feature ranges are learned from the chronological training period
+  # without looking at returns. They are then frozen for the test period.
+  feature_quantile_low: 0.25
+  feature_quantile_high: 0.75
+  retest_timeout_sec: 300
+
+strategy_b:
+  name: FAILED_AGGRESSION_REVERSAL
+  window_sec: 300
+  effective_suffix: _EFFECTIVE
+  failure_suffixes: [_STALLED, _TRAPPED]
+  effective_lookback_sec: 900
+  confirmation_bps: 2.0
+  confirmation_timeout_sec: 300
+  retest_timeout_sec: 300
+
+validation:
+  minimum_interim_test_trades: 30
+  minimum_deployment_trades: 200
+  minimum_deployment_days: 30
+  bootstrap_samples: 2000
+  maximum_best_day_profit_share: 0.25
+

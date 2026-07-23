@@ -1,0 +1,40 @@
+{
+  "audit_id": "DE-SEP-001-P0-004",
+  "validated_at": "2026-07-23T20:20:34.0685313+09:00",
+  "external_root": "I:\\マイドライブ\\DeltaEngine_Preservation\\DE-SEP-001-P0-004",
+  "canonical_path": "I:\\マイドライブ\\DeltaEngine_Preservation\\DE-SEP-001-P0-004",
+  "existed_and_empty_before_probe": true,
+  "access_probe_write_read_hash_match": true,
+  "access_probe_sha256": "B5F3B0CC50517B1A5544A7EF71813A0109CC89D2FE05B8CCE876874155BFCCE6",
+  "probe_removed": true,
+  "item_count_after_probe": 0,
+  "free_bytes": 11769667584,
+  "used_bytes": 4336459776,
+  "owner": "DESKTOP-K1I84LK\\user",
+  "path_chain": [
+    {
+      "path": "I:\\マイドライブ\\DeltaEngine_Preservation\\DE-SEP-001-P0-004",
+      "attributes": "Directory",
+      "link_type": "",
+      "target": ""
+    },
+    {
+      "path": "I:\\マイドライブ\\DeltaEngine_Preservation",
+      "attributes": "Directory",
+      "link_type": "",
+      "target": ""
+    },
+    {
+      "path": "I:\\マイドライブ",
+      "attributes": "Directory",
+      "link_type": "",
+      "target": ""
+    },
+    {
+      "path": "I:\\",
+      "attributes": "Directory",
+      "link_type": "",
+      "target": ""
+    }
+  ]
+}

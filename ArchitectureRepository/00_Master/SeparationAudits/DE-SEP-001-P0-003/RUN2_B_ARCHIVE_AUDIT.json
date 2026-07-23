@@ -1,0 +1,17 @@
+{
+  "audit_id": "DE-SEP-001-P0-003",
+  "captured_utc": "2026-07-23T09:46:30.8845288Z",
+  "archive_path": "I:\\マイドライブ\\DeltaEngine_Preservation\\DE-SEP-001-P0-003\\ONE_M_WORKTREE_FORENSIC.zip",
+  "archive_sha256": "FC7638BA7EA97CD2D328B528262AAFFC7BCA4FEBF1E13C14F2E8CD5FACD7D286",
+  "expected_abd_entries": 138,
+  "actual_zip_entries": 14,
+  "present_expected": 12,
+  "matching_expected": 12,
+  "mismatching_expected": 0,
+  "missing_expected": 126,
+  "extraneous_entries": 2,
+  "sep_base_004": "FAIL",
+  "zip_open_and_entry_hash": "PASS",
+  "overwrite_performed": false,
+  "blocker_scope": "B completeness and Gate 0B only"
+}

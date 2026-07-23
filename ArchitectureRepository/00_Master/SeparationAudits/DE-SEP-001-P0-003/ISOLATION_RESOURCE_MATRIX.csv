@@ -1,0 +1,8 @@
+"resource","canonical_path","type","owner","phase0_action","status"
+"1M_PRODUCT_ROOT","C:\Users\user\Desktop\DeltaEngine\Delta_Engine_Pro4web","SOURCE_RUNTIME_ROOT","1M","READ_AND_PRESERVE","EXISTS"
+"30M_PRODUCT_ROOT","C:\Users\user\Desktop\DeltaEngine\Delta_Engine_30M","DERIVED_PRODUCT_ROOT","30M","READ_ONLY_DERIVATION_MAP","EXISTS"
+"PHASE0_AUDIT_ROOT","C:\Users\user\Desktop\DeltaEngine\ArchitectureRepository\00_Master\SeparationAudits\DE-SEP-001-P0-003","AUDIT","SEPARATION","WRITE","EXISTS"
+"EXTERNAL_PRESERVATION_ROOT","I:\マイドライブ\DeltaEngine_Preservation\DE-SEP-001-P0-003","EXTERNAL_REMOTE_STORAGE","PRESERVATION","WRITE_NEW_ONLY","EXISTS"
+"1M_HTTP","http://127.0.0.1:8080","PROCESS_ENDPOINT","1M","READ_HEALTH_ONLY","RED"
+"1M_DUCKDB","C:\Users\user\Desktop\DeltaEngine\Delta_Engine_Pro4web\data\duckdb\orderflow.duckdb","DATABASE","1M","READ_HASH_ONLY_SOURCE","STABLE"
+"1M_PARQUET_SET","C:\Users\user\Desktop\DeltaEngine\Delta_Engine_Pro4web\data\parquet","DATASET","1M","READ_HASH_AND_PRESERVE","STABLE"

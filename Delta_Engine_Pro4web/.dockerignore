@@ -1,0 +1,27 @@
+# --- ビルドコンテキスト縮小（compose が data/config を volume マウントするためイメージ不要）---
+data/
+config/
+
+# バージョン管理・キャッシュ
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# データ/録画/DB ファイル
+*.duckdb
+*.csv
+*.parquet
+*.ndjson
+recordings/
+captures/
+
+# ローカル一時・仮想環境
+.venv/
+venv/
+*.log
+.tmp*/
+tmp/

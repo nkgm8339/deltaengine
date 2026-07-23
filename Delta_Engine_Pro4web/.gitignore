@@ -1,0 +1,32 @@
+# Generated data must not be committed (DirectoryStructure_v3.0 §3)
+/data/parquet/
+/data/duckdb/
+/logs/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.pytest-*/
+test_tmp/
+tmp_pytest_run/
+latency_test_tmp/
+
+# Runtime observation artifacts. Curated JSON reports and Markdown summaries
+# remain commit-eligible; raw quote streams, process files, and logs do not.
+/data/latency/*.csv
+/data/latency/*.log
+/data/latency/*.pid
+/data/latency/*.jsonl
+/data/latency/internal_latency_after_brushup.json
+/data/latency/report.json
+/data/latency/report_live.json
+/data/execution_costs/*.csv
+/data/execution_costs/*.json
+/data/execution_costs/*.log
+/data/execution_costs/*.pid
+/data/strategy_research/*.json
+/data/strategy_research/*.md
+/data/monitor/anomalies_*.jsonl
+/data/recordings/*_clean*.jsonl
+/mt5/*.ex5

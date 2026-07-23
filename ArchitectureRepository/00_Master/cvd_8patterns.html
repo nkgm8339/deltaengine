@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CVD 8パターン リファレンス</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 24px 20px 40px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #e6edf3;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+  .subtitle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #6e7681;
+    margin-bottom: 28px;
+  }
+
+  /* ── Main Table ── */
+  .tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 32px;
+  }
+  .tbl th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6e7681;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #21262d;
+    position: sticky;
+    top: 0;
+    background: #0d1117;
+  }
+  .tbl td {
+    padding: 10px 10px;
+    border-bottom: 1px solid #161b22;
+    vertical-align: middle;
+  }
+  .tbl tr:hover { background: #161b22; }
+
+  /* Signal cells */
+  .sig {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 15px;
+    text-align: center;
+    width: 44px;
+  }
+  .sig.up { color: #3fb950; }
+  .sig.dn { color: #f85149; }
+
+  /* No column */
+  .no-cell {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    width: 32px;
+    text-align: center;
+  }
+
+  /* Meaning column */
+  .meaning {
+    color: #c9d1d9;
+    font-size: 12.5px;
+    line-height: 1.55;
+    max-width: 420px;
+  }
+
+  /* Rating badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .badge.bull5 { background: #0d2818; color: #3fb950; }
+  .badge.bull4 { background: #0d2818; color: #3fb950; opacity: .85; }
+  .badge.sbull { background: #1c1d00; color: #d2a820; }
+  .badge.warn  { background: #2a1507; color: #e8863a; }
+  .badge.sbear { background: #1c1d00; color: #d2a820; }
+  .badge.bear5 { background: #2d0a0a; color: #f85149; }
+
+  /* Stars */
+  .stars { letter-spacing: 1px; font-size: 10px; }
+
+  /* ── Category Cards ── */
+  .cats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .cat-card {
+    border-radius: 8px;
+    padding: 16px 18px;
+    border: 1px solid #21262d;
+  }
+  .cat-card.trend   { background: #0d2818; border-color: #1a4028; }
+  .cat-card.turning  { background: #1a1a00; border-color: #3d3d00; }
+  .cat-card.diverg   { background: #2a1507; border-color: #4a2810; }
+
+  .cat-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .cat-card.trend  .cat-label { color: #3fb950; }
+  .cat-card.turning .cat-label { color: #d2a820; }
+  .cat-card.diverg  .cat-label { color: #e8863a; }
+
+  .cat-nums {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: #e6edf3;
+    margin-bottom: 6px;
+  }
+  .cat-desc {
+    font-size: 12px;
+    color: #8b949e;
+    line-height: 1.55;
+  }
+  .cat-action {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    margin-top: 8px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .cat-card.trend  .cat-action { background: #1a4028; color: #56d364; }
+  .cat-card.turning .cat-action { background: #2d2d00; color: #e3b341; }
+  .cat-card.diverg  .cat-action { background: #3a1a08; color: #f0a050; }
+
+  /* ── Divergence Detail ── */
+  .div-detail {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .div-box {
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: #161b22;
+  }
+  .div-box .pattern {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e8863a;
+    margin-bottom: 6px;
+  }
+  .div-box .arrows {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 16px;
+  }
+  .div-box .arrows span { display: flex; align-items: center; gap: 4px; }
+  .div-box .check-list {
+    font-size: 12px;
+    color: #8b949e;
+    line-height: 1.7;
+  }
+  .div-box .check-list span {
+    color: #e8863a;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+
+  @media (max-width: 600px) {
+    .tbl { font-size: 12px; }
+    .meaning { max-width: none; }
+    .sig { font-size: 14px; width: 36px; }
+    .badge { font-size: 10px; padding: 2px 6px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>価格 × CVD × Δ  8パターン</h1>
+<p class="subtitle">Price · Cumulative Volume Delta · Delta — Quick Reference</p>
+
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>No</th>
+      <th>価格</th>
+      <th>CVD</th>
+      <th>Δ</th>
+      <th>相場の意味</th>
+      <th>評価</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="no-cell">①</td>
+      <td class="sig up">＋</td>
+      <td class="sig up">＋</td>
+      <td class="sig up">＋</td>
+      <td class="meaning">買い成行が継続し価格も上昇。最も素直な上昇トレンド。</td>
+      <td><span class="badge bull5">🟢 強気 <span class="stars">★★★★★</span></span></td>
+    </tr>
+    <tr>
+      <td class="no-cell">②</td>
+      <td class="sig up">＋</td>
+      <td class="sig up">＋</td>
+      <td class="sig dn">－</td>
+      <td class="meaning">長期では買い優勢だが直近バーは利確・押し目。上昇継続の押しになることが多い。</td>
+      <td><span class="badge bull4">🟢 強気 <span class="stars">★★★★☆</span></span></td>
+    </tr>
+    <tr>
+      <td class="no-cell">③</td>
+      <td class="sig up">＋</td>
+      <td class="sig dn">－</td>
+      <td class="sig up">＋</td>
+      <td class="meaning">現在は買われているが累積では売り優勢。反発初動やショートカバーの可能性。</td>
+      <td><span class="badge sbull">🟡 やや強気 <span class="stars">★★★☆☆</span></span></td>
+    </tr>
+    <tr>
+      <td class="no-cell">④</td>
+      <td class="sig up">＋</td>
+      <td class="sig dn">－</td>
+      <td class="sig dn">－</td>
+      <td class="meaning">売り成行が優勢なのに価格は上昇。買い吸収・ショートカバー・板の薄さを疑う。<strong style="color:#e8863a">ダイバージェンス。</strong></td>
+      <td><span class="badge warn">🟠 要警戒 <span class="stars">★★☆☆☆</span></span></td>
+    </tr>
+    <tr>
+      <td class="no-cell">⑤</td>
+      <td class="sig dn">－</td>
+      <td class="sig up">＋</td>
+      <td class="sig up">＋</td>
+      <td class="meaning">買い成行が優勢なのに価格は下落。売り吸収（Absorption）や大口売りを疑う。<strong style="color:#e8863a">ダイバージェンス。</strong></td>
+      <td><span class="badge warn">🟠 要警戒 <span class="stars">★★☆☆☆</span></span></td>
+    </tr>
+    <tr>
+      <td class="no-cell">⑥</td>
+      <td class="sig dn">－</td>
+      <td class="sig up">＋</td>
+      <td class="sig dn">－</td>
+      <td class="meaning">累積では買い優勢だが直近は売り優勢。押しが深くなっている可能性。</td>
+      <td><span class="badge sbear">🟡 やや弱気 <span class="stars">★★★☆☆</span></span></td>
+    </tr>
+    <tr>
+      <td class="no-cell">⑦</td>
+      <td class="sig dn">－</td>
+      <td class="sig dn">－</td>
+      <td class="sig up">＋</td>
+      <td class="meaning">下落中だが直近は買いが入ってきた。戻り・反転の初動候補。</td>
+      <td><span class="badge sbear">🟡 やや弱気 <span class="stars">★★★☆☆</span></span></td>
+    </tr>
+    <tr>
+      <td class="no-cell">⑧</td>
+      <td class="sig dn">－</td>
+      <td class="sig dn">－</td>
+      <td class="sig dn">－</td>
+      <td class="meaning">売り成行が継続し価格も下落。最も素直な下降トレンド。</td>
+      <td><span class="badge bear5">🔴 弱気 <span class="stars">★★★★★</span></span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ── 3-Category Summary ── -->
+<div class="cats">
+  <div class="cat-card trend">
+    <div class="cat-label">🟢 トレンド一致</div>
+    <div class="cat-nums">① ⑧</div>
+    <div class="cat-desc">価格・CVD・Δがすべて同方向。最も素直な相場。</div>
+    <div class="cat-action">→ 順張り優先</div>
+  </div>
+  <div class="cat-card turning">
+    <div class="cat-label">🟡 転換候補</div>
+    <div class="cat-nums">② ③ ⑥ ⑦</div>
+    <div class="cat-desc">一部の指標にズレあり。次の足・板・Footprintで確認。</div>
+    <div class="cat-action">→ 次足確認</div>
+  </div>
+  <div class="cat-card diverg">
+    <div class="cat-label">🟠 ダイバージェンス</div>
+    <div class="cat-nums">④ ⑤</div>
+    <div class="cat-desc">価格とオーダーフローが逆行。最重要監視。</div>
+    <div class="cat-action">→ 吸収 or 失速を判断</div>
+  </div>
+</div>
+
+<!-- ── Divergence Detail ── -->
+<div class="div-detail">
+  <div class="div-box">
+    <div class="pattern">④ Bullish Divergence</div>
+    <div class="arrows">
+      <span style="color:#3fb950">価格 ↑</span>
+      <span style="color:#f85149">CVD ↓</span>
+      <span style="color:#f85149">Δ ↓</span>
+    </div>
+    <div class="check-list">
+      <span>CHECK</span> 買い吸収（指値の壁）<br>
+      <span>CHECK</span> ショートカバー主導<br>
+      <span>CHECK</span> 板の薄さによる空上げ
+    </div>
+  </div>
+  <div class="div-box">
+    <div class="pattern">⑤ Bearish Divergence</div>
+    <div class="arrows">
+      <span style="color:#f85149">価格 ↓</span>
+      <span style="color:#3fb950">CVD ↑</span>
+      <span style="color:#3fb950">Δ ↑</span>
+    </div>
+    <div class="check-list">
+      <span>CHECK</span> 売り吸収（Absorption）<br>
+      <span>CHECK</span> 大口の売り壁<br>
+      <span>CHECK</span> 蓄積（Accumulation）の可能性
+    </div>
+  </div>
+</div>
+
+<!-- ── Operational Notes ── -->
+<div class="cats" style="margin-top:24px">
+  <div class="cat-card trend">
+    <div class="cat-label">📘 運用メモ</div>
+    <div class="cat-nums">読む順番</div>
+    <div class="cat-desc">PRICE → CVD → Δ の順で見る。ホバーではその足の 8 パターンを確認する。</div>
+    <div class="cat-action">→ まず時刻を合わせる</div>
+  </div>
+  <div class="cat-card turning">
+    <div class="cat-label">🕒 時刻の基準</div>
+    <div class="cat-nums">JST</div>
+    <div class="cat-desc">軸ラベルは HH:MM、ホバーでは日付付きで確認する。板とローソクは同じ時刻で比べる。</div>
+    <div class="cat-action">→ 同じ瞬間かを見る</div>
+  </div>
+  <div class="cat-card diverg">
+    <div class="cat-label">🧭 異常候補</div>
+    <div class="cat-nums">④ ⑤</div>
+    <div class="cat-desc">価格とオーダーフローが逆行したら重点確認。板の薄化・吸収・ショートカバーを疑う。</div>
+    <div class="cat-action">→ まず ④ / ⑤ を確認</div>
+  </div>
+</div>
+
+</body>
+</html>

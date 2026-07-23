@@ -1,0 +1,13 @@
+warning: could not open directory '.pytest_tmp/': Permission denied
+ M .gitignore
+ M LATENCY_OBSERVER.md
+ M requirements.txt
+?? STRATEGY_EVALUATION.md
+?? config/execution_costs.yaml
+?? config/flow_strategy_evaluation.yaml
+?? tests/tools/test_evaluate_flow_strategies.py
+?? tests/tools/test_observe_execution_costs.py
+?? tests/tools/test_report_execution_costs.py
+?? tools/evaluate_flow_strategies.py
+?? tools/observe_execution_costs.py
+?? tools/report_execution_costs.py

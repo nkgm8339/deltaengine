@@ -1,0 +1,353 @@
+{
+  "database_path": "C:\\Users\\user\\AppData\\Local\\Temp\\DE-SEP-001-P0-003_VERIFY_C_20260723T102831929Z\\data\\duckdb\\orderflow.duckdb",
+  "opened_read_only": true,
+  "verified_at_utc": "2026-07-23T10:42:23.216079Z",
+  "tables": [
+    {
+      "schema": "main",
+      "name": "candles",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "bar_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 1
+        },
+        {
+          "name": "symbol",
+          "type": "VARCHAR",
+          "ordinal_position": 2
+        },
+        {
+          "name": "timeframe",
+          "type": "VARCHAR",
+          "ordinal_position": 3
+        },
+        {
+          "name": "open",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 4
+        },
+        {
+          "name": "high",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 5
+        },
+        {
+          "name": "low",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 6
+        },
+        {
+          "name": "close",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 7
+        },
+        {
+          "name": "volume",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 8
+        },
+        {
+          "name": "delta",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 9
+        },
+        {
+          "name": "cvd",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 10
+        }
+      ],
+      "row_count": 6198,
+      "period_column": "bar_time",
+      "period_min": "2026-07-08T12:08:00",
+      "period_max": "2026-07-23T03:04:00",
+      "status": "PASS"
+    },
+    {
+      "schema": "main",
+      "name": "flow_response_events",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 1
+        },
+        {
+          "name": "symbol",
+          "type": "VARCHAR",
+          "ordinal_position": 2
+        },
+        {
+          "name": "window_sec",
+          "type": "INTEGER",
+          "ordinal_position": 3
+        },
+        {
+          "name": "state",
+          "type": "VARCHAR",
+          "ordinal_position": 4
+        },
+        {
+          "name": "pressure_side",
+          "type": "VARCHAR",
+          "ordinal_position": 5
+        },
+        {
+          "name": "buy_volume",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 6
+        },
+        {
+          "name": "sell_volume",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 7
+        },
+        {
+          "name": "delta",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 8
+        },
+        {
+          "name": "pressure_ratio",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 9
+        },
+        {
+          "name": "persistence",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 10
+        },
+        {
+          "name": "first_price",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 11
+        },
+        {
+          "name": "last_price",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 12
+        },
+        {
+          "name": "price_change",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 13
+        },
+        {
+          "name": "price_change_bps",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 14
+        },
+        {
+          "name": "relative_volume",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 15
+        },
+        {
+          "name": "trade_count",
+          "type": "BIGINT",
+          "ordinal_position": 16
+        }
+      ],
+      "row_count": 11461,
+      "period_column": "event_time",
+      "period_min": "2026-07-21T07:15:51.966000",
+      "period_max": "2026-07-23T03:05:20.835000",
+      "status": "PASS"
+    },
+    {
+      "schema": "main",
+      "name": "flow_response_outcomes",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 1
+        },
+        {
+          "name": "symbol",
+          "type": "VARCHAR",
+          "ordinal_position": 2
+        },
+        {
+          "name": "window_sec",
+          "type": "INTEGER",
+          "ordinal_position": 3
+        },
+        {
+          "name": "state",
+          "type": "VARCHAR",
+          "ordinal_position": 4
+        },
+        {
+          "name": "horizon_sec",
+          "type": "INTEGER",
+          "ordinal_position": 5
+        },
+        {
+          "name": "observed_price",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 6
+        },
+        {
+          "name": "outcome_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 7
+        },
+        {
+          "name": "outcome_price",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 8
+        },
+        {
+          "name": "forward_return_bps",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 9
+        },
+        {
+          "name": "max_up_bps",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 10
+        },
+        {
+          "name": "max_down_bps",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 11
+        }
+      ],
+      "row_count": 44737,
+      "period_column": "event_time",
+      "period_min": "2026-07-21T07:15:51.966000",
+      "period_max": "2026-07-23T03:04:15.500000",
+      "status": "PASS"
+    },
+    {
+      "schema": "main",
+      "name": "open_interest_samples",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "source_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 1
+        },
+        {
+          "name": "received_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 2
+        },
+        {
+          "name": "symbol",
+          "type": "VARCHAR",
+          "ordinal_position": 3
+        },
+        {
+          "name": "open_interest",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 4
+        },
+        {
+          "name": "source",
+          "type": "VARCHAR",
+          "ordinal_position": 5
+        }
+      ],
+      "row_count": 6154,
+      "period_column": "source_time",
+      "period_min": "2026-07-22T08:48:50.148000",
+      "period_max": "2026-07-23T03:05:18.183000",
+      "status": "PASS"
+    },
+    {
+      "schema": "main",
+      "name": "signals",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "signal_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 1
+        },
+        {
+          "name": "symbol",
+          "type": "VARCHAR",
+          "ordinal_position": 2
+        },
+        {
+          "name": "signal",
+          "type": "VARCHAR",
+          "ordinal_position": 3
+        },
+        {
+          "name": "confidence",
+          "type": "DOUBLE",
+          "ordinal_position": 4
+        }
+      ],
+      "row_count": 6126,
+      "period_column": "signal_time",
+      "period_min": "2026-07-08T12:08:00",
+      "period_max": "2026-07-23T03:04:00",
+      "status": "PASS"
+    },
+    {
+      "schema": "main",
+      "name": "trades",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 1
+        },
+        {
+          "name": "trade_time",
+          "type": "TIMESTAMP",
+          "ordinal_position": 2
+        },
+        {
+          "name": "trade_id",
+          "type": "BIGINT",
+          "ordinal_position": 3
+        },
+        {
+          "name": "symbol",
+          "type": "VARCHAR",
+          "ordinal_position": 4
+        },
+        {
+          "name": "price",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 5
+        },
+        {
+          "name": "quantity",
+          "type": "DECIMAL(20,8)",
+          "ordinal_position": 6
+        },
+        {
+          "name": "side",
+          "type": "VARCHAR",
+          "ordinal_position": 7
+        }
+      ],
+      "row_count": 10923657,
+      "period_column": "event_time",
+      "period_min": "2026-07-08T12:08:32.110000",
+      "period_max": "2026-07-23T03:05:23.739000",
+      "status": "PASS"
+    }
+  ],
+  "views": [],
+  "read_probe": "PASS",
+  "schema_probe": "PASS",
+  "count_probe": "PASS",
+  "period_probe": "PASS",
+  "status": "PASS",
+  "table_count": 6,
+  "view_count": 0,
+  "period_table_count": 6
+}
