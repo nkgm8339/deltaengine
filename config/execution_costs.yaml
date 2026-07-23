@@ -1,0 +1,40 @@
+as_of: "2026-07-23"
+reference_price_usd: 66000
+
+# Publicly stated costs are kept separate from measured Bid/Ask spreads.
+# Values that depend on the user's exact account are deliberately null.
+venues:
+  BINANCE_SENSOR:
+    role: sensor_only
+    fixed_roundtrip_fee_bps: null
+    holding_cost: not_applicable
+    reference: https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/Individual-Symbol-Book-Ticker-Streams
+
+  HFM_CURRENT:
+    role: execution_candidate
+    fixed_roundtrip_fee_bps: null
+    holding_cost: account_specific_not_included
+    reference: https://www.hfm.com/int/en/trading-instruments/single-product?symbol=%23BTCUSD
+
+  HFM_INFINITYX:
+    role: execution_candidate
+    fixed_roundtrip_fee_bps: 0.0
+    holding_cost: advertised_no_swap_verify_on_account
+    reference: https://www.hfm.com/int/en/trading-accounts/unlimited-leverage-account
+
+  BITFLYER_CFD:
+    role: execution_candidate
+    fixed_roundtrip_fee_bps: 0.0
+    holding_cost: leverage_point_and_funding_not_included
+    reference: https://bitflyer.com/ja-jp/s/commission
+
+  GMO_LEVERAGE:
+    role: execution_candidate
+    fixed_roundtrip_fee_bps: 0.0
+    holding_cost: leverage_fee_not_included
+    reference: https://coin.z.com/jp/corp/guide/fees/
+
+decision:
+  minimum_gross_to_cost_multiple: 3.0
+  stress_cost_multiple: 1.5
+

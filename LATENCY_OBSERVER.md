@@ -104,3 +104,34 @@ reset, or reversed sequence. Its clock-offset-independent p95/p99 receive
 jitter fell from 29.8/48.8 ms to 12.3/18.4 ms. The remaining several-hundred
 millisecond Binance-to-HFM response must not be attributed to DeltaEngine's
 internal path.
+
+## Multi-venue execution-cost observation
+
+The separate GO-1 collector compares executable public Bid/Ask quotes without
+touching Flow Price Response, the three-panel chart, or any trading function:
+
+```powershell
+python -m tools.observe_execution_costs --duration-sec 86400
+```
+
+It records Binance Futures as a sensor, HFM from local MT5 files, bitFlyer
+Crypto CFD (`FX_BTC_JPY`), and GMO Coin leverage (`BTC_JPY`) on one local
+arrival clock. Raw quotes, a ten-second health file, and the final report are
+written under `data/execution_costs/`. The final report is generated
+automatically after the requested duration.
+
+JPY and USD price levels are never subtracted. Each venue's own spread is
+normalized to basis points; JPY venues are compared with Binance through an
+implied JPY-per-USDT ratio so combined FX/local-basis drift remains visible.
+Configured fees are in `config/execution_costs.yaml`; account-specific and
+time-dependent holding charges remain explicitly uncounted until verified.
+
+For a second HFM InfinityX terminal, attach the existing observation-only EA
+with this input value:
+
+```text
+QuoteFileName=DeltaEngine_HFM_InfinityX_quotes_utf8.jsonl
+```
+
+Until that file exists, the health report shows `HFM_INFINITYX` as waiting and
+does not substitute an advertised spread for a measured quote.
