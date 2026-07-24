@@ -1,4 +1,4 @@
-"""DeltaEngine WebApp — FastAPI + WebSocket。
+"""DeltaEngine05M WebApp — FastAPI + WebSocket。
 
 起動: uvicorn webapp.main:app  /  docker-compose up
 """
@@ -312,7 +312,7 @@ async def lifespan(app: FastAPI):
                 await t
 
 
-app = FastAPI(title="DeltaEngine WebApp", lifespan=lifespan)
+app = FastAPI(title="DeltaEngine05M WebApp", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 
@@ -337,7 +337,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
         "time": datetime.now(timezone.utc).isoformat(),
         "symbol": config.market.symbol,
         "payload": {
-            "server": "DeltaEngine WebApp",
+            "server": "DeltaEngine05M WebApp",
             "payload_version": PAYLOAD_VERSION,
             "bar_timeframe": config.market.bar_timeframe,
             "signal_enabled": config.signal.enabled,
@@ -497,3 +497,4 @@ async def set_absorption_params(payload: dict, request: Request):
         "price_stall_ticks": ab._price_stall_ticks,
         "volume_multiplier": d2s(ab._volume_multiplier),
     }
+

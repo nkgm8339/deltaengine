@@ -33,6 +33,10 @@ from .schema import (
     FLOW_RESPONSE_OUTCOMES_DDL,
     FLOW_RESPONSE_OUTCOMES_SCHEMA,
     OPEN_INTEREST_SAMPLES_DDL,
+    NATIVE_FLOW_EVENTS_DDL,
+    NATIVE_FLOW_EVENTS_SCHEMA,
+    NATIVE_FLOW_OUTCOMES_DDL,
+    NATIVE_FLOW_OUTCOMES_SCHEMA,
     OPEN_INTEREST_SAMPLES_SCHEMA,
     SIGNALS_DDL,
     SIGNALS_SCHEMA,
@@ -82,6 +86,8 @@ class DuckDbWriter:
         self._con.execute(FLOW_RESPONSE_EVENTS_DDL)
         self._con.execute(FLOW_RESPONSE_OUTCOMES_DDL)
         self._con.execute(OPEN_INTEREST_SAMPLES_DDL)
+        self._con.execute(NATIVE_FLOW_EVENTS_DDL)
+        self._con.execute(NATIVE_FLOW_OUTCOMES_DDL)
         self.duplicates = 0
 
     def _insert(self, table: str, arrow_table: pa.Table) -> int:
@@ -126,6 +132,12 @@ class DuckDbWriter:
     def insert_flow_response_outcomes(self, arrow_table: pa.Table) -> int:
         return self._insert("flow_response_outcomes", arrow_table)
 
+    def insert_native_flow_events(self, arrow_table: pa.Table) -> int:
+        return self._insert("native_flow_events", arrow_table)
+
+    def insert_native_flow_outcomes(self, arrow_table: pa.Table) -> int:
+        return self._insert("native_flow_outcomes", arrow_table)
+
     def insert_open_interest_samples(self, arrow_table: pa.Table) -> int:
         return self._insert("open_interest_samples", arrow_table)
 
@@ -168,6 +180,8 @@ class StorageWriter:
         self._flow_response_events: list[dict] = []
         self._flow_response_outcomes: list[dict] = []
         self._open_interest_samples: list[dict] = []
+        self._native_flow_events: list[dict] = []
+        self._native_flow_outcomes: list[dict] = []
         self._last_flush = clock()
         self._seq = 0
         # counters
@@ -177,6 +191,8 @@ class StorageWriter:
         self.flow_response_events_written = 0
         self.flow_response_outcomes_written = 0
         self.open_interest_samples_written = 0
+        self.native_flow_events_written = 0
+        self.native_flow_outcomes_written = 0
         self.flushes = 0
 
     @classmethod
@@ -217,6 +233,12 @@ class StorageWriter:
         self._flow_response_outcomes.append(row)
         if len(self._flow_response_outcomes) >= self.batch_size:
             self.flush()
+
+    def add_native_flow_event(self, row: dict) -> None:
+        self._enqueue("native_flow_event", row)
+
+    def add_native_flow_outcome(self, row: dict) -> None:
+        self._enqueue("native_flow_outcome", row)
 
     def add_open_interest_sample(self, row: dict) -> None:
         self._open_interest_samples.append(row)
@@ -333,6 +355,18 @@ class StorageWriter:
             inserted = self._duck.insert_flow_response_outcomes(arrow)
             self.flow_response_outcomes_written += inserted
             self._flow_response_outcomes = []
+        if self._native_flow_events:
+            arrow = pa.Table.from_pylist(self._native_flow_events, schema=NATIVE_FLOW_EVENTS_SCHEMA)
+            self._write_parquet(self._native_flow_events, NATIVE_FLOW_EVENTS_SCHEMA, "event_time", has_timeframe=True, dataset="native_flow_events")
+            inserted = self._duck.insert_native_flow_events(arrow)
+            self.native_flow_events_written += inserted
+            self._native_flow_events = []
+        if self._native_flow_outcomes:
+            arrow = pa.Table.from_pylist(self._native_flow_outcomes, schema=NATIVE_FLOW_OUTCOMES_SCHEMA)
+            self._write_parquet(self._native_flow_outcomes, NATIVE_FLOW_OUTCOMES_SCHEMA, "event_time", has_timeframe=True, dataset="native_flow_outcomes")
+            inserted = self._duck.insert_native_flow_outcomes(arrow)
+            self.native_flow_outcomes_written += inserted
+            self._native_flow_outcomes = []
         if self._open_interest_samples:
             arrow = pa.Table.from_pylist(
                 self._open_interest_samples, schema=OPEN_INTEREST_SAMPLES_SCHEMA,
@@ -387,6 +421,8 @@ class BackgroundStorageWriter:
         "signal": "add_signal",
         "flow_response_event": "add_flow_response_event",
         "flow_response_outcome": "add_flow_response_outcome",
+        "native_flow_event": "add_native_flow_event",
+        "native_flow_outcome": "add_native_flow_outcome",
         "open_interest_sample": "add_open_interest_sample",
     }
 
@@ -490,6 +526,12 @@ class BackgroundStorageWriter:
     def add_flow_response_outcome(self, row: dict) -> None:
         self._enqueue("flow_response_outcome", row)
 
+    def add_native_flow_event(self, row: dict) -> None:
+        self._enqueue("native_flow_event", row)
+
+    def add_native_flow_outcome(self, row: dict) -> None:
+        self._enqueue("native_flow_outcome", row)
+
     def add_open_interest_sample(self, row: dict) -> None:
         self._enqueue("open_interest_sample", row)
 
@@ -555,3 +597,11 @@ class BackgroundStorageWriter:
 
     def __exit__(self, *exc: Any) -> None:
         self.close()
+
+
+
+
+
+
+
+

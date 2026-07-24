@@ -42,7 +42,7 @@ LOG_LEVELS: frozenset[str] = frozenset(
     {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 )  # LoggingReference_v3.0
 TIMEFRAMES: frozenset[str] = frozenset(
-    {"1s", "1m", "5m", "15m", "1h", "4h", "1d"}
+    {"1s", "1m", "5m", "10m", "15m", "1h", "4h", "1d"}
 )  # EnumDefinitions_v3.1 §5
 
 

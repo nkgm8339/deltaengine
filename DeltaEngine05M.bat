@@ -4,13 +4,13 @@ setlocal
 
 set "ROOT=%~dp0"
 set "PROJ=%ROOT%Delta_Engine_Pro4web"
-set "COMPOSE_PROJECT_NAME=deltaengine_clone"
+set "COMPOSE_PROJECT_NAME=deltaengine_05M"
 set "URL=http://localhost:18080"
 
 if /i "%1"=="stop" goto :stop
 
 echo ==============================
-echo  DeltaEngineClone  Starting...
+echo  DeltaEngine05M  Starting...
 echo ==============================
 
 cd /d "%PROJ%"
@@ -42,7 +42,7 @@ if errorlevel 1 goto :wait
 
 echo ==============================
 echo  Ready: %URL%
-echo  To stop: DeltaEngineClone.bat stop
+echo  To stop: DeltaEngine05M.bat stop
 echo ==============================
 start "" "%URL%"
 goto :eof
@@ -54,3 +54,4 @@ docker compose down
 echo Stopped.
 pause
 goto :eof
+

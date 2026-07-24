@@ -59,6 +59,7 @@ from .normalization.normalizer import (
 from .orderflow.absorption import AbsorptionDetector
 from .orderflow.cvd import CvdCalculator
 from .orderflow.multi_timeframe import MultiTimeframeCandleAggregator
+from .orderflow.native_execution_pipeline import NativeExecutionCoordinator
 from .orderflow.divergence import CvdDivergenceDetector
 from .orderflow.flow_detector import (
     ExhaustionDetector,
@@ -212,6 +213,9 @@ class ReplayStats:
     signals_stored: int
     final_cvd: Decimal
     analysis_count: int
+    native_candles_stored: int = 0
+    native_flow_events_stored: int = 0
+    native_flow_outcomes_stored: int = 0
 
 
 class ReplayPipeline:
@@ -382,6 +386,7 @@ class ReplayPipeline:
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
+        native_coordinator = NativeExecutionCoordinator(self.symbol)
         divergence_detector = CvdDivergenceDetector(
             equal_pivot_policy=self.divergence_equal_pivot_policy,
             min_price_move=self.divergence_min_price_move,
@@ -444,6 +449,7 @@ class ReplayPipeline:
         def handle(normalized) -> None:
             nonlocal analysis_count
             storage.add_trade(trade_to_row(normalized))
+            native_coordinator.process(normalized, storage)
             if flow_response_detector is not None and flow_response_tracker is not None:
                 snapshots = flow_response_detector.process(normalized)
                 if snapshots:
@@ -506,6 +512,7 @@ class ReplayPipeline:
                 for event in events:
                     storage.add_flow_response_event(flow_response_event_to_row(event))
 
+        native_coordinator.finalize(storage)
         final_candle = cvd.finalize()
         final_fp = footprint.finalize()
         if final_candle is not None:
@@ -530,10 +537,13 @@ class ReplayPipeline:
             reordered=normalizer.reordered,
             normalizer_rejected=normalizer.rejected,
             trades_stored=storage.trades_written,
-            candles_stored=storage.candles_written,
+            candles_stored=storage.candles_written - native_coordinator.candles_written,
             signals_stored=storage.signals_written,
             final_cvd=cvd.cvd,
             analysis_count=analysis_count,
+            native_candles_stored=native_coordinator.candles_written,
+            native_flow_events_stored=len(native_coordinator.events),
+            native_flow_outcomes_stored=len(native_coordinator.outcomes),
         )
 
 
@@ -1320,7 +1330,7 @@ class LivePipeline:
             reordered=normalizer.reordered,
             normalizer_rejected=normalizer.rejected,
             trades_stored=storage.trades_written,
-            candles_stored=storage.candles_written,
+            candles_stored=storage.candles_written - native_coordinator.candles_written,
             signals_stored=storage.signals_written,
             final_cvd=cvd.cvd,
             reconnects=connector.reconnect_count,
@@ -1342,3 +1352,6 @@ class LivePipeline:
     def run(self, **kwargs: Any) -> LiveStats:
         """Synchronous entry point (wraps run_async in asyncio.run)."""
         return asyncio.run(self.run_async(**kwargs))
+
+
+

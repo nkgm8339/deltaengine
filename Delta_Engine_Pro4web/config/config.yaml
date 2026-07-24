@@ -36,8 +36,8 @@ queue:
   overflow_policy: drop_oldest_log
 
 database:
-  parquet_path: data_clone/parquet
-  duckdb_path: data_clone/duckdb/orderflow_clone.duckdb
+  parquet_path: data_05M/parquet
+  duckdb_path: data_05M/duckdb/orderflow_05M.duckdb
   batch_size: 1000
   flush_interval_sec: 5
 
@@ -135,7 +135,7 @@ flow_response:
 monitor:
   enabled: true
   interval_sec: 5
-  log_dir: data_clone/monitor
+  log_dir: data_05M/monitor
   bar_missing_tolerance_sec: 90
   latency_yellow_ms: 2000
   latency_red_ms: 10000
@@ -148,3 +148,4 @@ monitor:
   gap_red: 5
   exception_yellow: 1
   exception_red: 3
+

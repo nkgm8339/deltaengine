@@ -300,3 +300,62 @@ def candle_to_row(candle: Any) -> dict:
         "delta": candle.delta,
         "cvd": candle.cvd,
     }
+
+# --- native execution-timeframe Flow research records -----------------------
+# Separate from the completed rolling-window tables. timeframe is part of every
+# key so 5m and 10m observations cannot collide or be mixed.
+NATIVE_FLOW_EVENTS_SCHEMA = pa.schema([
+    ("event_time", TIMESTAMP), ("symbol", pa.string()), ("timeframe", pa.string()),
+    ("state", pa.string()), ("pressure_side", pa.string()),
+    ("buy_volume", DECIMAL), ("sell_volume", DECIMAL), ("delta", DECIMAL),
+    ("pressure_ratio", DECIMAL), ("first_price", DECIMAL), ("last_price", DECIMAL),
+    ("price_change_bps", DECIMAL), ("trade_count", pa.int64()),
+])
+NATIVE_FLOW_EVENTS_DDL = """
+CREATE TABLE IF NOT EXISTS native_flow_events (
+    event_time TIMESTAMP, symbol VARCHAR, timeframe VARCHAR, state VARCHAR,
+    pressure_side VARCHAR, buy_volume DECIMAL(20,8), sell_volume DECIMAL(20,8),
+    delta DECIMAL(20,8), pressure_ratio DECIMAL(20,8), first_price DECIMAL(20,8),
+    last_price DECIMAL(20,8), price_change_bps DECIMAL(20,8), trade_count BIGINT,
+    PRIMARY KEY (event_time, symbol, timeframe)
+);
+"""
+NATIVE_FLOW_OUTCOMES_SCHEMA = pa.schema([
+    ("event_time", TIMESTAMP), ("symbol", pa.string()), ("timeframe", pa.string()),
+    ("state", pa.string()), ("horizon_sec", pa.int32()), ("observed_price", DECIMAL),
+    ("outcome_time", TIMESTAMP), ("outcome_price", DECIMAL),
+    ("forward_return_bps", DECIMAL), ("max_up_bps", DECIMAL), ("max_down_bps", DECIMAL),
+])
+NATIVE_FLOW_OUTCOMES_DDL = """
+CREATE TABLE IF NOT EXISTS native_flow_outcomes (
+    event_time TIMESTAMP, symbol VARCHAR, timeframe VARCHAR, state VARCHAR,
+    horizon_sec INTEGER, observed_price DECIMAL(20,8), outcome_time TIMESTAMP,
+    outcome_price DECIMAL(20,8), forward_return_bps DECIMAL(20,8),
+    max_up_bps DECIMAL(20,8), max_down_bps DECIMAL(20,8),
+    PRIMARY KEY (event_time, symbol, timeframe, horizon_sec)
+);
+"""
+
+
+def native_flow_event_to_row(snapshot: Any) -> dict:
+    return {
+        "event_time": snapshot.event_time, "symbol": snapshot.symbol,
+        "timeframe": snapshot.timeframe, "state": snapshot.state.value,
+        "pressure_side": snapshot.pressure_side, "buy_volume": snapshot.buy_volume,
+        "sell_volume": snapshot.sell_volume, "delta": snapshot.delta,
+        "pressure_ratio": _q8(snapshot.pressure_ratio),
+        "first_price": snapshot.first_price, "last_price": snapshot.last_price,
+        "price_change_bps": _q8(snapshot.price_change_bps),
+        "trade_count": snapshot.trade_count,
+    }
+
+
+def native_flow_outcome_to_row(outcome: Any) -> dict:
+    return {
+        "event_time": outcome.event_time, "symbol": outcome.symbol,
+        "timeframe": outcome.timeframe, "state": outcome.state.value,
+        "horizon_sec": outcome.horizon_sec, "observed_price": outcome.observed_price,
+        "outcome_time": outcome.outcome_time, "outcome_price": outcome.outcome_price,
+        "forward_return_bps": _q8(outcome.forward_return_bps),
+        "max_up_bps": _q8(outcome.max_up_bps), "max_down_bps": _q8(outcome.max_down_bps),
+    }
