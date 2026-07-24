@@ -345,6 +345,47 @@ def test_flow_price_response_reaches_callback_and_persists_outcome(tmp_path: Pat
         con.close()
 
 
+def test_flow_response_relative_volume_warm_starts_from_persisted_trades(tmp_path: Path) -> None:
+    duckdb_path = tmp_path / "flow_warm_start" / "orderflow.duckdb"
+    parquet_path = tmp_path / "flow_warm_start" / "parquet"
+
+    def make_pipeline(callback=None) -> LivePipeline:
+        return LivePipeline(
+            symbol="BTCUSDT", timeframe="1m", profile=PROFILE,
+            ws_url="wss://test/ws", subscribe_streams=["btcusdt@aggTrade"],
+            parquet_path=parquet_path, duckdb_path=duckdb_path,
+            batch_size=10, flush_interval_sec=1, reconnect=False,
+            flow_response_windows_sec=(3,), flow_response_baseline_window_sec=3,
+            flow_response_min_trades=1, on_flow_response=callback,
+        )
+
+    first = make_pipeline()
+    first.run(
+        connect=FakeConnect([
+            _agg(300 + second, m=False, q="1", epoch_ms=_T0 + second * 1000)
+            for second in range(3)
+        ]),
+        poll_interval=0.02,
+        fetch_snapshot=None,
+    )
+
+    received = []
+    restarted = make_pipeline(received.append)
+    restarted.run(
+        connect=FakeConnect([
+            _agg(303 + second, m=False, q="1", epoch_ms=_T0 + (3 + second) * 1000)
+            for second in range(2)
+        ]),
+        poll_interval=0.02,
+        fetch_snapshot=None,
+    )
+
+    assert restarted.flow_response_warm_start_error is None
+    assert restarted.flow_response_warm_start_trades == 3
+    assert received
+    assert received[0][0].relative_volume == Decimal("1")
+
+
 def test_live_pipeline_rejects_zero_trade_and_keeps_flow_outcome_alive(tmp_path: Path) -> None:
     pipeline = LivePipeline(
         symbol="BTCUSDT", timeframe="1m", profile=PROFILE,

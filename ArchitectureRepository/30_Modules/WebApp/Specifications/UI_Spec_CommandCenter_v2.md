@@ -150,6 +150,32 @@ OIはBinance USD-M Futures公式値だけを表示する。OI増加をBUY色、O
 `PRESSURE`、`PRICE`、`PERSISTENCE`、`VOLUME`は観測事実であり、
 売買指示または確率として表示しない。
 
+### 3.2.1 Fixed observation rows and protected chart geometry
+
+3段チャート上の次の3列は、データ有無にかかわらず常に同じ位置と高さで表示する。
+
+1. CVD DIVERGENCE
+2. FLOW RESPONSEの30s、1m、3m、5m、15m、30m
+3. 最新05M PRICE・CVD・Delta・OI context
+
+- 欠測時も項目名と時間窓を消さず、値または状態だけを `—` とする。
+- `display:none`等で列を出現・消失させない。更新するのは列内の値、状態、色だけとする。
+- FLOW RESPONSE 6窓は折り返さず、常に同じ6枠を維持する。
+- 3列は固定高領域へ置き、内容更新によって3段チャートの位置、高さ、各段の比率を変えない。
+- overlay、欠測、初回データ到着、状態解除、再接続のいずれでも3段チャートを伸縮させない。
+- 項目の追加、削除、移動、常設／一時表示の変更は、実装前にユーザーと見え方を相談する。
+- 固定領域は94px、行は26px／38px／26px、FLOW RESPONSE各カードは38pxとする。
+- カード1段目は11px、2段目は14px。2段目は
+  `PR <pressure %> · P <price bp> · V <relative volume>` の順で表示する。
+- `PR`、`P`、`V`は画面幅を確保する表示略称であり、それぞれ`PRESSURE`、`PRICE`、
+  `VOLUME`の既存観測値を指す。計算名、Payload field、詳細欄の完全表記は変更しない。
+- `V`は各窓の出来高rateを1800秒baseline rateで割った既存`relative_volume`である。
+  初回起動で基準履歴が無い場合だけ`—`とする。通常再起動時は保存済み直近1800秒取引を
+  detectorへウォームスタートし、過去snapshotを再配信・再保存せずに基準を復元する。
+
+これは装飾上の好みではない。実戦中の視線移動と精神的負担を抑え、必要な項目を
+瞬間的に認識できるようにする運用要件である。
+
 ### 3.3 Controls
 
 | Operation | Result |

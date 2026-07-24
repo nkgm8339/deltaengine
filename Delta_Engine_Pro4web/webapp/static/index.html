@@ -15,7 +15,7 @@ html,body{height:100%}
 body{background:var(--bg);color:var(--text);overflow:auto;
   font-family:'SF Mono','Cascadia Code','Roboto Mono',ui-monospace,monospace;
   font-variant-numeric:tabular-nums;font-size:12px;user-select:none}
-#appgrid{display:flex;flex-direction:column;gap:6px;height:100vh;min-width:1180px;min-height:840px;padding:6px}
+#appgrid{display:flex;flex-direction:column;gap:6px;height:auto;min-width:1180px;min-height:100vh;padding:6px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;
   display:flex;flex-direction:column;overflow:hidden}
 .phead{display:flex;align-items:center;justify-content:space-between;
@@ -212,8 +212,8 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #chartwrap{background:repeating-linear-gradient(0deg,transparent 0 29px,#2D356020 30px),repeating-linear-gradient(90deg,transparent 0 72px,#2D356020 73px)}
 #tabs button.on{color:#161004!important;font-weight:900;background:linear-gradient(105deg,#1375B5,#16B6D8 52%,#A66BFF);box-shadow:inset 0 1px #FFFFFF66,0 0 13px #23DFFF88}
 #chartlast{font-family:"Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-shadow:0 0 12px #23DFFF88}
-/* Market chart: price is primary, CVD and volume share the same time axis. */
-#bottom.market-chart-panel{height:500px;min-height:500px;flex:0 0 500px;overflow:hidden}
+/* Market chart: the status rows and three-stage chart keep fixed geometry. */
+#bottom.market-chart-panel{height:594px;min-height:594px;flex:0 0 594px;overflow:hidden}
 #bottom.market-chart-panel .phead{height:72px;min-height:72px;flex:0 0 72px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:6px;padding:6px 14px}
 #chartheadline{height:27px;display:flex;align-items:center;gap:12px;min-width:0;overflow:hidden}
 #charttitle{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:950;letter-spacing:.13em;color:#E8ECFF}
@@ -227,6 +227,15 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #cvdslope{flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #chartlegend{margin-left:auto;min-width:0;font-size:10px;white-space:nowrap;overflow:hidden}
 #chartlast{min-width:110px;text-align:right;white-space:nowrap}
+#chartstatus{height:94px;min-height:94px;flex:0 0 94px;display:grid;grid-template-rows:26px 38px 26px;gap:2px;padding:2px 12px;overflow:hidden;background:#090D20}
+#cvddiv,#flowresponse,#nativecontext{min-width:0;width:100%;height:100%;margin:0!important;overflow:hidden}
+#cvddiv{display:flex;align-items:center;padding:3px 8px;border:1px solid #3A477F;border-radius:4px;background:#0B1028;color:#C5CDF5;font-size:11px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
+#flowresponse{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;font-size:9px;line-height:1.15}
+.flow-response-slot{display:grid;grid-template-rows:11px 14px;align-content:center;min-width:0;padding:3px 5px;border:1px solid #3A477F;border-radius:5px;background:#0B1028;overflow:hidden}
+.flow-response-head,.flow-response-facts{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flow-response-head{font-size:11px;line-height:1}
+.flow-response-head b{margin-right:5px;color:#FFFFFF}.flow-response-facts{color:#C5CDF5;font-size:14px;line-height:1}
+#nativecontext{display:flex;align-items:center;padding:5px 9px;border:1px solid #8D6BFF66;border-radius:6px;background:#211A4966;color:#F6F1FF;font-size:10px;font-weight:900;letter-spacing:.02em;white-space:nowrap;text-overflow:ellipsis}
 #chartwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:8px;flex:1;min-height:0;padding:0 4px 4px;background:#090D20;touch-action:none;overflow:hidden}
 #chart{display:block;width:100%;height:100%;min-width:0;cursor:crosshair;outline:none}
 #charttip{display:block;position:relative;z-index:8;pointer-events:none;min-width:0;width:100%;height:100%;overflow-y:auto;padding:10px 11px;border:1px solid #56629B;border-radius:8px;background:#0B1028F2;box-shadow:inset 3px 0 14px #0005;color:#FFFFFF;font:750 11px/1.55 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
@@ -298,7 +307,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 .flow-window-support{margin-top:8px;color:#B9C3EE;font-size:9px;line-height:1.6}
 .flow-window-candle{margin-top:5px;color:#FFFFFF;font-size:9px;font-weight:850;line-height:1.55}
 #charthint{position:absolute;left:15px;bottom:10px;z-index:4;pointer-events:none;color:#FFFFFF;font-size:9px;font-weight:850;letter-spacing:.06em}
-@media(max-width:700px){#bottom.market-chart-panel{height:440px;min-height:440px;flex-basis:440px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}}
+@media(max-width:700px){#bottom.market-chart-panel{height:534px;min-height:534px;flex-basis:534px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}}
 @media(max-width:700px){.flow-window-steps{grid-template-columns:1fr}}
 </style>
 </head>
@@ -512,8 +521,18 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
         <button id="cvdgear" title="CVD method and window">⚙</button>
       </span>
     </div>
-    <div id="cvddiv" style="display:none;margin:2px 12px 0;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700"></div>
-    <div id="flowresponse" style="display:none;margin:4px 12px 0;gap:7px;flex-wrap:wrap;font-size:12px;line-height:1.45"></div>
+    <div id="chartstatus" aria-label="Fixed market observation status rows">
+      <div id="cvddiv">CVD DIVERGENCE · —</div>
+      <div id="flowresponse">
+        <span class="flow-response-slot"><span class="flow-response-head"><b>30s</b>—</span><span class="flow-response-facts">PR — · P — · V —</span></span>
+        <span class="flow-response-slot"><span class="flow-response-head"><b>1m</b>—</span><span class="flow-response-facts">PR — · P — · V —</span></span>
+        <span class="flow-response-slot"><span class="flow-response-head"><b>3m</b>—</span><span class="flow-response-facts">PR — · P — · V —</span></span>
+        <span class="flow-response-slot"><span class="flow-response-head"><b>5m</b>—</span><span class="flow-response-facts">PR — · P — · V —</span></span>
+        <span class="flow-response-slot"><span class="flow-response-head"><b>15m</b>—</span><span class="flow-response-facts">PR — · P — · V —</span></span>
+        <span class="flow-response-slot"><span class="flow-response-head"><b>30m</b>—</span><span class="flow-response-facts">PR — · P — · V —</span></span>
+      </div>
+      <div id="nativecontext" title="Latest closed native 05M PRICE/CVD/Delta/OI observation">05M CONTEXT · CODE — · EVALUATION — · OI — · HFM —</div>
+    </div>
     <div id="cvdgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
       <div style="margin-bottom:6px">Method
         <select id="cvdmethod" style="background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px">
@@ -1558,12 +1577,13 @@ function renderCvdSlope(){
 function renderCvdDivergence(d){
   const el=$("cvddiv");
   if(!d){
-    el.style.display="none";
-    el.textContent="";
+    el.textContent="CVD DIVERGENCE · —";
+    el.style.color=SUB;
+    el.style.background="#0B1028";
+    el.style.border=`1px solid ${LINE}`;
     return;
   }
   const dc=d.direction==="BULLISH"?BUY:SELL;
-  el.style.display="block";
   el.style.color=dc;
   el.style.background=dc+"18";
   el.style.border=`1px solid ${dc}55`;
@@ -1571,16 +1591,17 @@ function renderCvdDivergence(d){
 }
 function renderFlowResponse(){
   const el=$("flowresponse"),rows=S.flowResponse||[];
-  if(!rows.length){el.style.display="none";el.innerHTML="";return;}
   const labels=FLOW_RESPONSE_LABELS;
   const color=s=>s==="BUY_EFFECTIVE"?BUY:s==="SELL_EFFECTIVE"?SELL:
     s.includes("STALLED")?WARN:s.includes("TRAPPED")?INFO:DIS;
   const tf=s=>s<60?`${s}s`:s%60===0?`${s/60}m`:`${s}s`;
-  el.style.display="flex";
-  el.innerHTML=rows.slice().sort((a,b)=>a.window_sec-b.window_sec).map(r=>{
+  const byWindow=new Map(rows.map(row=>[Number(row.window_sec),row]));
+  el.innerHTML=[30,60,180,300,900,1800].map(windowSec=>{
+    const r=byWindow.get(windowSec);
+    if(!r)return `<span class="flow-response-slot"><span class="flow-response-head"><b>${tf(windowSec)}</b>—</span><span class="flow-response-facts">PR — · P — · V —</span></span>`;
     const p=N(r.pressure_ratio),b=N(r.price_change_bps),rv=N(r.relative_volume);
-    const facts=`PRESSURE ${(p>=0?"+":"")}${fmt(p*100,0)}% · PRICE ${(b>=0?"+":"")}${fmt(b,1)}bp${rv==null?"":` · VOLUME ×${fmt(rv,1)}`}`;
-    return `<span title="Observed state. Not a trade signal or probability. ${facts}" style="border:1px solid ${color(r.state)}55;background:${color(r.state)}12;color:${color(r.state)};border-radius:5px;padding:4px 7px"><b>${tf(r.window_sec)}</b> ${labels[r.state]||r.state} <span style="color:${SUB}">${facts}</span></span>`;
+    const facts=`PR ${(p>=0?"+":"")}${fmt(p*100,0)}% · P ${(b>=0?"+":"")}${fmt(b,1)}bp${rv==null?" · V —":` · V ×${fmt(rv,1)}`}`;
+    return `<span class="flow-response-slot" title="Observed state. Not a trade signal or probability. ${facts}" style="border-color:${color(r.state)}55;background:${color(r.state)}12;color:${color(r.state)}"><span class="flow-response-head"><b>${tf(windowSec)}</b>${labels[r.state]||r.state}</span><span class="flow-response-facts">${facts}</span></span>`;
   }).join("");
 }
 (function(){

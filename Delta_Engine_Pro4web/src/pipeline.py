@@ -48,6 +48,7 @@ from .database.schema import (
     signal_to_row,
     trade_to_row,
 )
+from .database.flow_response_warm_start import load_recent_flow_response_trades
 from .database.storage import BackgroundStorageWriter, StorageWriter
 from .normalization.normalizer import (
     DataNormalizer,
@@ -968,6 +969,8 @@ class LivePipeline:
         )
         flow_response_detector = None
         flow_response_tracker = None
+        self.flow_response_warm_start_trades = 0
+        self.flow_response_warm_start_error = None
         if self.flow_response_enabled:
             flow_response_detector = FlowPriceResponseDetector(
                 windows_sec=self.flow_response_windows_sec,
@@ -982,6 +985,23 @@ class LivePipeline:
             flow_response_tracker = FlowResponseOutcomeTracker(
                 self.flow_response_outcome_horizons_sec
             )
+            try:
+                seed_trades = load_recent_flow_response_trades(
+                    self.duckdb_path,
+                    self.symbol,
+                    self.flow_response_baseline_window_sec,
+                )
+                self.flow_response_warm_start_trades = flow_response_detector.warm_start(
+                    seed_trades
+                )
+                if self.flow_response_warm_start_trades:
+                    logger.info(
+                        "flow response warm-start loaded %d persisted trades",
+                        self.flow_response_warm_start_trades,
+                    )
+            except Exception as exc:  # warm start is recoverable; live accumulation continues
+                self.flow_response_warm_start_error = str(exc)
+                logger.warning("flow response warm-start skipped: %s", exc)
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)

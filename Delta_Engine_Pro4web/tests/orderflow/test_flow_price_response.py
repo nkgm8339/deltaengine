@@ -103,6 +103,18 @@ def test_relative_volume_uses_long_baseline_rate() -> None:
     assert snapshots[4].relative_volume > Decimal("1")
 
 
+def test_warm_start_primes_relative_volume_without_reemitting_history() -> None:
+    det = detector(windows_sec=(4, 10), baseline_window_sec=10, min_trades=1)
+    persisted = [trade(second, "100", "1", "BUY") for second in range(10)]
+
+    assert det.warm_start(persisted) == 10
+    assert det.process(trade(10, "100", "1", "BUY")) == ()
+
+    snapshots = {s.window_sec: s for s in det.process(trade(11, "100", "1", "BUY"))}
+    assert snapshots[10].relative_volume == Decimal("1")
+    assert snapshots[4].relative_volume == Decimal("1")
+
+
 def test_out_of_order_trade_is_rejected_without_corrupting_window() -> None:
     det = detector(min_trades=1)
     det.process(trade(1, "100", "1", "BUY"))

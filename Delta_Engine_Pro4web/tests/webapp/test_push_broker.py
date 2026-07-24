@@ -862,6 +862,30 @@ def test_oi_context_ui_keeps_three_stage_chart_and_uses_persisted_real_samples()
     assert '<text x="28" y="454"' in source
 
 
+def test_chart_status_rows_remain_visible_without_resizing_three_stage_chart():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert '#chartstatus{height:94px;min-height:94px;flex:0 0 94px' in source
+    assert '#bottom.market-chart-panel{height:594px;min-height:594px;flex:0 0 594px' in source
+    assert 'grid-template-rows:26px 38px 26px' in source
+    assert 'grid-template-columns:repeat(6,minmax(0,1fr))' in source
+    assert 'grid-template-rows:11px 14px' in source
+    assert '.flow-response-head{font-size:11px;line-height:1}' in source
+    assert '.flow-response-facts{color:#C5CDF5;font-size:14px;line-height:1}' in source
+    assert '<div id="cvddiv">CVD DIVERGENCE · —</div>' in source
+    assert '05M CONTEXT · CODE — · EVALUATION — · OI — · HFM —' in source
+    assert source.count('PR — · P — · V —') >= 6
+    assert 'const facts=`PR ${(p>=0?"+":"")}${fmt(p*100,0)}% · P ' in source
+    assert 'const flowFacts=flow?`PRESSURE ' in source
+    assert 'if(!rows.length){el.style.display="none"' not in source
+    assert 'el.style.display="block";\n  el.style.color=dc;' not in source
+    assert 'const MC={W:1200,H:500' in source
+    assert '<text x="28" y="335"' in source
+    assert '<text x="28" y="454"' in source
+
 def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference():
     import pathlib
 

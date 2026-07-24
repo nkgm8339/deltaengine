@@ -211,6 +211,21 @@ class FlowPriceResponseDetector:
             return ()
         return self._snapshot(self._buckets[-1].last_time)
 
+    def warm_start(self, trades: Iterable[Any]) -> int:
+        """Prime rolling buckets without exposing historical snapshots.
+
+        Persisted trades are calculation context only. Calling ``finalize``
+        marks the last seeded second as emitted so the live path cannot
+        rebroadcast or re-persist a historical snapshot after startup.
+        """
+        loaded = 0
+        for trade in trades:
+            self.process(trade)
+            loaded += 1
+        if loaded:
+            self.finalize()
+        return loaded
+
     def _prune(self, end_second: int) -> None:
         cutoff = end_second - self.baseline_window_sec + 1
         while self._buckets and self._buckets[0].second < cutoff:

@@ -1,3 +1,28 @@
+# v3.6.19 — 2026-07-25
+
+## Changed
+
+- 3段チャート上の固定観測領域を94px、26px／38px／26pxへ固定した。
+- Flow Response 6窓を常時6列・カード高38pxとし、1段目11px、2段目14pxへ確定した。
+- 2段目を`PR <pressure> · P <price> · V <relative volume>`へ短縮した。
+- 3段チャート本体はchartwrap 426px、SVG 422pxを維持した。
+
+## Fixed
+
+- LivePipeline再起動時にFlow Responseの1800秒Volume baselineが失われ、
+  30分間`V —`となる問題を修正した。
+- 起動時に保存済み直近1800秒取引をDetectorだけへ時系列順で読み込み、
+  過去snapshotを再配信・再保存せず既存`relative_volume`計算を復元する。
+- 保存履歴が無い初回起動または復元失敗時はライブ蓄積へ安全にフォールバックする。
+
+## Verification
+
+- 全体回帰408 passed。
+- 05M再起動直後の実Edgeで30s `V ×8.1`、3m `V ×4.1`、30m `V ×1.0`を確認した。
+- 6カード38px、1段目11px、2段目14px、横overflowなし、browser errorなしを確認した。
+
+---
+
 # v3.6.18 — 2026-07-22
 
 ## Added
