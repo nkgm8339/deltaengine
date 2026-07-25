@@ -313,6 +313,212 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 @media(max-width:700px){#bottom.market-chart-panel{height:534px;min-height:534px;flex-basis:534px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}}
 @media(max-width:700px){.flow-window-steps{grid-template-columns:1fr}}
 </style>
+<style id="ui-refresh-v2">
+/* DeltaEngine UI Refresh v2.0 — presentation only. */
+:root{
+  --bg:#050914;--panel:#08101F;--panel2:#0C1628;--line:#273654;
+  --buy:#19C979;--sell:#FF4058;--warn:#F4C542;--info:#8B63E6;
+  --dis:#6E7B96;--text:#F1F5FF;--sub:#C9D3EA;
+  --cyan:#25B7E8;--shadow:0 10px 26px #0008;
+}
+html,body{min-height:100%;background:#050914}
+body{
+  color:var(--text);overflow:auto;
+  background:radial-gradient(circle at 82% 9%,#0D26364D,transparent 28%),linear-gradient(180deg,#050914,#060B16 55%,#050914);
+  font-family:Inter,"Segoe UI",Meiryo,sans-serif;font-size:12px;
+}
+#appgrid{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 322px;
+  grid-template-rows:62px 552px 344px;
+  gap:12px!important;
+  width:100%;height:auto!important;min-width:1280px;min-height:990px;
+  padding:10px!important;background:none!important;
+}
+.panel{
+  min-width:0;background:linear-gradient(145deg,#0C1526F5,#070D19F5)!important;
+  border:1px solid var(--line)!important;border-radius:8px!important;
+  box-shadow:var(--shadow),inset 0 1px #FFFFFF0A!important;
+}
+.panel:hover{border-color:#3A4B6B!important}
+.phead{
+  min-height:34px;height:34px;padding:0 12px!important;
+  background:linear-gradient(180deg,#10192B,#0A1221)!important;
+  border-bottom:1px solid #1D2A43!important;
+}
+.ptitle{color:var(--sub)!important;font-size:11px!important;font-weight:800!important;letter-spacing:.07em!important}
+.hint{color:#8190AC!important;font-size:9px!important}
+#topbar{
+  grid-column:1 / -1;grid-row:1;position:relative;
+  display:flex!important;align-items:center;gap:18px!important;
+  width:auto!important;height:62px!important;min-height:62px;padding:0 16px!important;
+  background:linear-gradient(110deg,#0D1527,#08101F 62%,#071521)!important;
+  overflow:hidden!important;
+}
+#symwrap{min-width:150px}
+#sym{font-size:14px!important;color:#D6E0F6!important;letter-spacing:.08em!important}
+#clonebadge{color:#7F8EAD!important;font-size:8px!important;letter-spacing:.09em!important}
+#price{
+  flex:0 0 162px!important;width:162px!important;text-align:left!important;
+  font:800 24px/1 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace!important;
+  letter-spacing:-.03em!important;text-shadow:none!important;
+}
+#topbar .kv{align-items:flex-start;gap:3px}
+#topbar .kv .k{color:#7F8EAD;font-size:8px;letter-spacing:.1em}
+#topbar .kv .v{color:#EAF0FF;font-size:12px;font-weight:700}
+#oigroup{min-width:210px}
+.oi-inline{min-width:0!important;gap:7px!important}
+#markettime{min-width:112px}
+#topbar .top-help-btn{width:22px;height:22px;flex-basis:22px;font-size:11px}
+#live{height:30px;padding:0 11px!important;border-radius:6px!important}
+#devbtn{font-size:13px!important}
+#appver{max-width:56px;overflow:hidden;text-overflow:ellipsis}
+
+#bottom.market-chart-panel{
+  grid-column:1;grid-row:2;
+  width:auto!important;height:552px!important;min-height:552px!important;flex:none!important;
+  overflow:hidden!important;
+}
+#bottom.market-chart-panel .phead{
+  height:66px!important;min-height:66px!important;flex:0 0 66px!important;
+  padding:6px 12px!important;gap:5px!important;
+}
+#chartheadline{height:25px!important}
+#charttitle{font-size:11px!important;letter-spacing:.06em!important}
+#charttitle i{width:6px;height:6px;background:#E7ECFB;box-shadow:none}
+#chartlegend{font-size:9px!important}
+#chartlast{min-width:92px!important;font-size:12px!important;text-shadow:none!important}
+#chartcontrols{height:25px!important}
+#chartcontrols select,#chartcontrols button{
+  height:25px!important;border-color:#344562!important;border-radius:5px!important;
+  background:#09111F!important;color:#D7E0F3!important;font-size:10px!important;
+}
+#chartcontrols button:hover,#chartcontrols button.on{border-color:#19C979!important;color:#25E18B!important;background:#0B241C!important}
+#chartstatus{
+  height:88px!important;min-height:88px!important;flex:0 0 88px!important;
+  grid-template-rows:24px 36px 24px!important;gap:2px!important;padding:2px 10px!important;
+  background:#070D18!important;
+}
+#cvddiv{padding:2px 8px!important;border-color:#22304A!important;background:#09111F!important;font-size:9px!important}
+#flowresponse{gap:5px!important}
+.flow-response-slot{border-color:#2D3D5B!important;background:#0A1323!important;border-radius:5px!important}
+.flow-response-head{font-size:10px!important}.flow-response-facts{font-size:9px!important}
+#nativecontext{padding:3px 8px!important;border-color:#33415E!important;background:#0A1323!important;font-size:9px!important}
+#chartwrap{
+  grid-template-columns:minmax(0,1fr) 250px!important;gap:8px!important;
+  padding:0 4px 4px!important;background:#070D18!important;
+}
+#charttip{
+  padding:8px 9px!important;border-color:#30415F!important;border-radius:7px!important;
+  background:#091120F5!important;font-size:10px!important;box-shadow:inset 2px 0 12px #0005!important;
+}
+#charthint{left:13px!important;bottom:8px!important;color:#8492AC!important;font-size:8px!important}
+
+#main{
+  grid-column:1;grid-row:3;
+  display:grid!important;grid-template-columns:minmax(0,496fr) minmax(0,408fr) minmax(236px,262fr)!important;
+  grid-template-rows:344px;gap:8px!important;
+  width:auto!important;height:344px!important;min-height:344px!important;overflow:hidden;
+}
+#main>#flowtop{
+  grid-column:1;display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:194px 142px;
+  gap:8px!important;width:auto!important;height:344px!important;min-width:0;
+}
+#flowtop>#flowrow{grid-column:1 / -1;grid-row:1;width:auto!important;height:194px!important;margin:0!important}
+#flowtop>#flowrow>#flowpanel{width:100%!important;height:194px!important;margin:0!important}
+#flowbody{padding:3px 10px!important}
+.frow{min-height:28px;padding:3px 0!important;gap:7px!important;font-size:10px}
+.fcat{width:86px!important}.fblocks{font-size:9px!important}.fdet{font-size:8px!important}
+#flowtop>#abspanel,#flowtop>#imbpanel,#flowtop>#alerthist{
+  grid-row:2;width:auto!important;height:142px!important;margin:0!important;min-width:0;overflow:hidden;
+}
+#flowtop>#abspanel{grid-column:1}
+#flowtop>#imbpanel{grid-column:2}
+#flowtop>#alerthist{
+  grid-column:3;display:flex!important;flex-direction:column;background:linear-gradient(145deg,#0C1526F5,#070D19F5)!important;
+  border:1px solid var(--line)!important;border-radius:8px!important;
+}
+#absbody,#imbbody{padding:8px 10px!important;overflow:auto}
+#alerthist .ah-head{height:34px;min-height:34px;padding:0 10px!important;background:#0D1627!important;font-size:9px!important}
+#alertrows{max-height:none!important;flex:1;padding:3px 8px!important}
+#alertrows:empty::after{content:"—";display:block;padding-top:30px;text-align:center;color:#6E7B96}
+.arow{gap:4px!important;font-size:8px!important}
+
+#main>#center{
+  grid-column:2;display:block!important;width:auto!important;height:344px!important;min-width:0;overflow:hidden;
+}
+#center>.panel:first-child{
+  width:100%!important;max-width:none!important;min-width:0!important;height:344px!important;min-height:344px!important;
+  flex:none!important;align-self:auto!important;
+}
+#center>#flowrow{display:none!important}
+#fptotals{height:31px;padding:5px 10px!important;gap:13px!important;font-size:9px!important}
+#fpcols{height:26px;padding:5px 10px!important;font-size:8px!important}
+#fpbody{height:auto!important;min-height:0!important;padding:0 8px!important;overflow:auto!important}
+.fprow{font-size:10px!important;padding:1px 2px!important}
+
+#main>#right{
+  grid-column:3;display:block!important;width:auto!important;height:344px!important;min-width:0;overflow:hidden;
+}
+#right>#left{
+  width:100%!important;height:344px!important;min-height:344px!important;flex:none!important;margin:0!important;
+}
+#bookbody{height:auto!important;min-height:0!important;flex:1!important;padding:4px 7px!important;overflow:hidden!important}
+.brow{min-height:17px!important;margin:0!important;padding:0 6px!important;font-size:9px!important}
+#mid{margin:2px 0!important;padding:4px!important}
+#mid b{font-size:14px!important}
+
+#liveobservation{
+  grid-column:2;grid-row:2 / 4;
+  display:grid!important;
+  grid-template-rows:44px 126px 150px 178px 150px minmax(0,1fr);
+  gap:8px;padding:10px;min-height:0;overflow:hidden!important;
+  background:linear-gradient(180deg,#091220,#060C17)!important;
+}
+.lo-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px;border-bottom:1px solid #20304B}
+#lotime{color:#24D6F2;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.03em}
+.lo-label{color:#70809D;font-size:8px;font-weight:800;letter-spacing:.13em}
+.lo-card{
+  position:relative;min-height:0;padding:11px 12px;border:1px solid #22324E;border-radius:7px;
+  background:linear-gradient(145deg,#0D1729,#09111F);overflow:hidden;
+}
+.lo-title{color:#8D9BB7;font-size:9px;font-weight:800;letter-spacing:.08em}
+.lo-hero{--lo-accent:#6E7B96;border-color:color-mix(in srgb,var(--lo-accent) 60%,#273654);background:linear-gradient(145deg,color-mix(in srgb,var(--lo-accent) 20%,#0D1729),#0A1220)}
+.lo-hero::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--lo-accent)}
+.lo-kicker{display:flex;justify-content:space-between;color:#AAB6CC;font-size:9px;font-weight:800;letter-spacing:.08em}
+#lopressureside{margin-top:12px;color:var(--lo-accent);font-size:11px;font-weight:800;letter-spacing:.05em}
+#lopriceresponse{margin-top:4px;color:var(--lo-accent);font-size:25px;font-weight:800;line-height:1;letter-spacing:.01em}
+.lo-measure{margin-top:12px}
+.lo-measure-head{display:flex;align-items:center;justify-content:space-between;color:#C7D1E5;font-size:10px}
+.lo-measure-head b{font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.lo-bar{position:relative;height:6px;margin-top:6px;border-radius:3px;background:#18243A;overflow:hidden}
+.lo-bar i{display:block;width:0;height:100%;background:var(--lo-color,#25B7E8);border-radius:3px;transition:width .18s ease,opacity .18s ease}
+.lo-bar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(12.5% - 1px),#07101C calc(12.5% - 1px) 12.5%);pointer-events:none}
+.lo-inline-measure{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:10px;border-top:1px solid #1C2940;color:#C7D1E5;font-size:10px}
+.lo-inline-measure b{color:#25B7E8;font:800 12px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.lo-metric-list{margin-top:7px}
+.lo-metric{display:grid;grid-template-columns:74px minmax(0,1fr) 58px 16px;align-items:center;gap:4px;height:27px;border-bottom:1px solid #162239}
+.lo-metric:last-child{border-bottom:0}
+.lo-metric span:first-child{color:#91A0BC;font-size:9px;letter-spacing:.04em}
+.lo-value,.lo-change{font:700 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right;color:#EAF0FF;white-space:nowrap}
+.lo-change{font-size:9px;color:#8FA0BC}
+.lo-arrow{font:900 14px/1 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right}
+.lo-context-list{margin-top:7px}
+.lo-context-row{display:grid;grid-template-columns:78px minmax(0,1fr) 8px;align-items:center;gap:6px;height:27px;border-bottom:1px solid #17243B}
+.lo-context-row:last-child{border-bottom:0}
+.lo-context-row>span:first-child{color:#91A0BC;font-size:9px}
+.lo-context-row b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;color:#DCE5F7;font-size:9px}
+.lo-context-dot{width:6px;height:6px;border-radius:50%;background:#6E7B96}
+.lo-fact-list{margin-top:8px;display:flex;flex-direction:column;gap:9px}
+.lo-fact{display:grid;grid-template-columns:13px minmax(0,1fr);gap:7px;align-items:start;color:#BAC6DC;font-size:9px;line-height:1.35}
+.lo-fact i{font-style:normal;color:#6E7B96;font-weight:900}
+.lo-fact b{color:#DCE5F7;font-weight:700}
+
+@media(max-width:1279px){
+  #appgrid{min-width:1280px}
+}
+</style>
 </head>
 <body class="notranslate">
 <div id="banner"></div>
@@ -320,7 +526,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 <div id="appgrid">
 
   <div id="topbar" class="panel">
-    <span id="symwrap" style="display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1.05"><span style="font-size:13px;font-weight:700;letter-spacing:.15em;color:var(--sub)" id="sym">—</span><span id="clonebadge" style="margin-top:3px;font-size:9px;font-weight:900;letter-spacing:.22em;color:#FFE35D">05M</span></span>
+    <span id="symwrap" style="display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1.05"><span style="font-size:13px;font-weight:700;letter-spacing:.15em;color:var(--sub)" id="sym">—</span><span id="clonebadge" style="margin-top:3px;font-size:9px;font-weight:900;letter-spacing:.22em;color:#FFE35D">BINANCE · USD-M · 05M</span></span>
     <span id="price" class="dash">—</span>
     <span class="kv" id="oigroup" title="Official Binance USD-M Futures open interest · current / 1m change / 5m change">
       <span class="k">BINANCE OI · Δ1M · Δ5M</span>
@@ -330,6 +536,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     <span style="flex:1"></span>
     <span class="kv"><span class="k">ATR(14)</span><span class="v dash" id="atr">—</span></span>
     <span class="kv" id="hfmspreadgroup"><span class="k">HFM SPREAD USD</span><span class="v" id="spread">—</span></span>
+    <span class="kv" id="markettime"><span class="k">MARKET TIME</span><span class="v dash" id="markettimevalue">—</span></span>
     <span class="kv"><span class="k">LATENCY</span><span class="v" id="lat">—</span></span>
     <span class="kv"><span class="k">FPS</span><span class="v" id="fps">—</span></span>
     <span id="live" style="color:var(--dis);border:1px solid var(--line)">CONNECTING</span>
@@ -559,6 +766,63 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
       <div id="charthint">CLICK SELECT · RIGHT CLICK CLEAR · ← → MOVE · WHEEL ZOOM · DRAG PAN</div>
     </div>
   </div>
+  <aside id="liveobservation" class="panel" aria-label="Latest live market observation">
+    <header class="lo-head">
+      <span id="lotime">—</span>
+      <span class="lo-label">LIVE OBSERVATION</span>
+    </header>
+
+    <section id="lohero" class="lo-card lo-hero">
+      <div class="lo-kicker"><span>FLOW RESPONSE</span><span id="lowindow">30s</span></div>
+      <div id="lopressureside">—</div>
+      <div id="lopriceresponse">—</div>
+    </section>
+
+    <section class="lo-card lo-measures">
+      <div class="lo-title">FLOW MEASURES</div>
+      <div class="lo-measure">
+        <div class="lo-measure-head"><span id="lopressurelabel">PRESSURE</span><b id="lopressurevalue">—</b></div>
+        <div class="lo-bar" style="--lo-color:var(--sell)"><i id="lopressurefill"></i></div>
+      </div>
+      <div class="lo-measure">
+        <div class="lo-measure-head"><span>PERSISTENCE</span><b id="lopersistencevalue">—</b></div>
+        <div class="lo-bar" style="--lo-color:var(--info)"><i id="lopersistencefill"></i></div>
+      </div>
+      <div class="lo-inline-measure"><span>RELATIVE VOLUME</span><b id="lorelvolume">—</b></div>
+    </section>
+
+    <section class="lo-card lo-metrics">
+      <div class="lo-title">LIVE METRICS</div>
+      <div class="lo-metric-list">
+        <div class="lo-metric"><span>PRICE</span><b id="loprice" class="lo-value">—</b><b id="lopricechange" class="lo-change">—</b><i id="lopricearrow" class="lo-arrow">—</i></div>
+        <div class="lo-metric"><span>CVD</span><b id="locvd" class="lo-value">—</b><b class="lo-change"></b><i id="locvdarrow" class="lo-arrow">—</i></div>
+        <div class="lo-metric"><span>DELTA</span><b id="lodelta" class="lo-value">—</b><b class="lo-change"></b><i id="lodeltaarrow" class="lo-arrow">—</i></div>
+        <div class="lo-metric"><span>VOLUME</span><b id="lovolume" class="lo-value">—</b><b class="lo-change"></b><i class="lo-arrow">·</i></div>
+        <div class="lo-metric"><span>OI Δ1M</span><b id="looi" class="lo-value">—</b><b class="lo-change"></b><i id="looiarrow" class="lo-arrow">—</i></div>
+      </div>
+    </section>
+
+    <section class="lo-card lo-context">
+      <div class="lo-title">CONTEXT</div>
+      <div class="lo-context-list">
+        <div class="lo-context-row"><span>PATTERN</span><b id="lopattern">—</b><i id="lopatterndot" class="lo-context-dot"></i></div>
+        <div class="lo-context-row"><span>FLOW</span><b id="loflow">—</b><i id="loflowdot" class="lo-context-dot"></i></div>
+        <div class="lo-context-row"><span>OI</span><b id="looicontext">—</b><i id="looicontextdot" class="lo-context-dot"></i></div>
+        <div class="lo-context-row"><span>ABSORPTION</span><b id="loabsorption">—</b><i id="loabsorptiondot" class="lo-context-dot"></i></div>
+      </div>
+    </section>
+
+    <section class="lo-card lo-facts">
+      <div class="lo-title">OBSERVED FACTS</div>
+      <div class="lo-fact-list">
+        <div class="lo-fact"><i>•</i><b id="lofactpressure">Pressure —</b></div>
+        <div class="lo-fact"><i>•</i><b id="lofactprice">Price response —</b></div>
+        <div class="lo-fact"><i>•</i><b id="lofactpersistence">Persistence —</b></div>
+        <div class="lo-fact"><i>•</i><b id="lofactvolume">Relative volume —</b></div>
+        <div class="lo-fact"><i>•</i><b id="lofactoi">OI change —</b></div>
+      </div>
+    </section>
+  </aside>
 </div>
 
 <div id="devov"><div class="dh">🐛 DEVELOPER OVERLAY</div><div id="devgrid"></div><div id="wdlog" style="margin-top:4px;font-size:9px;color:#FFC400;min-height:12px"></div></div>
@@ -661,6 +925,7 @@ function onTick(m,p){
   S.lastTickServerMs=isNaN(sv)?null:sv;
   S.latency=isNaN(sv)?null:Math.max(0,Date.now()-sv);
   renderTop();
+  renderLiveObservation();
   // refresh the "+Ns" elapsed annotation on the latest closed bar per TICK
   if(S.bars.length&&(S.lock||S.barView<0)&&!S.liveBar)fpTitle(S.bars[S.bars.length-1],true);
   updateFootprintCurrentPrice();
@@ -676,7 +941,7 @@ function onCandle(p){
   pushSeries("CVD+Δ",{cvd:N(p.cvd),delta:N(p.delta)});
   pushSeries("VOLUME",N(p.volume));
   renderCvdSlope();
-  renderBook(p.orderbook); renderFootprint(); renderChart();
+  renderBook(p.orderbook); renderFootprint(); renderChart(); renderLiveObservation();
 }
 function onFlowResponse(m,p){
   S.flowResponse=p.windows||[];
@@ -696,6 +961,7 @@ function onFlowResponse(m,p){
   }
   renderFlowResponse();
   renderChart();
+  renderLiveObservation();
 }
 function normalizeOiSample(raw,fallbackTime){
   if(!raw)return null;
@@ -744,6 +1010,7 @@ function onOi(m,p){
   S.oiPollIntervalSec=Number(p.poll_interval_sec)||S.oiPollIntervalSec;
   pushSeries("OI",sample.value);
   renderOiTop();
+  renderLiveObservation();
   if(CHART.selectedTime!=null)restoreChartSelection();
 }
 function onHfmQuote(m,p){
@@ -849,6 +1116,7 @@ function onBarUpdate(p){
   S.liveBar=p;
   if(S.lock&&S.barView<0)renderFootprint();
   renderChart();
+  renderLiveObservation();
 }
 const HCOL={GREEN:BUY,YELLOW:WARN,RED:SELL};
 function renderHealth(){
@@ -1184,6 +1452,7 @@ function renderAnalysis(){
   renderImbalance();
   ABS=a.absorption||null;
   renderAbsorption();
+  renderLiveObservation();
 }// market chart — shared time axis: PRICE / CVD+DELTA / VOLUME
 const MC={W:1200,H:500,L:18,R:1110,price:{top:20,bottom:286},cvd:{top:318,bottom:408},vol:{top:438,bottom:480}};
 const FLOW_RESPONSE_LABELS={
@@ -1342,7 +1611,105 @@ function classifyCvdPattern(bars,index){
   const cvdDir=b.cvd>ref.cvd?1:b.cvd<ref.cvd?-1:(b.delta>=0?1:-1);
   const deltaDir=b.delta>=0?1:-1;
   return CVD_PATTERNS.find(p=>p.price===priceDir&&p.cvd===cvdDir&&p.delta===deltaDir)||null;
-}function chartPriceDigits(span,price){
+}
+const FLOW_OBSERVATION_VISUALS=Object.freeze({
+  BUY_EFFECTIVE:{side:"BUY PRESSURE",response:"PRICE UP",color:BUY},
+  SELL_EFFECTIVE:{side:"SELL PRESSURE",response:"PRICE DOWN",color:SELL},
+  BUY_STALLED:{side:"BUY PRESSURE",response:"STALLED",color:WARN},
+  SELL_STALLED:{side:"SELL PRESSURE",response:"STALLED",color:WARN},
+  BUY_TRAPPED:{side:"BUY PRESSURE",response:"PRICE DOWN · DIVERGENCE",color:INFO},
+  SELL_TRAPPED:{side:"SELL PRESSURE",response:"PRICE UP · DIVERGENCE",color:INFO},
+  UNCLEAR:{side:"UNCLEAR",response:"—",color:DIS},
+});
+function loClock(value){
+  if(!Number.isFinite(value))return "—";
+  const d=new Date(value);
+  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+}
+function loSigned(value,digits=1,suffix=""){
+  if(value==null||!Number.isFinite(Number(value)))return "—";
+  const n=Number(value);
+  return `${n>0?"+":""}${n.toFixed(digits)}${suffix}`;
+}
+function loSignedCompact(value){
+  if(value==null||!Number.isFinite(Number(value)))return "—";
+  const n=Number(value);
+  return `${n>0?"+":""}${compact(n)}`;
+}
+function loArrow(id,direction,upColor=BUY,downColor=SELL){
+  const el=$(id);if(!el)return;
+  const valid=direction!=null&&Number.isFinite(Number(direction))&&Number(direction)!==0;
+  el.textContent=!valid?"—":Number(direction)>0?"↑":"↓";
+  el.style.color=!valid?DIS:Number(direction)>0?upColor:downColor;
+}
+function loContext(id,dotId,value,color=DIS){
+  const valueEl=$(id),dot=$(dotId);if(valueEl)valueEl.textContent=value||"—";
+  if(valueEl)valueEl.style.color=value&&value!=="—"?color:DIS;
+  if(dot)dot.style.background=value&&value!=="—"?color:DIS;
+}
+function renderLiveObservation(){
+  const timeText=loClock(S.marketTime);
+  $("lotime").textContent=timeText;
+  const topTime=$("markettimevalue");if(topTime){topTime.textContent=timeText;topTime.classList.toggle("dash",timeText==="—");}
+
+  const rows=S.flowResponse||[];
+  const flow=rows.find(row=>Number(row.window_sec)===CHART.windowSec)||null;
+  const state=flow?String(flow.state||"UNCLEAR"):"UNCLEAR";
+  const visual=FLOW_OBSERVATION_VISUALS[state]||FLOW_OBSERVATION_VISUALS.UNCLEAR;
+  $("lowindow").textContent=flowWindowText(CHART.windowSec);
+  $("lopressureside").textContent=flow?visual.side:"—";
+  $("lopriceresponse").textContent=flow?visual.response:"—";
+  $("lohero").style.setProperty("--lo-accent",flow?visual.color:DIS);
+
+  const pressure=flow?N(flow.pressure_ratio):null;
+  const persistence=flow?N(flow.persistence):null;
+  const relativeVolume=flow?N(flow.relative_volume):null;
+  const pressurePct=Number.isFinite(pressure)?Math.abs(pressure)*100:null;
+  const persistencePct=Number.isFinite(persistence)?Math.max(0,Math.min(1,persistence))*100:null;
+  $("lopressurelabel").textContent=flow&&visual.side!=="UNCLEAR"?visual.side:"PRESSURE";
+  $("lopressurevalue").textContent=pressurePct==null?"—":`${pressurePct.toFixed(0)}%`;
+  $("lopersistencevalue").textContent=persistencePct==null?"—":`${persistencePct.toFixed(0)}%`;
+  $("lorelvolume").textContent=Number.isFinite(relativeVolume)?`×${relativeVolume.toFixed(1)}`:"—";
+  const pressureFill=$("lopressurefill"),persistenceFill=$("lopersistencefill");
+  pressureFill.style.width=pressurePct==null?"0%":`${Math.min(100,pressurePct)}%`;
+  pressureFill.parentElement.style.setProperty("--lo-color",flow?visual.color:DIS);
+  persistenceFill.style.width=persistencePct==null?"0%":`${persistencePct}%`;
+
+  const bars=marketBars(),bar=bars.length?bars[bars.length-1]:null;
+  const pattern=bar?classifyCvdPattern(bars,bars.length-1):null;
+  const currentPrice=S.price??(bar?bar.c:null);
+  const priceChange=flow?N(flow.price_change_bps):null;
+  $("loprice").textContent=Number.isFinite(currentPrice)?currentPrice.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:2}):"—";
+  $("lopricechange").textContent=loSigned(priceChange,1,"bp");
+  $("locvd").textContent=bar?loSignedCompact(bar.cvd):"—";
+  $("lodelta").textContent=bar?loSignedCompact(bar.delta):"—";
+  $("lovolume").textContent=bar?compact(bar.volume):"—";
+  loArrow("lopricearrow",priceChange);
+  loArrow("locvdarrow",pattern?pattern.cvd:null);
+  loArrow("lodeltaarrow",bar?bar.delta:null);
+
+  const latestOi=S.oiSamples[S.oiSamples.length-1]||null;
+  const oiOneMinute=oiChangeOver(latestOi,60000);
+  $("looi").textContent=oiOneMinute?loSignedCompact(oiOneMinute.change):"—";
+  loArrow("looiarrow",oiOneMinute?oiOneMinute.change:null,INFO,INFO);
+
+  const patternColor=!pattern?DIS:pattern.klass==="bad"?INFO:pattern.klass==="warn"?WARN:pattern.price>0?BUY:SELL;
+  loContext("lopattern","lopatterndot",pattern?`${pattern.no} ${pattern.name}`:"—",patternColor);
+  const flowContext=!flow?"—":state.endsWith("_EFFECTIVE")?visual.side:state.replaceAll("_"," ");
+  loContext("loflow","loflowdot",flowContext,flow?visual.color:DIS);
+  const oiChange=oiOneMinute?oiOneMinute.change:null;
+  const oiLabel=oiChange==null?"—":oiChange>0?"BUILDING":oiChange<0?"UNWINDING":"UNCHANGED";
+  loContext("looicontext","looicontextdot",oiLabel,oiChange==null?DIS:oiChange===0?WARN:INFO);
+  const absorption=ABS&&ABS.classification==="BUY_ABSORPTION"?"BUY ABS":ABS&&ABS.classification==="SELL_ABSORPTION"?"SELL ABS":"—";
+  loContext("loabsorption","loabsorptiondot",absorption,absorption==="BUY ABS"?BUY:absorption==="SELL ABS"?SELL:DIS);
+
+  $("lofactpressure").textContent=pressure==null?"Pressure —":`Pressure ${pressure>0?"BUY":pressure<0?"SELL":"NEUTRAL"} · ${loSigned(pressure*100,0,"%")}`;
+  $("lofactprice").textContent=priceChange==null?"Price response —":`Price response ${loSigned(priceChange,1,"bp")}`;
+  $("lofactpersistence").textContent=persistencePct==null?"Persistence —":`Persistence ${persistencePct.toFixed(0)}%`;
+  $("lofactvolume").textContent=relativeVolume==null?"Relative volume —":`Relative volume ×${relativeVolume.toFixed(1)}`;
+  $("lofactoi").textContent=oiOneMinute?`OI Δ1M ${loSignedCompact(oiOneMinute.change)}`:"OI Δ1M —";
+}
+function chartPriceDigits(span,price){
   if(price<1)return 5;if(price<100)return 3;if(span<10)return 2;return 1;
 }
 function renderChart(){
@@ -1540,7 +1907,7 @@ function initMarketChart(){
   svg.tabIndex=0;svg.setAttribute("aria-label","Price, CVD and volume chart. Click a candle, use left and right arrow keys to move, or right-click to clear.");
   try{const saved=Number(localStorage.getItem("deltaengine.chart.flowWindow"));if([30,60,180,300,900,1800].includes(saved))CHART.windowSec=saved;}catch(_){ }
   flowSelect.value=String(CHART.windowSec);
-  flowSelect.onchange=()=>{CHART.windowSec=Number(flowSelect.value);try{localStorage.setItem("deltaengine.chart.flowWindow",String(CHART.windowSec));}catch(_){ }renderChart();};
+  flowSelect.onchange=()=>{CHART.windowSec=Number(flowSelect.value);try{localStorage.setItem("deltaengine.chart.flowWindow",String(CHART.windowSec));}catch(_){ }renderChart();renderLiveObservation();};
   $("chartzoomin").onclick=()=>setChartVisible(CHART.visible-20);
   $("chartzoomout").onclick=()=>setChartVisible(CHART.visible+20);
   $("chartlive").onclick=()=>{CHART.offset=0;renderChart();};
@@ -1571,7 +1938,7 @@ async function loadChartHistory(){
     S.series["CVD+Δ"].cvd=S.bars.map(b=>N(b.cvd)).filter(Number.isFinite).slice(-140);
     S.series["CVD+Δ"].delta=S.bars.map(b=>N(b.delta)).filter(Number.isFinite).slice(-140);
     S.series.VOLUME=S.bars.map(b=>N(b.volume)).filter(Number.isFinite).slice(-140);
-    renderCvdSlope();renderChart();
+    renderCvdSlope();renderChart();renderLiveObservation();
   }catch(_){/* live stream continues even when history is unavailable */}
 }
 async function loadOiHistory(){
@@ -1581,6 +1948,7 @@ async function loadOiHistory(){
     const payload=await response.json(),samples=Array.isArray(payload.samples)?payload.samples:[];
     for(const sample of samples)ingestOiSample(sample,sample.source_time);
     renderOiTop();
+    renderLiveObservation();
     if(CHART.selectedTime!=null)restoreChartSelection();
   }catch(_){/* live OI stream continues when history is unavailable */}
 }
@@ -1780,7 +2148,7 @@ $("zout").onclick=()=>{S.zoom=Math.max(0.75,S.zoom-0.25);renderFootprint();};
 $("plock").onclick=()=>{S.lock=!S.lock;$("plock").textContent=S.lock?"🔒":"🔓";
   if(S.lock)S.barView=-1;renderFootprint();};
 
-initMarketChart(); loadChartHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
+initMarketChart(); renderLiveObservation(); loadChartHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
 /* App version — /api/version(正は CHANGELOG.md)。失敗しても UI は阻害しない */
 fetch("/api/version").then(r=>r.json())
   .then(j=>{ $("appver").textContent = j.version || "v?.?.?"; })
