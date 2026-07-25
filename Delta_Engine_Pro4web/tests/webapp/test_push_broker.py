@@ -925,7 +925,7 @@ def test_chart_status_rows_remain_visible_without_resizing_three_stage_chart():
     assert '#bottom.market-chart-panel{height:594px;min-height:594px;flex:0 0 594px' in source
     assert 'grid-template-rows:26px 38px 26px' in source
     assert 'grid-template-columns:repeat(6,minmax(0,1fr))' in source
-    assert 'grid-template-rows:11px 14px' in source
+    assert 'grid-template-rows:11px 16px' in source
     assert '.flow-response-head{font-size:11px;line-height:1}' in source
     assert '.flow-response-facts{color:#C5CDF5;font-size:16px;line-height:1}' in source
     assert 'color:#F6F1FF;font-size:14px;font-weight:900' in source
