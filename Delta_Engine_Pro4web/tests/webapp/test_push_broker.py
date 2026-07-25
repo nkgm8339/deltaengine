@@ -927,7 +927,8 @@ def test_chart_status_rows_remain_visible_without_resizing_three_stage_chart():
     assert 'grid-template-columns:repeat(6,minmax(0,1fr))' in source
     assert 'grid-template-rows:11px 14px' in source
     assert '.flow-response-head{font-size:11px;line-height:1}' in source
-    assert '.flow-response-facts{color:#C5CDF5;font-size:14px;line-height:1}' in source
+    assert '.flow-response-facts{color:#C5CDF5;font-size:16px;line-height:1}' in source
+    assert 'color:#F6F1FF;font-size:14px;font-weight:900' in source
     assert '<div id="cvddiv">CVD DIVERGENCE · —</div>' in source
     assert '05M CONTEXT · CODE — · EVALUATION — · OI — · HFM —' in source
     assert source.count('PR — · P — · V —') >= 6
