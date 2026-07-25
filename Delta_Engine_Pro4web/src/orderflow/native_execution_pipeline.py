@@ -7,7 +7,7 @@ add_candle/add_native_flow_event/add_native_flow_outcome.
 from __future__ import annotations
 
 from collections import deque
-from typing import Any
+from typing import Any, Callable
 
 from ..database.schema import candle_to_row, native_flow_event_to_row, native_flow_outcome_to_row
 from .native_execution import NativeExecutionAggregator
@@ -15,7 +15,13 @@ from .native_flow import NativeFlowDetector, NativeFlowOutcomeTracker
 
 
 class NativeExecutionCoordinator:
-    def __init__(self, symbol: str, *, horizons_sec: tuple[int, ...] = (300, 600, 1800)) -> None:
+    def __init__(
+        self,
+        symbol: str,
+        *,
+        horizons_sec: tuple[int, ...] = (300, 600, 1800),
+        on_candle: Callable[[Any], None] | None = None,
+    ) -> None:
         self.aggregator = NativeExecutionAggregator(symbol)
         self.detectors = {tf: NativeFlowDetector(symbol, tf) for tf in self.aggregator.timeframes}
         self.tracker = NativeFlowOutcomeTracker(horizons_sec)
@@ -23,6 +29,7 @@ class NativeExecutionCoordinator:
         self.events = deque(maxlen=5000)
         self.outcomes = deque(maxlen=5000)
         self.candles_written = 0
+        self.on_candle = on_candle
 
     def process(self, trade: Any, storage: Any) -> None:
         update = self.aggregator.process(trade)
@@ -30,6 +37,8 @@ class NativeExecutionCoordinator:
             self.candles[timeframe] = candle
             storage.add_candle(candle_to_row(candle))
             self.candles_written += 1
+            if self.on_candle is not None:
+                self.on_candle(candle)
         snapshots = []
         for detector in self.detectors.values():
             snapshots.extend(detector.process(trade))

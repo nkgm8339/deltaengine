@@ -138,10 +138,17 @@ class PushBroker:
         self.depth_levels = depth_levels
         self._clients: set[Any] = set()
         self._lock = asyncio.Lock()
+        self._latest_hfm_message: dict | None = None
 
     async def register(self, ws: Any) -> None:
         async with self._lock:
             self._clients.add(ws)
+            latest_hfm = self._latest_hfm_message
+        if latest_hfm is not None:
+            try:
+                await ws.send_text(json.dumps(latest_hfm, separators=(",", ":")))
+            except Exception:
+                await self.unregister(ws)
 
     async def unregister(self, ws: Any) -> None:
         async with self._lock:
@@ -320,6 +327,59 @@ class PushBroker:
             "source": source,
             "poll_interval_sec": poll_interval_sec,
         }))
+
+    async def on_hfm_quote(self, quote) -> None:
+        """Broadcast the directly observed HFM Bid/Ask and USD spread."""
+        message = envelope(
+            "HFM_QUOTE",
+            quote.received_time,
+            self.symbol,
+            {
+                "hfm_symbol": quote.symbol,
+                "source_time": (
+                    quote.source_time.astimezone(timezone.utc).isoformat()
+                    if quote.source_time is not None else None
+                ),
+                "received_time": quote.received_time.astimezone(timezone.utc).isoformat(),
+                "sequence": quote.sequence,
+                "bid": d2s(quote.bid),
+                "ask": d2s(quote.ask),
+                "spread_usd": d2s(quote.spread),
+            },
+        )
+        self._latest_hfm_message = message
+        await self._broadcast(message)
+
+    async def on_combined_context(self, event) -> None:
+        """Broadcast a closed native 5m/10m four-axis observation."""
+        entry = event.hfm_entry
+        await self._broadcast(envelope(
+            "COMBINED_CONTEXT",
+            event.event_time,
+            self.symbol,
+            {
+                "event_time": event.event_time.astimezone(timezone.utc).isoformat(),
+                "bar_time": event.bar_time.astimezone(timezone.utc).isoformat(),
+                "timeframe": event.timeframe,
+                "pattern_no": event.context.pattern.number,
+                "pattern_name": event.context.pattern.name,
+                "price_direction": event.context.pattern.price_direction,
+                "cvd_direction": event.context.pattern.cvd_direction,
+                "delta_direction": event.context.pattern.delta_direction,
+                "oi_direction": event.context.oi_direction.value,
+                "oi_open": d2s(event.oi_open),
+                "oi_close": d2s(event.oi_close),
+                "oi_change": d2s(event.oi_change),
+                "oi_change_pct": d2s(event.oi_change_pct),
+                "oi_sample_count": event.oi_sample_count,
+                "context_code": event.context.code,
+                "context_title": event.context.title,
+                "context_summary_ja": event.context.summary_ja,
+                "hfm_entry_status": event.hfm_entry_status,
+                "hfm_symbol": entry.symbol if entry is not None else None,
+                "hfm_entry_spread": d2s(entry.spread) if entry is not None else None,
+            },
+        ))
 
 
     async def on_bar_update(

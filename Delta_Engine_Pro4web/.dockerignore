@@ -1,5 +1,7 @@
 # --- ビルドコンテキスト縮小（compose が data/config を volume マウントするためイメージ不要）---
 data/
+data_05M/
+data_clone/
 config/
 
 # バージョン管理・キャッシュ
@@ -24,4 +26,5 @@ captures/
 venv/
 *.log
 .tmp*/
+test_tmp*/
 tmp/

@@ -1,6 +1,6 @@
 # DeltaEngine プロジェクト記憶
 
-最終更新: 2026-07-23
+最終更新: 2026-07-25
 
 ## 最重要の記憶
 
@@ -454,3 +454,40 @@ HFMスプレッド／足値幅中央値は1分42.2%、3分20.4%、5分19.0%だ�
 Docker再起動直後の実Edgeで、30s `V ×8.1`、3m `V ×4.1`、30m `V ×1.0`を確認した。
 カード38px、1段目11px、2段目14px、横overflowなし、browser errorなしを維持した。
 全体回帰は **408 tests passed**。
+
+## 5M/10M Episode Entry Spec v1（2026-07-25探索評価・発注NO-GO）
+
+HFMの大きいスプレッドを越えられるentry局面を、単発状態ではなく
+`攻撃 → 停滞 → 継続停滞 → 突破／反転`の順序付きEpisodeとして先に文章固定した。
+
+比較した入口:
+
+- `ATTACK_V1`: 攻撃開始でpressure side
+- `PERSIST_PRESSURE_V1`: 継続停滞を確認した時点でpressure side
+- `RESOLUTION_CONFIRMED_V1`: 継続停滞後の突破ならpressure side、
+  Defender reversalなら反対side
+
+主候補のBUYは、BUY攻撃の継続停滞後に`BUY_EFFECTIVE`となるか、
+SELL攻撃の継続停滞後に`SELL_TRAPPED`となった場合だけである。
+単発の`BUY_EFFECTIVE`／`SELL_EFFECTIVE`を発注トリガーに戻してはならない。
+
+固定cutoff、600秒重複purge、30 USD cost stressで、60秒観測の主候補は
+5分net中央値`-5.668bps`、10分`-5.397bps`だった。positive netは5分1/18、
+10分0/18。事前固定した価格無効化で撤退しても改善しなかった。
+解放確認前のAttack／Persistもcost後中央値は負だった。
+
+現在の運用判定は **`NO_GO_FOR_HFM_ENTRY_V1`**。
+MT5 bridge、LIVE発注、自動売買シグナルへ進まない。
+
+ただし標本は1.5186日であり、30日、purge後200 Episode、untouched testを満たさない。
+これは現在の仕様に対する発注NO-GOであって、注文フロー原理全体の統計的棄却ではない。
+HFM同一時計quoteも0バイトのためGate 3／4は未評価である。
+
+成果物:
+
+- `ArchitectureRepository/00_Master/ORDERFLOW_5M10M_ENTRY_SPEC_CHECKPOINT_20260725.md`
+- `ArchitectureRepository/00_Master/ORDERFLOW_5M10M_ENTRY_EVALUATION_20260725.md`
+- `Delta_Engine_Pro4web/data_05M/research/episode_entry_v1_20260725.json`
+
+Entry Spec対象試験は27件、全体回帰は **451 tests passed**。
+完成済み1M Flow Price Response、3段チャート、8パターン、OI、Flow Event、UIは変更していない。

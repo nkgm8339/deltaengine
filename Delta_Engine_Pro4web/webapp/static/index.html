@@ -258,7 +258,10 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #charttip .ct-oi{margin-top:6px;padding-top:6px;border-top:1px solid #56629B}
 #charttip .ct-oi-title{color:#BFA7FF;font-size:10px;font-weight:950;letter-spacing:.08em}
 #charttip .ct-oi-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin-top:3px}
-#charttip .ct-oi-context{margin-top:3px;color:#BFA7FF;font-weight:950}
+#charttip .ct-oi-context{margin-top:5px;padding:5px 6px;border:1px solid #8D6BFF66;border-radius:6px;background:#211A4966;color:#F6F1FF}
+#charttip .ct-oi-context-title{color:#C9B8FF;font-size:10px;font-weight:950;letter-spacing:.05em}
+#charttip .ct-oi-context-dirs{margin-top:2px;font-size:11px;font-weight:950}
+#charttip .ct-oi-context-summary{margin-top:2px;color:#FFFFFF;font-size:10px;font-weight:800;line-height:1.45}
 .oi-inline{display:inline-flex;align-items:baseline;gap:5px;min-width:220px;color:#BFA7FF}
 .oi-inline .oi-delta{font-size:10px;font-weight:850;color:#D8CEFF}
 .top-help-btn{display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;flex:0 0 27px;border:1px solid #6674B5;border-radius:50%;background:#111735;color:#F6F7FF;font:950 14px/1 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;cursor:pointer;box-shadow:inset 0 1px #FFFFFF18,0 0 12px #23DFFF24}
@@ -326,7 +329,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
     <button id="combinationguidebtn" class="top-help-btn" type="button" title="Price × CVD × Δ × OI combination guide" aria-label="Open Price, CVD, Delta and Open Interest combination guide" aria-haspopup="dialog" aria-controls="combinationguide" aria-expanded="false">?</button>
     <span style="flex:1"></span>
     <span class="kv"><span class="k">ATR(14)</span><span class="v dash" id="atr">—</span></span>
-    <span class="kv"><span class="k">SPREAD</span><span class="v" id="spread">—</span></span>
+    <span class="kv" id="hfmspreadgroup"><span class="k">HFM SPREAD USD</span><span class="v" id="spread">—</span></span>
     <span class="kv"><span class="k">LATENCY</span><span class="v" id="lat">—</span></span>
     <span class="kv"><span class="k">FPS</span><span class="v" id="fps">—</span></span>
     <span id="live" style="color:var(--dis);border:1px solid var(--line)">CONNECTING</span>
@@ -345,19 +348,27 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
         <button id="combinationguideclose" class="combination-guide-close" type="button" aria-label="Close combination guide">×</button>
       </div>
       <div class="combination-guide-body">
-        <p id="combinationguidedesc" class="combination-guide-lead">今回定義した、PRICEとCVDが同方向の8ケースです。4つの観測値が同時に示す方向から、その場面で起きている可能性を読みます。</p>
+        <p id="combinationguidedesc" class="combination-guide-lead">既存8パターンをそのまま基礎にし、OIの増減を第4軸として加えた全16ケースです。4つの観測値が同時に示す方向から、その場面で起きている可能性を読みます。</p>
         <div class="combination-guide-table-wrap">
           <table class="combination-guide-table">
             <thead><tr><th>PRICE</th><th>CVD</th><th>Δ</th><th>OI</th><th>組み合わせによる評価</th></tr></thead>
             <tbody>
               <tr><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>非常に強い上昇。</strong>新規ロングが積み上がっている。</td></tr>
               <tr><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ショートカバー主体。</strong>上昇は続かないことも多い。</td></tr>
-              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>非常に強い下落。</strong>新規ショートが積み上がっている。</td></tr>
-              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ロングの投げ売り・手仕舞い。</strong>売り一巡後に反発することもある。</td></tr>
-              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>反発候補。</strong>買いが入り始め、新規資金も流入している。Footprintや板で確認したい。</td></tr>
-              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ショートの利確（買い戻し）の可能性が高い。</strong>本格反転とは限らない。</td></tr>
               <tr><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>上昇中に売りが増加。</strong>吸収や分配の可能性。天井警戒。</td></tr>
               <tr><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ロングの利確が主体。</strong>勢いが鈍る可能性。</td></tr>
+              <tr><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>上昇反発に新規参加。</strong>直近買いとOI増加が反発を支えている。</td></tr>
+              <tr><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ショートカバーによる反発。</strong>新規買い主導とは限らない。</td></tr>
+              <tr><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>売り圧力を吸収。</strong>OI増加中でも価格が上昇し、ショート側が捕まる候補。</td></tr>
+              <tr><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ポジション解消を伴う上昇ダイバージェンス。</strong>継続には新規参加の確認が必要。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>買い圧力を吸収。</strong>OI増加中でも価格が下落し、ロング側が捕まる候補。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ポジション解消を伴う下落ダイバージェンス。</strong>継続には新規参加の確認が必要。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>下落再開に新規参加。</strong>直近売りとOI増加が下落を支えている。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ロング解消による下落。</strong>新規ショート主導とは限らない。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>反発候補。</strong>買いが入り始め、新規資金も流入している。Footprintや板で確認したい。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ショートの利確（買い戻し）の可能性が高い。</strong>本格反転とは限らない。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir up">↑</td><td class="guide-meaning"><strong>非常に強い下落。</strong>新規ショートが積み上がっている。</td></tr>
+              <tr><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-dir down">↓</td><td class="guide-meaning"><strong>ロングの投げ売り・手仕舞い。</strong>売り一巡後に反発することもある。</td></tr>
             </tbody>
           </table>
         </div>
@@ -579,7 +590,7 @@ const S={
   zoom:1, lock:true,
   analysis:null, flows:[], flowMarkerEvents:[], flowEventKeys:new Set(), alerts:[],
   series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[], "BTCUSDT 1M":[] },
-  oiSamples:[],oiPollIntervalSec:10,
+  oiSamples:[],oiPollIntervalSec:10,hfmQuote:null,
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
   liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,
 };
@@ -632,6 +643,8 @@ function handle(m){
       case "FLOW_RESPONSE": onFlowResponse(m,p);break;
       case "LIQUIDATION": pushSeries("LIQUIDATION",Math.abs(N(p.quantity)??0)); break;
       case "OI": onOi(m,p); break;
+      case "HFM_QUOTE": onHfmQuote(m,p); break;
+      case "COMBINED_CONTEXT": onCombinedContext(p); break;
       case "STATS": S.stats=p; renderDev(); break;
       case "HEALTH": S.health=p; renderHealth(); break;
       case "BAR_UPDATE": onBarUpdate(p); break;
@@ -732,6 +745,21 @@ function onOi(m,p){
   pushSeries("OI",sample.value);
   renderOiTop();
   if(CHART.selectedTime!=null)restoreChartSelection();
+}
+function onHfmQuote(m,p){
+  const bid=N(p.bid),ask=N(p.ask),spread=N(p.spread_usd),received=Date.parse(p.received_time||m.time);
+  if(!Number.isFinite(bid)||!Number.isFinite(ask)||!Number.isFinite(spread)||ask<bid||!Number.isFinite(received))return;
+  S.hfmQuote={symbol:String(p.hfm_symbol||""),bid,ask,spread,received,sourceTime:Date.parse(p.source_time)};
+  const age=Math.max(0,Date.now()-received),stale=age>3000,el=$("spread"),group=$("hfmspreadgroup");
+  el.textContent=stale?"—":spread.toFixed(3);
+  el.style.color=stale?WARN:INFO;
+  group.title=`HFM ${S.hfmQuote.symbol} · BID ${bid} · ASK ${ask} · ${stale?"STALE":"LIVE"}`;
+}
+function onCombinedContext(p){
+  if(String(p.timeframe||"").toLowerCase()!=="5m")return;
+  const el=$("nativecontext"),oi=String(p.oi_direction||"MISSING"),hfm=String(p.hfm_entry_status||"MISSING");
+  el.textContent=`05M CONTEXT · CODE ${p.context_code||"—"} · EVALUATION ${p.context_title||"—"} · OI ${oi} · HFM ${hfm}`;
+  el.title=String(p.context_summary_ja||"Latest closed native 05M observation");
 }
 const ALERT_CFG={threshold:0.85,maxHistory:8,durationSec:3};
 try{Object.assign(ALERT_CFG,JSON.parse(localStorage.getItem("deltaengine.alerts")||"{}"));}catch(e){}
@@ -851,9 +879,6 @@ function renderTop(){
   pe.style.color=up?BUY:SELL;
   if(S.latency!=null){const le=$("lat"); le.textContent=S.latency+"ms";
     le.style.color=S.latency<60?BUY:S.latency<120?WARN:SELL;}
-  const last=S.bars[S.bars.length-1];
-  if(last&&last.orderbook&&last.orderbook.asks[0]&&last.orderbook.bids[0]){
-    $("spread").textContent=(N(last.orderbook.asks[0].price)-N(last.orderbook.bids[0].price)).toFixed(1);}
 }
 
 function renderBook(book){
@@ -1281,6 +1306,35 @@ const CVD_PATTERNS=[
   {no:'7',name:'DOWNWARD REBOUND',klass:'warn',price:-1,cvd:-1,delta:1,summary:'Cumulative flow favors sells; recent buying has entered'},
   {no:'8',name:'DOWNTREND',klass:'ok',price:-1,cvd:-1,delta:-1,summary:'Cumulative and recent flow favor sells; price is falling'},
 ];
+const OI_COMBINED_CONTEXTS=Object.freeze({
+  '1:1':{title:'NEW LONG BUILDUP',summary:'非常に強い上昇。新規ロングが積み上がっている。'},
+  '1:-1':{title:'SHORT-COVER RALLY',summary:'ショートカバー主体。上昇は続かないことも多い。'},
+  '2:1':{title:'SELLING INTO STRENGTH',summary:'上昇中に売りが増加。吸収や分配の可能性がある。'},
+  '2:-1':{title:'LONG PROFIT-TAKING',summary:'ロングの利確が主体。上昇の勢いが鈍る可能性がある。'},
+  '3:1':{title:'REBOUND WITH NEW PARTICIPATION',summary:'上昇反発に新規参加。直近買いとOI増加が反発を支えている。'},
+  '3:-1':{title:'SHORT-COVER REBOUND',summary:'ショートカバーによる反発。新規買い主導とは限らない。'},
+  '4:1':{title:'SHORT PRESSURE ABSORBED',summary:'OI増加中の売り圧力でも価格が上昇。ショート側が捕まる候補。'},
+  '4:-1':{title:'UNWINDING UPWARD DIVERGENCE',summary:'ポジション解消を伴う上昇ダイバージェンス。継続には新規参加の確認が必要。'},
+  '5:1':{title:'LONG PRESSURE ABSORBED',summary:'OI増加中の買い圧力でも価格が下落。ロング側が捕まる候補。'},
+  '5:-1':{title:'UNWINDING DOWNWARD DIVERGENCE',summary:'ポジション解消を伴う下落ダイバージェンス。継続には新規参加の確認が必要。'},
+  '6:1':{title:'RENEWED SHORT BUILDUP',summary:'下落再開に新規参加。直近売りとOI増加が下落を支えている。'},
+  '6:-1':{title:'LONG-LIQUIDATION LEG',summary:'ロング解消による下落。新規ショート主導とは限らない。'},
+  '7:1':{title:'REBOUND ATTEMPT WITH NEW OI',summary:'反発候補。買いが入り始め、新規資金も流入している。'},
+  '7:-1':{title:'SHORT PROFIT-TAKING',summary:'ショートの利確による買い戻し。本格反転とは限らない。'},
+  '8:1':{title:'NEW SHORT BUILDUP',summary:'非常に強い下落。新規ショートが積み上がっている。'},
+  '8:-1':{title:'LONG LIQUIDATION',summary:'ロングの投げ売り・手仕舞い。売り一巡後に反発することもある。'},
+});
+function combinedOiContext(pattern,oiChange){
+  if(!pattern)return null;
+  if(oiChange==null||!Number.isFinite(oiChange)){
+    return {code:`P${pattern.no}_MISSING`,oiDirection:null,title:'OI DATA MISSING',summary:'時刻同期できるOIがないため、既存8パターンだけを表示する。'};
+  }
+  if(oiChange===0){
+    return {code:`P${pattern.no}_UNCHANGED`,oiDirection:0,title:'OI UNCHANGED',summary:'OIは変化なし。既存8パターンの観測評価を維持する。'};
+  }
+  const oiDirection=oiChange>0?1:-1,context=OI_COMBINED_CONTEXTS[`${pattern.no}:${oiDirection}`];
+  return context?{...context,code:`P${pattern.no}_${oiDirection>0?'BUILDING':'UNWINDING'}`,oiDirection}:null;
+}
 function classifyCvdPattern(bars,index){
   if(!bars||index==null||index<2||index>=bars.length)return null;
   const b=bars[index],ref=bars[index-2];
@@ -1400,7 +1454,11 @@ function oiDetailNumber(value,digits=3){
 function oiContextHtml(bar,pattern){
   const oi=oiContextForBar(bar);
   let html='<div class="ct-oi"><div class="ct-oi-title">OPEN INTEREST · BINANCE USDⓈ-M</div>';
-  if(!oi.available)return html+'<div style="margin-top:3px;color:#DDE3FF">NO ALIGNED DATA · NOT FILLED</div></div>';
+  if(!oi.available){
+    const combined=combinedOiContext(pattern,null);
+    const missing=combined?'<div class="ct-oi-context"><div class="ct-oi-context-title">'+combined.code+' · '+combined.title+'</div><div class="ct-oi-context-summary">'+combined.summary+'</div></div>':'';
+    return html+'<div style="margin-top:3px;color:#DDE3FF">NO ALIGNED DATA · NOT FILLED</div>'+missing+'</div>';
+  }
   const changeText=oi.change==null?"—":(oi.change>=0?"+":"")+oiDetailNumber(oi.change,3);
   const pctText=oi.pct==null?"—":(oi.pct>=0?"+":"")+oi.pct.toFixed(4)+"%";
   html+='<div class="ct-oi-grid">'
@@ -1411,8 +1469,14 @@ function oiContextHtml(bar,pattern){
     +'<span class="ct-k">SAMPLES</span><span class="ct-v">'+oi.sampleCount+' · '+S.oiPollIntervalSec+'S</span></div>';
   if(oi.change!=null){
     const context=oi.change>0?"BUILDING ↑":oi.change<0?"UNWINDING ↓":"UNCHANGED →";
-    const price=pattern?(pattern.price>0?"PRICE ↑ · ":"PRICE ↓ · "):"";
-    html+='<div class="ct-oi-context">'+price+'OI '+context+'</div>';
+    const combined=combinedOiContext(pattern,oi.change);
+    if(combined){
+      const directions=chartDirection("PRICE",pattern.price)+'<span> / </span>'+chartDirection("CVD",pattern.cvd)+'<span> / </span>'+chartDirection("Δ",pattern.delta)+'<span> / </span>'
+        +(combined.oiDirection===0?'<span style="color:#FFE35D">OI →</span>':chartDirection("OI",combined.oiDirection));
+      html+='<div class="ct-oi-context"><div class="ct-oi-context-title">'+combined.code+' · '+combined.title+'</div><div class="ct-oi-context-dirs">'+directions+'</div><div class="ct-oi-context-summary">'+combined.summary+'</div></div>';
+    }else{
+      html+='<div class="ct-oi-context"><div class="ct-oi-context-title">OI '+context+'</div></div>';
+    }
   }
   return html+'</div>';
 }
@@ -1538,6 +1602,14 @@ async function loadFlowResponseHistory(){
     S.flowResponseHistory=[...byTime.values()].sort((a,b)=>a.time-b.time).slice(-10000);
     renderChart();
   }catch(_){/* live flow response continues when persisted history is unavailable */}
+}
+async function loadCombinedContextHistory(){
+  try{
+    const response=await fetch("/api/history/combined-context?timeframe=5m&limit=1");
+    if(!response.ok)return;
+    const payload=await response.json(),events=Array.isArray(payload.events)?payload.events:[];
+    if(events.length)onCombinedContext(events[events.length-1]);
+  }catch(_){/* live native context stream continues when history is unavailable */}
 }
 
 // ---- CVD independent indicator: client-side native-unit slope ----
@@ -1708,7 +1780,7 @@ $("zout").onclick=()=>{S.zoom=Math.max(0.75,S.zoom-0.25);renderFootprint();};
 $("plock").onclick=()=>{S.lock=!S.lock;$("plock").textContent=S.lock?"🔒":"🔓";
   if(S.lock)S.barView=-1;renderFootprint();};
 
-initMarketChart(); loadChartHistory(); loadFlowResponseHistory(); loadOiHistory(); connect();
+initMarketChart(); loadChartHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
 /* App version — /api/version(正は CHANGELOG.md)。失敗しても UI は阻害しない */
 fetch("/api/version").then(r=>r.json())
   .then(j=>{ $("appver").textContent = j.version || "v?.?.?"; })
@@ -1799,4 +1871,3 @@ fetch("/api/version").then(r=>r.json())
 
 </body>
 </html>
-

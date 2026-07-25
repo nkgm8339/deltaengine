@@ -8,10 +8,15 @@ services:
       # MT5 は同一 Windows ホスト上の 127.0.0.1:15555 へ接続する。
       - "127.0.0.1:15555:5555"
     volumes:
-      - ./data_clone:/app/data_clone
+      - ./data_05M:/app/data_05M
       - ./config:/app/config
+      - type: bind
+        source: ${APPDATA}/MetaQuotes/Terminal/Common/Files/DeltaEngine_HFM_quotes_utf8.jsonl
+        target: /app/data_05M/hfm/DeltaEngine_HFM_quotes_utf8.jsonl
+        read_only: true
       # バージョン単一情報源(webapp/version.py が /app/CHANGELOG.md を読む)
       - ../ArchitectureRepository/00_Master/CHANGELOG.md:/app/CHANGELOG.md:ro
     environment:
       - PYTHONUNBUFFERED=1
+      - HFM_QUOTE_FILE=/app/data_05M/hfm/DeltaEngine_HFM_quotes_utf8.jsonl
     restart: unless-stopped

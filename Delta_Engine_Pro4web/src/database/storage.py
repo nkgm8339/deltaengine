@@ -28,10 +28,14 @@ import pyarrow.parquet as pq
 from .schema import (
     CANDLES_DDL,
     CANDLES_SCHEMA,
+    COMBINED_CONTEXT_EVENTS_DDL,
+    COMBINED_CONTEXT_EVENTS_SCHEMA,
     FLOW_RESPONSE_EVENTS_DDL,
     FLOW_RESPONSE_EVENTS_SCHEMA,
     FLOW_RESPONSE_OUTCOMES_DDL,
     FLOW_RESPONSE_OUTCOMES_SCHEMA,
+    HFM_CONTEXT_OUTCOMES_DDL,
+    HFM_CONTEXT_OUTCOMES_SCHEMA,
     OPEN_INTEREST_SAMPLES_DDL,
     NATIVE_FLOW_EVENTS_DDL,
     NATIVE_FLOW_EVENTS_SCHEMA,
@@ -88,6 +92,8 @@ class DuckDbWriter:
         self._con.execute(OPEN_INTEREST_SAMPLES_DDL)
         self._con.execute(NATIVE_FLOW_EVENTS_DDL)
         self._con.execute(NATIVE_FLOW_OUTCOMES_DDL)
+        self._con.execute(COMBINED_CONTEXT_EVENTS_DDL)
+        self._con.execute(HFM_CONTEXT_OUTCOMES_DDL)
         self.duplicates = 0
 
     def _insert(self, table: str, arrow_table: pa.Table) -> int:
@@ -141,6 +147,12 @@ class DuckDbWriter:
     def insert_open_interest_samples(self, arrow_table: pa.Table) -> int:
         return self._insert("open_interest_samples", arrow_table)
 
+    def insert_combined_context_events(self, arrow_table: pa.Table) -> int:
+        return self._insert("combined_context_events", arrow_table)
+
+    def insert_hfm_context_outcomes(self, arrow_table: pa.Table) -> int:
+        return self._insert("hfm_context_outcomes", arrow_table)
+
     def count(self, table: str) -> int:
         return self._con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
 
@@ -182,6 +194,8 @@ class StorageWriter:
         self._open_interest_samples: list[dict] = []
         self._native_flow_events: list[dict] = []
         self._native_flow_outcomes: list[dict] = []
+        self._combined_context_events: list[dict] = []
+        self._hfm_context_outcomes: list[dict] = []
         self._last_flush = clock()
         self._seq = 0
         # counters
@@ -193,6 +207,8 @@ class StorageWriter:
         self.open_interest_samples_written = 0
         self.native_flow_events_written = 0
         self.native_flow_outcomes_written = 0
+        self.combined_context_events_written = 0
+        self.hfm_context_outcomes_written = 0
         self.flushes = 0
 
     @classmethod
@@ -235,10 +251,24 @@ class StorageWriter:
             self.flush()
 
     def add_native_flow_event(self, row: dict) -> None:
-        self._enqueue("native_flow_event", row)
+        self._native_flow_events.append(row)
+        if len(self._native_flow_events) >= self.batch_size:
+            self.flush()
 
     def add_native_flow_outcome(self, row: dict) -> None:
-        self._enqueue("native_flow_outcome", row)
+        self._native_flow_outcomes.append(row)
+        if len(self._native_flow_outcomes) >= self.batch_size:
+            self.flush()
+
+    def add_combined_context_event(self, row: dict) -> None:
+        self._combined_context_events.append(row)
+        if len(self._combined_context_events) >= self.batch_size:
+            self.flush()
+
+    def add_hfm_context_outcome(self, row: dict) -> None:
+        self._hfm_context_outcomes.append(row)
+        if len(self._hfm_context_outcomes) >= self.batch_size:
+            self.flush()
 
     def add_open_interest_sample(self, row: dict) -> None:
         self._open_interest_samples.append(row)
@@ -251,6 +281,8 @@ class StorageWriter:
             self._trades or self._candles or self._signals
             or self._flow_response_events or self._flow_response_outcomes
             or self._open_interest_samples
+            or self._native_flow_events or self._native_flow_outcomes
+            or self._combined_context_events or self._hfm_context_outcomes
         ):
             self.flush()
 
@@ -367,6 +399,28 @@ class StorageWriter:
             inserted = self._duck.insert_native_flow_outcomes(arrow)
             self.native_flow_outcomes_written += inserted
             self._native_flow_outcomes = []
+        if self._combined_context_events:
+            arrow = pa.Table.from_pylist(
+                self._combined_context_events, schema=COMBINED_CONTEXT_EVENTS_SCHEMA,
+            )
+            self._write_parquet(
+                self._combined_context_events, COMBINED_CONTEXT_EVENTS_SCHEMA,
+                "event_time", has_timeframe=True, dataset="combined_context_events",
+            )
+            inserted = self._duck.insert_combined_context_events(arrow)
+            self.combined_context_events_written += inserted
+            self._combined_context_events = []
+        if self._hfm_context_outcomes:
+            arrow = pa.Table.from_pylist(
+                self._hfm_context_outcomes, schema=HFM_CONTEXT_OUTCOMES_SCHEMA,
+            )
+            self._write_parquet(
+                self._hfm_context_outcomes, HFM_CONTEXT_OUTCOMES_SCHEMA,
+                "event_time", has_timeframe=True, dataset="hfm_context_outcomes",
+            )
+            inserted = self._duck.insert_hfm_context_outcomes(arrow)
+            self.hfm_context_outcomes_written += inserted
+            self._hfm_context_outcomes = []
         if self._open_interest_samples:
             arrow = pa.Table.from_pylist(
                 self._open_interest_samples, schema=OPEN_INTEREST_SAMPLES_SCHEMA,
@@ -424,6 +478,8 @@ class BackgroundStorageWriter:
         "native_flow_event": "add_native_flow_event",
         "native_flow_outcome": "add_native_flow_outcome",
         "open_interest_sample": "add_open_interest_sample",
+        "combined_context_event": "add_combined_context_event",
+        "hfm_context_outcome": "add_hfm_context_outcome",
     }
 
     def __init__(
@@ -535,6 +591,12 @@ class BackgroundStorageWriter:
     def add_open_interest_sample(self, row: dict) -> None:
         self._enqueue("open_interest_sample", row)
 
+    def add_combined_context_event(self, row: dict) -> None:
+        self._enqueue("combined_context_event", row)
+
+    def add_hfm_context_outcome(self, row: dict) -> None:
+        self._enqueue("hfm_context_outcome", row)
+
     def tick(self) -> None:
         """Compatibility hook: only surface worker failure on the live path."""
         self._raise_if_failed()
@@ -570,6 +632,14 @@ class BackgroundStorageWriter:
     @property
     def open_interest_samples_written(self) -> int:
         return self._counter("open_interest_samples_written")
+
+    @property
+    def combined_context_events_written(self) -> int:
+        return self._counter("combined_context_events_written")
+
+    @property
+    def hfm_context_outcomes_written(self) -> int:
+        return self._counter("hfm_context_outcomes_written")
 
     @property
     def flushes(self) -> int:

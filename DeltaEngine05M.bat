@@ -4,7 +4,7 @@ setlocal
 
 set "ROOT=%~dp0"
 set "PROJ=%ROOT%Delta_Engine_Pro4web"
-set "COMPOSE_PROJECT_NAME=deltaengine_05M"
+set "COMPOSE_PROJECT_NAME=deltaengine_05m"
 set "URL=http://localhost:18080"
 
 if /i "%1"=="stop" goto :stop

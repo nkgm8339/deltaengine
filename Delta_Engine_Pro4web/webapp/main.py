@@ -17,6 +17,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.config import load_config
+from src.database.schema import (
+    combined_context_event_to_row,
+    hfm_context_outcome_to_row,
+)
+from src.orderflow.combined_context_runtime import CombinedContextObserver
+from src.orderflow.shadow_signal_recorder import ShadowSignalRecorder
 from src.pipeline import LivePipeline, ReplayPipeline, load_profile
 from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
 from webapp.push_broker import (
@@ -27,9 +33,12 @@ from webapp.push_broker import (
     d2s,
 )
 from webapp.oi_poller import oi_polling_loop
+from webapp.hfm_quote_tailer import hfm_quote_tail_loop
 from webapp.history import (
+    query_combined_context_events,
     query_candles,
     query_flow_response_events,
+    query_hfm_context_outcomes,
     query_open_interest_samples,
 )
 from webapp.version import resolve_version
@@ -72,6 +81,27 @@ async def lifespan(app: FastAPI):
     config = load_config(_CONFIG_PATH)
     profile = load_profile(_profile_path(config))
     broker = _build_broker(config)
+    context_observer = CombinedContextObserver(config.market.symbol)
+    shadow_recorder = ShadowSignalRecorder(Path("data_05M/manual/flow_response_shadow.jsonl"))
+
+    # Restore recent raw OI before live processing starts. This is read-only and
+    # allows the first native 5m close after a restart to use real prior samples.
+    if not config.replay.enabled:
+        try:
+            prior_oi = await asyncio.to_thread(
+                query_open_interest_samples,
+                config.database.duckdb_path,
+                config.market.symbol,
+                5000,
+            )
+            for row in reversed(prior_oi):
+                context_observer.observe_oi_sample({
+                    "source_time": datetime.fromisoformat(row["source_time"]),
+                    "symbol": config.market.symbol,
+                    "open_interest": Decimal(row["open_interest"]),
+                })
+        except Exception:
+            logger.exception("combined-context OI preload failed")
 
     if config.replay.enabled:
         pipeline = ReplayPipeline.from_config(
@@ -155,7 +185,23 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(broker.on_flow_event(ev))
 
     def on_flow_response_cb(snapshots):
+        try:
+            shadow_recorder.append(snapshots)
+        except OSError:
+            logger.exception('shadow flow-response recording failed')
         asyncio.create_task(broker.on_flow_response(snapshots))
+
+    def on_native_candle_cb(candle):
+        event = context_observer.register_candle(
+            candle,
+            decision_time=datetime.now(timezone.utc),
+        )
+        if event is None:
+            return
+        storage = getattr(pipeline, "storage_writer", None)
+        if storage is not None:
+            storage.add_combined_context_event(combined_context_event_to_row(event))
+        asyncio.create_task(broker.on_combined_context(event))
 
     pipeline.on_trade = on_trade_cb
     pipeline.on_candle = on_candle_cb
@@ -164,11 +210,13 @@ async def lifespan(app: FastAPI):
     pipeline.on_flow_event = on_webapp_flow_cb
     pipeline.on_webapp_flow_event = on_webapp_flow_cb
     pipeline.on_flow_response = on_flow_response_cb
+    pipeline.on_native_candle = on_native_candle_cb
 
     app.state.broker = broker
     app.state.config = config
     app.state.pipeline = pipeline
     app.state.market_push_pump = market_push_pump
+    app.state.context_observer = context_observer
 
     if config.replay.enabled:
         market_push_task = None
@@ -185,6 +233,7 @@ async def lifespan(app: FastAPI):
     pending_oi_samples: list[dict] = []
 
     def store_oi_sample(sample: dict) -> None:
+        context_observer.observe_oi_sample(sample)
         storage = getattr(pipeline, "storage_writer", None)
         if storage is None:
             pending_oi_samples.append(sample)
@@ -207,6 +256,18 @@ async def lifespan(app: FastAPI):
             on_sample=store_oi_sample,
         ))
 
+    async def on_hfm_quote(quote) -> None:
+        outcomes = context_observer.observe_hfm_quote(quote)
+        storage = getattr(pipeline, "storage_writer", None)
+        if storage is not None:
+            for outcome in outcomes:
+                storage.add_hfm_context_outcome(hfm_context_outcome_to_row(outcome))
+        await broker.on_hfm_quote(quote)
+
+    hfm_task = None
+    if not config.replay.enabled:
+        hfm_task = asyncio.create_task(hfm_quote_tail_loop(on_hfm_quote))
+
     async def _stats_loop():
         while True:
             await asyncio.sleep(5)
@@ -228,6 +289,9 @@ async def lifespan(app: FastAPI):
                     stats["storage_queue_high"] = str(
                         getattr(storage, "high_watermark", 0)
                     )
+                latest_hfm = context_observer.latest_hfm
+                stats["hfm_quote"] = "LIVE" if latest_hfm is not None else "WAITING"
+                stats["hfm_pending_outcomes"] = str(context_observer.pending_outcomes)
                 ab = getattr(pipeline, "absorption_detector", None)
                 if ab is not None:
                     stats["dropped"] = "0"
@@ -298,6 +362,8 @@ async def lifespan(app: FastAPI):
         tasks.append(market_push_task)
     if oi_task is not None:
         tasks.append(oi_task)
+    if hfm_task is not None:
+        tasks.append(hfm_task)
     if health_task is not None:
         tasks.append(health_task)
     app.state.tasks = tasks
@@ -437,6 +503,58 @@ async def api_open_interest_history(request: Request, limit: int = 2500):
     return JSONResponse({"samples": list(reversed(newest_first))})
 
 
+@app.get("/api/history/combined-context")
+async def api_combined_context_history(
+    request: Request,
+    timeframe: str = "5m",
+    limit: int = 500,
+):
+    """Return stored native four-axis observations oldest-first."""
+    config = getattr(request.app.state, "config", None)
+    if config is None:
+        return JSONResponse({"events": []})
+    selected = timeframe if timeframe in {"5m", "10m"} else "5m"
+    safe_limit = max(1, min(int(limit), 5000))
+    try:
+        newest_first = await asyncio.to_thread(
+            query_combined_context_events,
+            config.database.duckdb_path,
+            config.market.symbol,
+            selected,
+            safe_limit,
+        )
+    except Exception:
+        logger.exception("combined-context history query failed")
+        newest_first = []
+    return JSONResponse({"events": list(reversed(newest_first))})
+
+
+@app.get("/api/history/hfm-context-outcomes")
+async def api_hfm_context_outcome_history(
+    request: Request,
+    timeframe: str = "5m",
+    limit: int = 1500,
+):
+    """Return spread-inclusive HFM outcomes oldest-first."""
+    config = getattr(request.app.state, "config", None)
+    if config is None:
+        return JSONResponse({"outcomes": []})
+    selected = timeframe if timeframe in {"5m", "10m"} else "5m"
+    safe_limit = max(1, min(int(limit), 10000))
+    try:
+        newest_first = await asyncio.to_thread(
+            query_hfm_context_outcomes,
+            config.database.duckdb_path,
+            config.market.symbol,
+            selected,
+            safe_limit,
+        )
+    except Exception:
+        logger.exception("HFM context outcome history query failed")
+        newest_first = []
+    return JSONResponse({"outcomes": list(reversed(newest_first))})
+
+
 @app.get("/api/stats")
 async def api_stats(request: Request):
     pipeline = getattr(request.app.state, "pipeline", None)
@@ -464,6 +582,25 @@ async def api_stats(request: Request):
     if storage is not None:
         stats["storage_queue_pending"] = getattr(storage, "pending", 0)
         stats["storage_queue_high_watermark"] = getattr(storage, "high_watermark", 0)
+    observer = getattr(request.app.state, "context_observer", None)
+    if observer is not None:
+        latest_hfm = observer.latest_hfm
+        stats["hfm_pending_outcomes"] = observer.pending_outcomes
+        if latest_hfm is None:
+            stats["hfm_quote_status"] = "WAITING"
+        else:
+            age_ms = max(
+                0,
+                int(
+                    (
+                        datetime.now(timezone.utc) - latest_hfm.received_time
+                    ).total_seconds() * 1000
+                ),
+            )
+            stats["hfm_quote_status"] = "LIVE" if age_ms <= 3000 else "STALE"
+            stats["hfm_symbol"] = latest_hfm.symbol
+            stats["hfm_spread_usd"] = str(latest_hfm.spread)
+            stats["hfm_quote_age_ms"] = age_ms
     market_push_pump = getattr(request.app.state, "market_push_pump", None)
     if market_push_pump is not None:
         stats["ui_ticks_published"] = market_push_pump.published

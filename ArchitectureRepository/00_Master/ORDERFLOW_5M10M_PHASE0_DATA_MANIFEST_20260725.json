@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-25T13:14:59.375669+09:00",
+  "read_only": true,
+  "project": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web",
+  "inputs": {
+    "raw_trade_root": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\symbol=BTCUSDT\\year=2026",
+    "flow_response_events": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\flow_response_events",
+    "flow_response_outcomes": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\flow_response_outcomes",
+    "native_flow_events": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\native_flow_events",
+    "native_flow_outcomes": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\native_flow_outcomes",
+    "hfm_context_outcomes": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\hfm_context_outcomes"
+  },
+  "raw_trades": {
+    "files": 9585,
+    "trade_rows": 721750,
+    "unique_trade_ids": 721750,
+    "duplicate_trade_ids": 0,
+    "invalid_nonpositive": 0,
+    "invalid_side": 0,
+    "first_event_time": "2026-07-23T18:23:42.595000+00:00",
+    "last_event_time": "2026-07-25T04:14:58.447000+00:00",
+    "minutes_with_trades": 870,
+    "gap_count_over_1m": 7,
+    "gap_count_over_10m": 4,
+    "max_gap_seconds": 43020,
+    "gaps_seconds": [
+      1140,
+      360,
+      8760,
+      120,
+      43020,
+      16140,
+      600
+    ]
+  },
+  "research_constraints": {
+    "episode_must_not_cross_data_gap": true,
+    "missing_values_are_not_interpolated": true,
+    "existing_1m_logic_is_unchanged": true,
+    "orders_sent": false
+  }
+}

@@ -359,3 +359,123 @@ def native_flow_outcome_to_row(outcome: Any) -> dict:
         "forward_return_bps": _q8(outcome.forward_return_bps),
         "max_up_bps": _q8(outcome.max_up_bps), "max_down_bps": _q8(outcome.max_down_bps),
     }
+
+
+# --- PRICE/CVD/Delta/OI context + executable HFM outcomes -------------------
+# New tables are intentionally separate from candles/native_flow_* so the
+# existing research records and their primary keys remain unchanged.
+COMBINED_CONTEXT_EVENTS_SCHEMA = pa.schema([
+    ("event_time", TIMESTAMP), ("bar_time", TIMESTAMP),
+    ("symbol", pa.string()), ("timeframe", pa.string()),
+    ("pattern_no", pa.int8()), ("pattern_name", pa.string()),
+    ("price_direction", pa.int8()), ("cvd_direction", pa.int8()),
+    ("delta_direction", pa.int8()), ("oi_direction", pa.string()),
+    ("oi_open", DECIMAL), ("oi_close", DECIMAL), ("oi_change", DECIMAL),
+    ("oi_change_pct", DECIMAL), ("oi_sample_count", pa.int32()),
+    ("context_code", pa.string()), ("context_title", pa.string()),
+    ("context_summary_ja", pa.string()), ("hfm_entry_status", pa.string()),
+    ("hfm_symbol", pa.string()), ("hfm_entry_time", TIMESTAMP),
+    ("hfm_entry_source_time", TIMESTAMP), ("hfm_entry_sequence", pa.int64()),
+    ("hfm_entry_bid", DECIMAL), ("hfm_entry_ask", DECIMAL),
+    ("hfm_entry_spread", DECIMAL), ("hfm_entry_age_ms", pa.int64()),
+])
+COMBINED_CONTEXT_EVENTS_DDL = """
+CREATE TABLE IF NOT EXISTS combined_context_events (
+    event_time TIMESTAMP, bar_time TIMESTAMP, symbol VARCHAR, timeframe VARCHAR,
+    pattern_no TINYINT, pattern_name VARCHAR, price_direction TINYINT,
+    cvd_direction TINYINT, delta_direction TINYINT, oi_direction VARCHAR,
+    oi_open DECIMAL(20,8), oi_close DECIMAL(20,8), oi_change DECIMAL(20,8),
+    oi_change_pct DECIMAL(20,8), oi_sample_count INTEGER,
+    context_code VARCHAR, context_title VARCHAR, context_summary_ja VARCHAR,
+    hfm_entry_status VARCHAR, hfm_symbol VARCHAR, hfm_entry_time TIMESTAMP,
+    hfm_entry_source_time TIMESTAMP, hfm_entry_sequence BIGINT,
+    hfm_entry_bid DECIMAL(20,8), hfm_entry_ask DECIMAL(20,8),
+    hfm_entry_spread DECIMAL(20,8), hfm_entry_age_ms BIGINT,
+    PRIMARY KEY (event_time, symbol, timeframe)
+);
+"""
+
+HFM_CONTEXT_OUTCOMES_SCHEMA = pa.schema([
+    ("event_time", TIMESTAMP), ("symbol", pa.string()),
+    ("timeframe", pa.string()), ("context_code", pa.string()),
+    ("horizon_sec", pa.int32()), ("status", pa.string()),
+    ("hfm_symbol", pa.string()), ("entry_time", TIMESTAMP),
+    ("entry_source_time", TIMESTAMP), ("entry_bid", DECIMAL),
+    ("entry_ask", DECIMAL), ("outcome_time", TIMESTAMP),
+    ("outcome_source_time", TIMESTAMP), ("outcome_bid", DECIMAL),
+    ("outcome_ask", DECIMAL), ("quote_lag_ms", pa.int64()),
+    ("long_net_usd", DECIMAL), ("short_net_usd", DECIMAL),
+    ("long_return_bps", DECIMAL), ("short_return_bps", DECIMAL),
+    ("long_mfe_usd", DECIMAL), ("long_mae_usd", DECIMAL),
+    ("short_mfe_usd", DECIMAL), ("short_mae_usd", DECIMAL),
+])
+HFM_CONTEXT_OUTCOMES_DDL = """
+CREATE TABLE IF NOT EXISTS hfm_context_outcomes (
+    event_time TIMESTAMP, symbol VARCHAR, timeframe VARCHAR,
+    context_code VARCHAR, horizon_sec INTEGER, status VARCHAR,
+    hfm_symbol VARCHAR, entry_time TIMESTAMP, entry_source_time TIMESTAMP,
+    entry_bid DECIMAL(20,8), entry_ask DECIMAL(20,8),
+    outcome_time TIMESTAMP, outcome_source_time TIMESTAMP,
+    outcome_bid DECIMAL(20,8), outcome_ask DECIMAL(20,8),
+    quote_lag_ms BIGINT, long_net_usd DECIMAL(20,8),
+    short_net_usd DECIMAL(20,8), long_return_bps DECIMAL(20,8),
+    short_return_bps DECIMAL(20,8), long_mfe_usd DECIMAL(20,8),
+    long_mae_usd DECIMAL(20,8), short_mfe_usd DECIMAL(20,8),
+    short_mae_usd DECIMAL(20,8),
+    PRIMARY KEY (event_time, symbol, timeframe, horizon_sec)
+);
+"""
+
+
+def combined_context_event_to_row(event: Any) -> dict:
+    quote = event.hfm_entry
+    return {
+        "event_time": event.event_time, "bar_time": event.bar_time,
+        "symbol": event.symbol, "timeframe": event.timeframe,
+        "pattern_no": event.context.pattern.number,
+        "pattern_name": event.context.pattern.name,
+        "price_direction": event.context.pattern.price_direction,
+        "cvd_direction": event.context.pattern.cvd_direction,
+        "delta_direction": event.context.pattern.delta_direction,
+        "oi_direction": event.context.oi_direction.value,
+        "oi_open": _q8(event.oi_open), "oi_close": _q8(event.oi_close),
+        "oi_change": _q8(event.oi_change),
+        "oi_change_pct": _q8(event.oi_change_pct),
+        "oi_sample_count": event.oi_sample_count,
+        "context_code": event.context.code,
+        "context_title": event.context.title,
+        "context_summary_ja": event.context.summary_ja,
+        "hfm_entry_status": event.hfm_entry_status,
+        "hfm_symbol": quote.symbol if quote is not None else None,
+        "hfm_entry_time": quote.received_time if quote is not None else None,
+        "hfm_entry_source_time": quote.source_time if quote is not None else None,
+        "hfm_entry_sequence": quote.sequence if quote is not None else None,
+        "hfm_entry_bid": _q8(quote.bid) if quote is not None else None,
+        "hfm_entry_ask": _q8(quote.ask) if quote is not None else None,
+        "hfm_entry_spread": _q8(quote.spread) if quote is not None else None,
+        "hfm_entry_age_ms": event.hfm_entry_age_ms,
+    }
+
+
+def hfm_context_outcome_to_row(outcome: Any) -> dict:
+    return {
+        "event_time": outcome.event_time, "symbol": outcome.symbol,
+        "timeframe": outcome.timeframe, "context_code": outcome.context_code,
+        "horizon_sec": outcome.horizon_sec, "status": outcome.status,
+        "hfm_symbol": outcome.hfm_symbol, "entry_time": outcome.entry_time,
+        "entry_source_time": outcome.entry_source_time,
+        "entry_bid": _q8(outcome.entry_bid), "entry_ask": _q8(outcome.entry_ask),
+        "outcome_time": outcome.outcome_time,
+        "outcome_source_time": outcome.outcome_source_time,
+        "outcome_bid": _q8(outcome.outcome_bid),
+        "outcome_ask": _q8(outcome.outcome_ask),
+        "quote_lag_ms": outcome.quote_lag_ms,
+        "long_net_usd": _q8(outcome.long_net_usd),
+        "short_net_usd": _q8(outcome.short_net_usd),
+        "long_return_bps": _q8(outcome.long_return_bps),
+        "short_return_bps": _q8(outcome.short_return_bps),
+        "long_mfe_usd": _q8(outcome.long_mfe_usd),
+        "long_mae_usd": _q8(outcome.long_mae_usd),
+        "short_mfe_usd": _q8(outcome.short_mfe_usd),
+        "short_mae_usd": _q8(outcome.short_mae_usd),
+    }

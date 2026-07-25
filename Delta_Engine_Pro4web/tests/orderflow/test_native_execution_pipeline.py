@@ -26,3 +26,17 @@ def test_coordinator_saves_native_candle_and_event_rows():
     assert any(row["timeframe"] == "5m" for row in s.candles)
     assert any(row["timeframe"] == "5m" for row in s.events)
     assert all("timeframe" in row for row in s.candles if row["timeframe"] in ("5m", "10m"))
+
+
+def test_coordinator_notifies_only_naturally_closed_native_candles():
+    seen = []
+    c, s = NativeExecutionCoordinator(
+        "BTCUSDT",
+        horizons_sec=(5,),
+        on_candle=seen.append,
+    ), Storage()
+    c.process(trade(1, 1, 100, "BUY"), s)
+    c.process(trade(2, 300, 101, "SELL"), s)
+    assert [item.timeframe for item in seen] == ["5m"]
+    c.finalize(s)
+    assert [item.timeframe for item in seen] == ["5m"]

@@ -672,6 +672,9 @@ class LiveStats:
     liquidations_received: int
     # flow detector events
     flow_events_emitted: int
+    native_candles_stored: int = 0
+    native_flow_events_stored: int = 0
+    native_flow_outcomes_stored: int = 0
 
 
 class LivePipeline:
@@ -738,6 +741,7 @@ class LivePipeline:
         on_flow_event: Optional[Callable] = None,
         on_webapp_flow_event: Optional[Callable] = None,
         on_flow_response: Optional[Callable] = None,
+        on_native_candle: Optional[Callable] = None,
         flow_large_trade_min_qty: Decimal = Decimal("5.0"),
         flow_sweep_window_ms: int = 500,
         flow_sweep_min_qty: Decimal = Decimal("8.0"),
@@ -813,6 +817,7 @@ class LivePipeline:
         self.on_flow_event = on_flow_event
         self.on_webapp_flow_event = on_webapp_flow_event
         self.on_flow_response = on_flow_response
+        self.on_native_candle = on_native_candle
         self.flow_large_trade_min_qty = flow_large_trade_min_qty
         self.flow_sweep_window_ms = flow_sweep_window_ms
         self.flow_sweep_min_qty = flow_sweep_min_qty
@@ -962,6 +967,11 @@ class LivePipeline:
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
         higher_timeframes = MultiTimeframeCandleAggregator(self.symbol)
+        native_coordinator = NativeExecutionCoordinator(
+            self.symbol,
+            on_candle=self.on_native_candle,
+        )
+        self.native_coordinator = native_coordinator
         divergence_detector = CvdDivergenceDetector(
             equal_pivot_policy=self.divergence_equal_pivot_policy,
             min_price_move=self.divergence_min_price_move,
@@ -1104,6 +1114,7 @@ class LivePipeline:
 
         def handle(normalized) -> None:
             storage.add_trade(trade_to_row(normalized))
+            native_coordinator.process(normalized, storage)
             self._last_event_time = normalized.event_time
             if flow_response_detector is not None and flow_response_tracker is not None:
                 snapshots = flow_response_detector.process(normalized)
@@ -1331,6 +1342,7 @@ class LivePipeline:
                         await mt5_server.broadcast(
                             analysis_to_mt5_message(bar_close.analysis_result)
                         )
+            native_coordinator.finalize(storage)
             storage.close()
             if mt5_server is not None:
                 await mt5_server.stop()
@@ -1367,6 +1379,9 @@ class LivePipeline:
             depth_rejected=normalizer.depth_rejected,
             liquidations_received=liquidations_received,
             flow_events_emitted=flow_events_emitted,
+            native_candles_stored=native_coordinator.candles_written,
+            native_flow_events_stored=len(native_coordinator.events),
+            native_flow_outcomes_stored=len(native_coordinator.outcomes),
         )
 
     def run(self, **kwargs: Any) -> LiveStats:

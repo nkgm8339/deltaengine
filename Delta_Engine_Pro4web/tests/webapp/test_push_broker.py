@@ -70,6 +70,55 @@ def test_tick_payload_keeps_trade_id_for_latency_audit():
     asyncio.run(run())
 
 
+def test_hfm_quote_payload_is_bid_ask_and_usd_spread():
+    from src.orderflow.combined_context_runtime import HfmQuote
+
+    async def run():
+        broker = _make_broker()
+        ws = MagicMock()
+        sent = []
+
+        async def send_text(text):
+            sent.append(json.loads(text))
+
+        ws.send_text = AsyncMock(side_effect=send_text)
+        await broker.register(ws)
+        now = _utc("2026-07-24T10:00:00")
+        await broker.on_hfm_quote(HfmQuote(
+            "#BTCUSDr", now, now, 41, Decimal("65751.411"), Decimal("65771.681"),
+        ))
+        assert sent[0]["type"] == "HFM_QUOTE"
+        assert sent[0]["payload"]["hfm_symbol"] == "#BTCUSDr"
+        assert sent[0]["payload"]["bid"] == "65751.411"
+        assert sent[0]["payload"]["ask"] == "65771.681"
+        assert sent[0]["payload"]["spread_usd"] == "20.270"
+
+    asyncio.run(run())
+
+
+def test_late_browser_receives_latest_hfm_quote_immediately():
+    from src.orderflow.combined_context_runtime import HfmQuote
+
+    async def run():
+        broker = _make_broker()
+        now = _utc("2026-07-24T10:00:00")
+        await broker.on_hfm_quote(HfmQuote(
+            "#BTCUSDr", now, now, 41, Decimal("100"), Decimal("120"),
+        ))
+        ws = MagicMock()
+        sent = []
+
+        async def send_text(text):
+            sent.append(json.loads(text))
+
+        ws.send_text = AsyncMock(side_effect=send_text)
+        await broker.register(ws)
+        assert sent[0]["type"] == "HFM_QUOTE"
+        assert sent[0]["payload"]["spread_usd"] == "20"
+
+    asyncio.run(run())
+
+
 # ── test 2: d2s ───────────────────────────────────────────────────────────────
 
 def test_d2s_decimal_to_str():
@@ -860,6 +909,10 @@ def test_oi_context_ui_keeps_three_stage_chart_and_uses_persisted_real_samples()
     assert 'const MC={W:1200,H:500' in source
     assert '<text x="28" y="335"' in source
     assert '<text x="28" y="454"' in source
+    assert "HFM SPREAD USD" in source
+    assert 'case "HFM_QUOTE": onHfmQuote(m,p); break;' in source
+    assert "function onHfmQuote(m,p)" in source
+    assert "last.orderbook.asks[0].price" not in source
 
 
 def test_chart_status_rows_remain_visible_without_resizing_three_stage_chart():
@@ -886,6 +939,7 @@ def test_chart_status_rows_remain_visible_without_resizing_three_stage_chart():
     assert '<text x="28" y="335"' in source
     assert '<text x="28" y="454"' in source
 
+
 def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference():
     import pathlib
 
@@ -896,6 +950,7 @@ def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference
     assert 'aria-controls="combinationguide"' in source
     assert 'role="dialog"' in source
     assert "PRICE × CVD × Δ × OI" in source
+    assert "全16ケース" in source
     assert "非常に強い上昇。" in source
     assert "ショートカバー主体。" in source
     assert "非常に強い下落。" in source
@@ -904,6 +959,17 @@ def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference
     assert "ショートの利確（買い戻し）の可能性が高い。" in source
     assert "上昇中に売りが増加。" in source
     assert "ロングの利確が主体。" in source
+    assert "上昇反発に新規参加。" in source
+    assert "売り圧力を吸収。" in source
+    assert "買い圧力を吸収。" in source
+    assert "下落再開に新規参加。" in source
+    assert source.count('<tr><td class="guide-dir ') == 16
+    assert "const OI_COMBINED_CONTEXTS=Object.freeze({" in source
+    assert "function combinedOiContext(pattern,oiChange)" in source
+    assert "P${pattern.no}_MISSING" in source
+    assert "P${pattern.no}_UNCHANGED" in source
+    assert "P${pattern.no}_${oiDirection>0?'BUILDING':'UNWINDING'}" in source
+    assert '<div class="ct-oi-context-dirs">' in source
     assert "これは観測評価であり、売買シグナルではありません。" in source
     assert 'event.key==="Escape"&&!backdrop.hidden' in source
 

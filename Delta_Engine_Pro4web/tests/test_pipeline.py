@@ -87,8 +87,11 @@ def test_replay_is_deterministic_and_correct(tmp_path: Path) -> None:
     trades, candles = _dump_duckdb(run1_duck)
     assert [t[2] for t in trades] == [1, 2, 3, 4]   # trade_id column, in order
 
-    # single candle: bar 00:00, delta -2 (bar), cvd -2 (cumulative), volume 16
-    (candle,) = candles
+    # The original 1m candle remains identical. Native 5m/10m candles are
+    # stored alongside it under separate timeframe keys in the 05M build.
+    one_minute = [item for item in candles if item[2] == "1m"]
+    assert sorted(item[2] for item in candles) == ["10m", "1m", "5m"]
+    (candle,) = one_minute
     columns = ["bar_time", "symbol", "timeframe", "open", "high", "low",
                "close", "volume", "delta", "cvd"]
     row = dict(zip(columns, candle))

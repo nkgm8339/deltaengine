@@ -188,7 +188,8 @@ def test_open_interest_history_returns_oldest_first():
     assert response.status_code == 200
     samples = response.json()["samples"]
     assert [row["open_interest"] for row in samples] == ["101", "102"]
-    history_query.assert_called_once_with(":memory:", "BTCUSDT", 5000)
+    assert history_query.call_count == 2  # startup preload + REST response
+    history_query.assert_called_with(":memory:", "BTCUSDT", 5000)
 
 
 def test_replay_does_not_start_live_oi_poller():
@@ -211,6 +212,60 @@ def test_replay_does_not_start_live_oi_poller():
     assert response.status_code == 200
     assert response.json() == {"samples": []}
     oi_poller.assert_not_called()
+
+
+def test_combined_context_history_returns_oldest_first_and_filters_5m():
+    mock_pipeline = _make_mock_pipeline()
+    mock_config = _make_mock_config()
+    newest_first = [
+        {"event_time": "2026-07-24T00:10:00+00:00", "context_code": "P8_BUILDING"},
+        {"event_time": "2026-07-24T00:05:00+00:00", "context_code": "P1_BUILDING"},
+    ]
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.query_open_interest_samples", return_value=[]), \
+         patch("webapp.main.query_combined_context_events", return_value=newest_first) as query, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()), \
+         patch("webapp.main.hfm_quote_tail_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get("/api/history/combined-context?timeframe=5m&limit=99999")
+
+    assert response.status_code == 200
+    assert [row["context_code"] for row in response.json()["events"]] == [
+        "P1_BUILDING", "P8_BUILDING",
+    ]
+    query.assert_called_once_with(":memory:", "BTCUSDT", "5m", 5000)
+
+
+def test_hfm_context_outcome_history_returns_spread_inclusive_records():
+    mock_pipeline = _make_mock_pipeline()
+    mock_config = _make_mock_config()
+    newest_first = [{
+        "event_time": "2026-07-24T00:05:00+00:00",
+        "horizon_sec": "180",
+        "long_net_usd": "3.00000000",
+        "short_net_usd": "-7.00000000",
+    }]
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.query_open_interest_samples", return_value=[]), \
+         patch("webapp.main.query_hfm_context_outcomes", return_value=newest_first) as query, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()), \
+         patch("webapp.main.hfm_quote_tail_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get("/api/history/hfm-context-outcomes?timeframe=5m&limit=99999")
+
+    assert response.status_code == 200
+    assert response.json()["outcomes"][0]["long_net_usd"] == "3.00000000"
+    query.assert_called_once_with(":memory:", "BTCUSDT", "5m", 10000)
 
 
 def test_api_health_unknown_before_first_sample():
