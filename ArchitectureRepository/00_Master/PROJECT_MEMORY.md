@@ -1,8 +1,23 @@
 # DeltaEngine プロジェクト記憶
 
-最終更新: 2026-07-25
+最終更新: 2026-07-26
 
 ## 最重要の記憶
+
+### クライアントであるユーザーの意向が最優先
+
+このプロジェクトのクライアント、目的決定者、完成条件の決定者、最終採否の決定者は
+ユーザーである。ユーザーの最新の明示意向は、過去文書、過去policy、エージェントの都合、
+実装しやすさ、試験しやすさより常に優先する。
+
+ユーザーの趣旨を勝手に狭める、一部だけ実装して全体を完成扱いする、求められた最終目的を
+実装者に都合のよいproxy問題へ置き換える、過去文書を使って最新指示を無効化することを
+絶対に行わない。曖昧さが目的・完成条件を変える場合は、原文を引用してユーザーへ確認し、
+勝手に方向を決めない。
+
+テスト件数、コード量、処理時間は目的達成の証拠ではない。ユーザーが求めた成果へ
+実際につながっているかを完成判断の基準とする。確認済み事実、未確認事項、検討候補を分け、
+未確認の内容を完成・成功・有効と断定しない。
 
 2026年7月21日は、DeltaEngineが本来の目的を持って生まれ変わった日。
 
@@ -491,3 +506,157 @@ HFM同一時計quoteも0バイトのためGate 3／4は未評価である。
 
 Entry Spec対象試験は27件、全体回帰は **451 tests passed**。
 完成済み1M Flow Price Response、3段チャート、8パターン、OI、Flow Event、UIは変更していない。
+
+
+## 分析正確性・entry時点正確性のゼロスプレッド評価（2026-07-25）
+
+本プロジェクトで最初に明らかにする対象を、次の二つへ明示的に分離した。
+
+1. 観測時点の分析方向が、その後の実価格方向と一致したか
+2. 同じ分析内容でも、最初に架空entryする時点が正しかったか
+
+この段階ではspread、手数料、slippage、TP／SL、動的決済を一切使わない。
+10／20／30／45／60分後の固定価格だけで評価する。従来のHFM spreadを理由にした
+`NO_GO_FOR_HFM_ENTRY_V1`は、cost込みの当該Episode仕様にだけ有効であり、
+分析またはentry時点が不正確という結論へ拡張してはならない。
+spread適用は、分析とentry時点の正確性を確認した後の別工程である。
+
+重要な入力訂正:
+
+- 「HFM同一時計quote 0 bytes」はworkspace内bind targetをhost sourceと誤認した結果だった
+- 実データはMT5 Common Filesに63MB以上あり、MT5 history APIも利用可能だった
+- HFM server clockは保存済み対応点199件とlive sample 20件でUTCとの差+10,800秒を確認
+- HFM実tick 594,229件をsnapshot化。期間は
+  `2026-07-23T16:55:00.183Z`〜`2026-07-25T07:55:04.962Z`、120秒超gap 0
+- Binanceローカル生約定とローカル1分足には収録停止区間があったため、正確率の分母へ混ぜない
+- BinanceはFlow eventに保存済みのsignal実約定価格をentryに使い、公式Futures公開APIの
+  確定1分足2,341本をfixed exitとMFE／MAEへ使用。missing 0、duplicate 0、gap 0
+- signal実価格6,234観測は、すべて公式同時刻OHLC範囲内だった
+
+固定cutoff `2026-07-25T06:55:00Z` の結果:
+
+- Flow direction decision 9,208
+- 全decision outcome 92,080（rolling重複を含み、独立取引数ではない）
+- 非重複entry outcome 9,704（Binance 4,852、HFM有効4,651）
+- 同一decisionの市場間方向結果一致は、全decision 95.83%、非重複entry 95.94%
+- signed return相関は全decision 0.993651、非重複entry 0.992723
+- 注文送信0
+
+分析内容とentry時点を分けた主要結果:
+
+- `TRAPPED_REVERSAL` 10分は、状態が続く全更新を数えると
+  Binance 46.64%／HFM 46.26%
+- 同じ`TRAPPED_REVERSAL`を最初の非重複entryに限定すると
+  Binance 57.31%（n=260、中央値+1.101bps）／
+  HFM 55.95%（n=252、中央値+1.162bps）
+- `EFFECTIVE_CONTINUATION`の最初の非重複entryは30分で
+  Binance 54.36%（n=287、中央値+1.185bps）／
+  HFM 54.26%（n=282、中央値+1.825bps）
+- STALLEDのpressure／reversalは方向確定ではなく対照probeである。45分のpressure側は
+  Binance 56.16%／HFM 55.07%だったが、探索後に良い側だけを確定仕様へ採用しない
+
+この結果は、全状態を常時entryに使えるという意味ではない。むしろ、同じ分析ラベルでも
+継続中の全更新と最初のentryでは正確率が変わり、entry時点の選別が独立して必要だと確認した。
+30s TRAPPED 10／20分、60s EFFECTIVE 30分など両市場で同方向の高い探索値もあるが、
+約39時間の同一期間から見つけた候補なのでproduction仕様へ凍結しない。期間外データで
+事前固定した条件を追試し、正しい／不正確を判定する。
+
+成果物:
+
+- `ArchitectureRepository/00_Master/ORDERFLOW_ANALYSIS_ENTRY_CORRECTNESS_CHECKPOINT_20260725.md`
+- `ArchitectureRepository/00_Master/ORDERFLOW_ANALYSIS_ENTRY_CORRECTNESS_DETAILED_REPORT_20260725.md`
+  - 目的から結論まで24段階に分けた人間向け説明書
+  - 用語、1件の判定例、重複除外、分母、lag、全aggregate、期間外追試の意味を含む
+- `ArchitectureRepository/00_Master/ORDERFLOW_ANALYSIS_ENTRY_CORRECTNESS_EVALUATION_20260725.md`
+- `Delta_Engine_Pro4web/data_05M/research/analysis_entry_correctness_20260725.json`
+- `Delta_Engine_Pro4web/data_05M/research/analysis_entry_correctness_20260725.parquet`
+- `Delta_Engine_Pro4web/data_05M/research/binance_futures_1m_20260725.parquet`
+- `Delta_Engine_Pro4web/data_05M/research/hfm_mt5_ticks_20260725.parquet`
+
+新規対象試験13件、全体回帰 **464 tests passed**。
+完成済み1M Flow Price Response、3段チャート、8パターン、OI、Flow Event、UIは変更していない。
+
+## 統合ENTRY GO未完成とFlow単体発注の撤回（2026-07-26）
+
+2026-07-26、Flow Price Response単体の初回状態遷移をBUY/SELLへ変換し、HFM発注へ
+接続するsidecarを実装した。しかしこれはCVD、divergence、Footprint、Imbalance、
+Absorption、Flow Event、Liquidation、8パターン、OI、native 5m/10m分析を
+発注根拠へ使用していなかった。
+
+コード監査で確認済みの事実:
+
+- `src/orderflow/signal.py`の`SignalEngine`はretired composite engineのcompatibility shellで、
+  `evaluate()`は固定`WAIT / confidence 0 / NO_INPUT`
+- `src/ai/analysis.py`の`AnalysisEngine.evaluate()`は固定`NEUTRAL / confidence 0`
+- `src/pipeline.py`は独立指標設計により`CVD / Footprint / Imbalance`のscoreを明示的に
+  `None`として旧SignalEngineから外している
+- 各分析器は計算・保存・表示されるが、説明可能な現象別ENTRYトリガーへ統合する層は存在しない
+
+したがって「分析から自動発注まで完成」という報告は撤回する。
+Flow単体sidecarはENTRYロジックとして採用禁止。execution plumbing、audit、dashboard部品は、
+将来ユーザーが承認した統合GOへ接続するときの再利用候補にすぎない。
+
+2026-07-26 01:24 JSTの確認済み状態:
+
+- Flow単体check sidecar停止
+- port 18081停止
+- HFM position 0
+- HFM pending order 0
+- MT5 algorithmic trading OFF
+- LIVE注文0件
+
+次セッションは実装や大量テストから始めない。まず、相場現象ごとにENTRYトリガーを
+何種類へ分けるべきかを、既存moduleの意味、event time、保存済み実データから真剣に設計し、
+主発火条件、confirmation、反対根拠、hard reject、expiry、duplicate、re-arm、
+entry時刻を詳細に報告する。「5つか6つ」は例であり、数を先に固定しない。
+
+詳細引継ぎ:
+
+- `ArchitectureRepository/00_Master/ORDERFLOW_ENTRY_TRIGGER_DESIGN_HANDOFF_20260726.md`
+
+## Step 2 trigger outcome集計と第一関門（2026-07-26）
+
+Flow Response単体の方向仮説を、保存済み新05M 44,529 outcome、旧1M 46,492 outcome、
+合計91,021 outcomeとHFM 553件でread-only集計した。
+
+- 新旧期間のcell一致率相関は`-0.025`で、一貫した再現性を確認できなかった
+- HFM net中央値は確認した全cellで負だったが、spreadを含むため分析方向の正確性と分ける
+- OI、native flowには局所差があったが、context間で一貫した改善は確認できなかった
+- Absorption、Large Trade、Sweep、Liquidationなどは当時の永続履歴がなく、
+  統合confluenceの事後検証は未実施
+- この結果はFlow Price Response観測機能の否定ではなく、Flow状態単体をENTRYへ変換する仕様の
+  production採用根拠が無いという第一関門判定である
+- LIVE注文0件
+
+raw authoritative snapshot 459件、115.10 MiBは削除せずlocal research evidenceとして保持する。
+Gitには最終CSV 9件とinput manifestだけを保存し、DuckDB／WALのSHA-256は
+`ORDERFLOW_TRIGGER_OUTCOME_STEP2_CHECKPOINT_20260726.md`へ記録した。
+
+## Flow単体execution prototypeの強制停止境界（2026-07-26）
+
+Flow単体sidecarの履歴と将来再利用可能なMT5 gateway部品は保存するが、誤起動を防ぐため
+`FlowExecutionController`は`live`を例外拒否し、CLIも`observe / check`だけを受理する。
+Flow単体mappingから`order_send`へ到達するLIVE経路はfail closedである。
+
+将来、ユーザーが承認した説明可能な統合ENTRY GOが完成した場合だけ、独立した
+`Mt5MarketOrderGateway`をその統合層へ接続する。prototypeの存在を発注承認と解釈しない。
+
+## Hook Stage 2A append-only観測基盤（2026-07-26完成）
+
+板、約定、清算、OI、価格構造などを将来の統合triggerとして検証できるよう、
+発注から独立したHook観測基盤のStage 2Aを実装した。
+
+- 共通Hook契約と88種のregistryを追加
+- threshold未較正、hash不一致、quality不成立ではfail closed
+- raw market eventを順序付きXZ segmentへappend-only収録
+- segment summary、SHA-256、sequence、session validityをreplayで検証
+- Hook専用storageを既存DB／Parquetから分離
+- `LivePipeline`のoptional raw tapとして接続し、tap失敗時も市場pipelineを継続
+- `/api/stats`へcapture状態を追加
+- 既存Flow Price Response、3段チャート、8パターン、OI、Flow Eventの計算・表示は変更なし
+- playbook発火、Flow単体発注、LIVE注文への接続なし
+- 対象回帰36件合格
+
+Stage 2Aはデータ収録と共通契約の完成であり、統合ENTRY GOの完成ではない。
+A/C/D/E/F/G detector、閾値較正、playbook選抜、期間外成績、check／LIVE移行は別段階である。
+Stage 2Bは別作業として進行中であり、完了報告とユーザー確認までは未完成として扱う。
