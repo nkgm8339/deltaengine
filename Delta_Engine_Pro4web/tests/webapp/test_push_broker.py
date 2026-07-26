@@ -941,6 +941,19 @@ def test_chart_status_rows_remain_visible_without_resizing_three_stage_chart():
     assert '<text x="28" y="454"' in source
 
 
+def test_cvd_slope_is_rounded_and_labels_native_btc_quantity_units():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert 'const CVD={method:"regression",window:20};' in source
+    assert '${fmt(r.slope,2)} BTC/bar' in source
+    assert "String(r.slope)" not in source
+    assert 'slope=(win[w-1]-win[0])/(w-1);' in source
+    assert 'slope=sxx===0?0:sxy/sxx;' in source
+
+
 def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference():
     import pathlib
 

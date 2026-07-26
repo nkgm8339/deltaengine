@@ -2022,7 +2022,7 @@ function renderCvdSlope(){
     return;
   }
   el.style.color=r.slope>0?BUY:r.slope<0?SELL:DIS;
-  el.textContent=`CVD SLOPE ${r.slope>=0?"+":""}${String(r.slope)}/bar (${r.method==="regression"?"REGRESSION":"DIFFERENCE"} · ${r.w})`;
+  el.textContent=`CVD SLOPE ${r.slope>=0?"+":""}${fmt(r.slope,2)} BTC/bar (${r.method==="regression"?"REGRESSION":"DIFFERENCE"} · ${r.w})`;
 }
 function renderCvdDivergence(d){
   const el=$("cvddiv");
