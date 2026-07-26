@@ -1,0 +1,6 @@
+schema_version: 1
+default_status: UNCALIBRATED
+
+# Deliberately empty in Stage 2A. Missing entries fail closed. The calibration
+# tool may add entries only from a valid, hashed append-only input manifest.
+thresholds: {}

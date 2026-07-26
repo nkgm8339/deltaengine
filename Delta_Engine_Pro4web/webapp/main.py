@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -22,6 +23,12 @@ from src.database.schema import (
     hfm_context_outcome_to_row,
 )
 from src.orderflow.combined_context_runtime import CombinedContextObserver
+from src.orderflow.hooks.config import (
+    ThresholdBook,
+    load_hook_observer_config,
+    validate_observe_only_playbooks,
+)
+from src.observation.raw_journal import CaptureCampaign
 from src.orderflow.shadow_signal_recorder import ShadowSignalRecorder
 from src.pipeline import LivePipeline, ReplayPipeline, load_profile
 from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
@@ -46,6 +53,7 @@ from webapp.version import resolve_version
 logger = logging.getLogger("webapp.main")
 
 _CONFIG_PATH = "config/config.yaml"
+_HOOK_CONFIG_ENV = "HOOK_OBSERVER_CONFIG"
 _STATIC_DIR = Path(__file__).parent / "static"
 
 
@@ -83,6 +91,25 @@ async def lifespan(app: FastAPI):
     broker = _build_broker(config)
     context_observer = CombinedContextObserver(config.market.symbol)
     shadow_recorder = ShadowSignalRecorder(Path("data_05M/manual/flow_response_shadow.jsonl"))
+    hook_capture = None
+    hook_capture_error = None
+    hook_config_path = os.environ.get(_HOOK_CONFIG_ENV, "").strip()
+    if hook_config_path and not config.replay.enabled:
+        try:
+            hook_config = load_hook_observer_config(hook_config_path)
+            ThresholdBook.load(hook_config.thresholds_path)
+            validate_observe_only_playbooks(hook_config.playbooks_path)
+            if hook_config.enabled:
+                hook_capture = CaptureCampaign.open(hook_config)
+                logger.info(
+                    "Hook Stage 2A capture campaign opened: %s",
+                    hook_capture.stats(),
+                )
+        except Exception as exc:
+            hook_capture_error = f"{type(exc).__name__}: {exc}"
+            logger.exception(
+                "Hook Stage 2A capture did not start; market pipeline remains isolated"
+            )
 
     # Restore recent raw OI before live processing starts. This is read-only and
     # allows the first native 5m close after a restart to use real prior samples.
@@ -217,6 +244,8 @@ async def lifespan(app: FastAPI):
     app.state.pipeline = pipeline
     app.state.market_push_pump = market_push_pump
     app.state.context_observer = context_observer
+    app.state.hook_capture = hook_capture
+    app.state.hook_capture_error = hook_capture_error
 
     if config.replay.enabled:
         market_push_task = None
@@ -228,7 +257,9 @@ async def lifespan(app: FastAPI):
         )
     else:
         market_push_task = asyncio.create_task(market_push_pump.run())
-        pipeline_task = asyncio.create_task(pipeline.run_async())
+        pipeline_task = asyncio.create_task(
+            pipeline.run_async(raw_recorder=hook_capture)
+        )
 
     pending_oi_samples: list[dict] = []
 
@@ -295,6 +326,18 @@ async def lifespan(app: FastAPI):
                 ab = getattr(pipeline, "absorption_detector", None)
                 if ab is not None:
                     stats["dropped"] = "0"
+                if hook_capture is not None:
+                    capture_stats = hook_capture.stats()
+                    streams = capture_stats.get("streams", {})
+                    for mode, stream in streams.items():
+                        stats[f"hook_capture_{mode}"] = (
+                            "ACTIVE" if stream.get("accepting") else "STOPPED"
+                        )
+                        stats[f"hook_capture_{mode}_dropped"] = str(
+                            stream.get("dropped_queue_full", 0)
+                        )
+                elif hook_capture_error is not None:
+                    stats["hook_capture"] = "ERROR"
                 await broker.send_stats(datetime.now(timezone.utc), stats)
             except Exception:
                 pass
@@ -376,6 +419,9 @@ async def lifespan(app: FastAPI):
         for t in app.state.tasks:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await t
+        if hook_capture is not None:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(hook_capture.close)
 
 
 app = FastAPI(title="DeltaEngine05M WebApp", lifespan=lifespan)
@@ -606,6 +652,14 @@ async def api_stats(request: Request):
         stats["ui_ticks_published"] = market_push_pump.published
         stats["ui_ticks_sent"] = market_push_pump.sent
         stats["ui_ticks_coalesced"] = market_push_pump.coalesced
+    hook_capture = getattr(request.app.state, "hook_capture", None)
+    hook_capture_error = getattr(request.app.state, "hook_capture_error", None)
+    if hook_capture is not None:
+        stats["hook_capture"] = hook_capture.stats()
+    elif hook_capture_error is not None:
+        stats["hook_capture"] = {"status": "ERROR", "error": hook_capture_error}
+    else:
+        stats["hook_capture"] = {"status": "DISABLED"}
     return JSONResponse(stats)
 
 

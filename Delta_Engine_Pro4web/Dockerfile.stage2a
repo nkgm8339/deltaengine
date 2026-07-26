@@ -1,0 +1,10 @@
+ARG BASE_IMAGE=deltaengine_05m-deltaengine_clone:latest
+FROM ${BASE_IMAGE}
+
+# Deliberately overlay only Stage 2A runtime files. The UI is copied only after
+# its host, running-container, and staged-image hashes have been compared.
+COPY src/orderflow/hooks /app/src/orderflow/hooks
+COPY src/observation /app/src/observation
+COPY src/pipeline.py /app/src/pipeline.py
+COPY webapp/main.py /app/webapp/main.py
+COPY webapp/static/index.html /app/webapp/static/index.html

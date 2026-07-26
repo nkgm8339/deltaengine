@@ -91,6 +91,52 @@ _IMBALANCE_COOLDOWN_BARS = 3
 _DEC_ZERO = Decimal("0")
 
 
+class _RecorderFanout:
+    """Preserve the legacy recorder while isolating an optional observation tap."""
+
+    def __init__(self, legacy: Any | None, observation: Any | None) -> None:
+        self._legacy = legacy
+        self._observation = observation
+
+    @property
+    def written(self) -> int:
+        return int(getattr(self._legacy, "written", 0))
+
+    def write(self, obj: dict[str, Any]) -> None:
+        if self._legacy is not None:
+            self._legacy.write(obj)
+        if self._observation is not None:
+            try:
+                self._observation.write(obj)
+            except Exception:
+                logger.exception(
+                    "independent Hook observation tap failed; market pipeline continues"
+                )
+
+    def write_snapshot(self, obj: dict[str, Any], *, reason: str) -> None:
+        """Keep legacy bytes stable while adding acquisition reason to research raw."""
+        if self._legacy is not None:
+            self._legacy.write(obj)
+        if self._observation is not None:
+            observation_row = dict(obj)
+            observation_row["_capture_reason"] = reason
+            try:
+                self._observation.write(observation_row)
+            except Exception:
+                logger.exception(
+                    "independent Hook snapshot tap failed; market pipeline continues"
+                )
+
+    def close(self) -> None:
+        if self._legacy is not None:
+            self._legacy.close()
+        if self._observation is not None:
+            try:
+                self._observation.close()
+            except Exception:
+                logger.exception("independent Hook observation tap close failed")
+
+
 def _resolve_imbalance_min_volume(raw_min_volume: Any) -> Decimal:
     """Resolve imbalance.min_volume from config into a Decimal floor (Task-A).
 
@@ -145,7 +191,7 @@ async def _book_resync_supervisor(
     normalizer: Any,
     fetch_snapshot: Callable,
     counters: BookResyncCounters,
-    recorder: Optional[JsonlRecorder] = None,
+    recorder: Optional[Any] = None,
     sleep: Callable[[int], Awaitable[None]] = asyncio.sleep,
 ) -> None:
     """Keep the live order book initialized with retry and gap recovery."""
@@ -163,7 +209,11 @@ async def _book_resync_supervisor(
             if update is None:
                 raise ValueError("depth snapshot normalization returned None")
             if recorder is not None:
-                recorder.write(depth_evt)
+                reason = "BOOK_RESYNC" if synced_once else "INITIAL_BOOK_SYNC"
+                if hasattr(recorder, "write_snapshot"):
+                    recorder.write_snapshot(depth_evt, reason=reason)
+                else:
+                    recorder.write(depth_evt)
             book_state.apply(update)
             book_state.apply_initial_sync(update.final_update_id)
             if synced_once:
@@ -927,6 +977,7 @@ class LivePipeline:
         duration_sec: Optional[float] = None,
         max_trades: Optional[int] = None,
         record_path: str | Path | None = None,
+        raw_recorder: Any | None = None,
         connect: Optional[ConnectFn] = None,
         event_filter: Callable[[Any], bool] = is_agg_trade_or_depth,
         treat_stream_end_as_disconnect: bool = True,
@@ -939,6 +990,8 @@ class LivePipeline:
         ConnectFn (e.g. over ListTransport) for tests. ``record_path`` captures
         the forwarded stream and every applied REST depth snapshot as JSON
         Lines, so recorded depth diffs can be reconstructed exactly.
+        ``raw_recorder`` is an independent optional append-only observation tap;
+        when omitted, the pre-Stage-2A path is unchanged.
         """
         connect = connect or make_binance_connect(ping_interval=self.heartbeat_sec)
 
@@ -957,7 +1010,12 @@ class LivePipeline:
             heartbeat_sec=self.heartbeat_sec,
             treat_stream_end_as_disconnect=treat_stream_end_as_disconnect,
         )
-        recorder = JsonlRecorder(record_path) if record_path else None
+        legacy_recorder = JsonlRecorder(record_path) if record_path else None
+        recorder = (
+            _RecorderFanout(legacy_recorder, raw_recorder)
+            if legacy_recorder is not None or raw_recorder is not None
+            else None
+        )
         receiver = DataReceiver(
             out_q,
             norm_q,

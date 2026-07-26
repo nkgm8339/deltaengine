@@ -19,4 +19,5 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - HFM_QUOTE_FILE=/app/data_05M/hfm/DeltaEngine_HFM_quotes_utf8.jsonl
+      - HOOK_OBSERVER_CONFIG=/app/config/hook_observer.yaml
     restart: unless-stopped

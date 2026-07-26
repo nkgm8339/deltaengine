@@ -1,0 +1,8 @@
+schema_version: 1
+mode: OBSERVE
+execution_enabled: false
+
+# Stage 2A establishes the contract and collection layer only. T01-T50 are
+# declared and validated in Stage 3 after detector implementation and the next
+# explicit approval. No playbook can fire from this empty mapping.
+playbooks: {}

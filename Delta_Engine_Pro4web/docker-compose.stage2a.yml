@@ -1,0 +1,3 @@
+services:
+  deltaengine_clone:
+    image: deltaengine_05m-deltaengine-clone:stage2a-20260726

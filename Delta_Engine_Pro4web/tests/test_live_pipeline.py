@@ -17,7 +17,7 @@ from decimal import Decimal as _Decimal
 
 from src.acquisition.replay import ListTransport, ReplaySource
 from src.normalization.normalizer import ExchangeProfile
-from src.pipeline import LivePipeline, ReplayPipeline
+from src.pipeline import LivePipeline, ReplayPipeline, _RecorderFanout
 
 # Binance profile with the Phase6 aggTrade mapping (trade_id -> aggregate id `a`).
 PROFILE = ExchangeProfile.from_dict(
@@ -150,6 +150,71 @@ def test_live_recording_replays_identically(tmp_path: Path) -> None:
     assert replay_stats.candles_stored == live_stats.candles_stored
     assert replay_stats.signals_stored == live_stats.signals_stored
     assert replay_stats.final_cvd == live_stats.final_cvd
+
+
+def test_optional_raw_observation_tap_is_isolated_from_legacy_stats(tmp_path: Path) -> None:
+    class MemoryRecorder:
+        def __init__(self) -> None:
+            self.rows = []
+            self.closed = False
+
+        def write(self, row) -> None:
+            self.rows.append(row)
+
+        def close(self) -> None:
+            self.closed = True
+
+    recorder = MemoryRecorder()
+    live = _live(tmp_path, "observation_tap")
+    stats = live.run(
+        connect=FakeConnect(MESSAGES),
+        raw_recorder=recorder,
+        poll_interval=0.02,
+        fetch_snapshot=None,
+    )
+
+    assert stats.recorded == 0
+    assert [row.get("e") for row in recorder.rows] == [
+        "aggTrade",
+        "depthUpdate",
+        "aggTrade",
+    ]
+    assert recorder.closed is True
+    assert stats.normalized == 2
+
+
+def test_snapshot_reason_is_added_only_to_observation_tap() -> None:
+    legacy = MagicMock()
+    observation = MagicMock()
+    row = {"e": "depthSnapshot", "u": 42, "b": [], "a": []}
+    fanout = _RecorderFanout(legacy, observation)
+
+    fanout.write_snapshot(row, reason="INITIAL_BOOK_SYNC")
+
+    legacy.write.assert_called_once_with(row)
+    observed = observation.write.call_args.args[0]
+    assert observed["_capture_reason"] == "INITIAL_BOOK_SYNC"
+    assert "_capture_reason" not in row
+
+
+def test_observation_tap_failure_does_not_stop_market_pipeline(tmp_path: Path) -> None:
+    class FailingRecorder:
+        def write(self, _row) -> None:
+            raise OSError("capture unavailable")
+
+        def close(self) -> None:
+            raise OSError("capture close unavailable")
+
+    live = _live(tmp_path, "observation_tap_failure")
+    stats = live.run(
+        connect=FakeConnect(MESSAGES),
+        raw_recorder=FailingRecorder(),
+        poll_interval=0.02,
+        fetch_snapshot=None,
+    )
+
+    assert stats.normalized == 2
+    assert stats.trades_stored == 2
 
 
 # ── forceOrder (Liquidation) tests ────────────────────────────────────────────

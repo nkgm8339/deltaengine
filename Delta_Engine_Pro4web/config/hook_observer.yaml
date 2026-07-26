@@ -1,0 +1,27 @@
+schema_version: 1
+enabled: true
+
+# Fixed-duration Stage 2A campaign. The first successful start persists the
+# absolute UTC deadlines; restarts do not extend either collection window.
+capture:
+  campaign_id: stage2a_20260726_xz
+  root: data_05M/hook_observer/campaigns
+  full_capture_days: 3
+  liquidation_capture_days: 14
+
+journal:
+  queue_depth: 20000
+  compression: xz
+  compression_level: 6
+  flush_interval_sec: 1
+  min_free_bytes: 1073741824
+
+storage:
+  enabled: true
+  root: data_05M/hook_observer/hook_events
+  queue_depth: 10000
+  batch_size: 250
+  flush_interval_sec: 5
+
+thresholds_path: config/hook_thresholds.yaml
+playbooks_path: config/playbooks.yaml
