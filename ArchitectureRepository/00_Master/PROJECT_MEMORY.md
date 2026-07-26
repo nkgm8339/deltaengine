@@ -685,3 +685,29 @@ A/C/D/E/F/Gの較正前detectorを実装した。
 `execution_enabled: false`である。Stage 2B完成は統合ENTRY GOや自動発注の完成ではない。
 収録完了、較正、HookEvent解禁、Playbook選抜、期間外評価、Stage 2C、check／LIVE移行は
 別工程であり、ユーザー確認前に進めない。
+
+## Hook Stage 2C着手承認と2C-1待機境界（2026-07-26）
+
+ユーザーは2026-07-26にStage 2B完了を確認し、Stage 2C着手を承認した。
+正本承認書は
+`ArchitectureRepository/00_Master/トリガー作成指示書群/HOOK_STAGE2C_START_APPROVAL_20260726.md`。
+
+Stage 2Cは、収録完了判定、gate合格Hookのthreshold較正、replay発火頻度検証、
+ユーザー承認後のobserve発火解禁を順番に行う。fullとliquidationは期限が異なるため、
+2C-1を個別に報告する。
+
+- full current effective deadline: 2026-07-29 13:34:16.402489 JST
+- liquidation current effective deadline: 2026-08-09 13:34:16.408828 JST
+- DOM期限到達時にC:実消費量を報告し、残り8GB以上を安全基準とする
+- liquidation標本gate未達時はE01-E06／C09を`UNCALIBRATED`のまま報告する
+- full側でgate合格した他Hookはliquidation不足だけを理由に止めない
+- 各工程完了後、次工程へ進む前にユーザー承認を得る
+
+Stage 2C着手時点では実装作業は発生しない。thresholdは空、全Hookは`UNCALIBRATED`、
+Playbookは`OBSERVE`、`execution_enabled: false`のまま維持する。
+Playbook選抜、check移行、LIVE注文、既存Flow Price Response／3段チャート／8パターンの変更、
+収録データの削除・修正・truncateは禁止する。
+
+次の再開位置は、full effective deadline到達後のread-only 2C-1判定である。
+詳細checkpointは
+`ArchitectureRepository/00_Master/トリガー作成指示書群/HOOK_STAGE2C_CHECKPOINT_20260726.md`。
