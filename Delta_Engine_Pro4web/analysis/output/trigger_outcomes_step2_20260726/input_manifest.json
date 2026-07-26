@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-07-26T07:28:57+09:00",
+  "script": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\aggregate_trigger_outcomes_step2.py",
+  "source_policy": "READ_ONLY",
+  "strict_counts": true,
+  "step1_reported_inventory": {
+    "new_05m": 24355,
+    "old_1m": 46492,
+    "total": 70847
+  },
+  "approved_run_inventory": {
+    "new_05m": 44529,
+    "old_1m": 46492,
+    "total": 91021,
+    "hfm": 553,
+    "hfm_ok": 528,
+    "hfm_quote_gap": 25
+  },
+  "run_inventory": {
+    "new_05m": 44529,
+    "old_1m": 46492,
+    "total": 91021
+  },
+  "new_cutoff": "2026-07-26T05:14:51.002+09:00",
+  "clean_boundary": "2026-07-21T18:30:41+09:00",
+  "live_duckdb_opened": false,
+  "new_duckdb_snapshot": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\output\\trigger_outcomes_step2_20260726\\source_snapshot_20260726_0704\\orderflow_05M.duckdb",
+  "counts": {
+    "new_outcomes": 44529,
+    "old_outcomes": 46492,
+    "hfm": 553,
+    "hfm_ok": 528,
+    "hfm_quote_gap": 25
+  },
+  "distinct_counts": {
+    "new_outcomes": 44529,
+    "old_outcomes": 46492,
+    "hfm": 553
+  },
+  "source_files": {
+    "old_oi": {
+      "file_count": 74,
+      "total_bytes": 279870,
+      "oldest_mtime": "2026-07-22T17:53:32.980725+09:00",
+      "newest_mtime": "2026-07-24T00:35:38.958210+09:00",
+      "first_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data\\parquet\\open_interest_samples\\symbol=BTCUSDT\\year=2026\\month=07\\day=22\\hour-09.parquet",
+      "last_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data\\parquet\\open_interest_samples\\symbol=BTCUSDT\\year=2026\\month=07\\day=23\\hour-15.parquet"
+    },
+    "new_duckdb_snapshot": {
+      "file_count": 1,
+      "total_bytes": 111947776,
+      "oldest_mtime": "2026-07-26T05:10:11.944861+09:00",
+      "newest_mtime": "2026-07-26T05:10:11.944861+09:00",
+      "first_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\output\\trigger_outcomes_step2_20260726\\source_snapshot_20260726_0704\\orderflow_05M.duckdb",
+      "last_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\output\\trigger_outcomes_step2_20260726\\source_snapshot_20260726_0704\\orderflow_05M.duckdb"
+    },
+    "new_duckdb_snapshot_wal": {
+      "file_count": 1,
+      "total_bytes": 5157820,
+      "oldest_mtime": "2026-07-26T07:03:36.247277+09:00",
+      "newest_mtime": "2026-07-26T07:03:36.247277+09:00",
+      "first_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\output\\trigger_outcomes_step2_20260726\\source_snapshot_20260726_0704\\orderflow_05M.duckdb.wal",
+      "last_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\output\\trigger_outcomes_step2_20260726\\source_snapshot_20260726_0704\\orderflow_05M.duckdb.wal"
+    },
+    "frozen_hfm_parquet": {
+      "file_count": 457,
+      "total_bytes": 3588274,
+      "oldest_mtime": "2026-07-24T21:38:07.751200+09:00",
+      "newest_mtime": "2026-07-25T11:40:02.022399+09:00",
+      "first_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\output\\trigger_outcomes_step2_20260726\\source_snapshot_20260726_0704\\hfm_context_outcomes\\symbol=BTCUSDT\\timeframe=10m\\year=2026\\month=07\\day=24\\part-000279.parquet",
+      "last_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\analysis\\output\\trigger_outcomes_step2_20260726\\source_snapshot_20260726_0704\\hfm_context_outcomes\\symbol=BTCUSDT\\timeframe=5m\\year=2026\\month=07\\day=25\\part-004510.parquet"
+    }
+  },
+  "new_source_mode": "COPIED_DUCKDB_READ_ONLY",
+  "old_duckdb": {
+    "path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data\\duckdb\\orderflow.duckdb",
+    "bytes": 326119424,
+    "mtime": "2026-07-24T00:33:50.796085+09:00",
+    "mode": "READ_ONLY"
+  },
+  "derived_outputs": {
+    "direction_by_state_window_horizon.csv": 688,
+    "new_old_cell_comparison.csv": 92,
+    "mfe_mae_by_state_horizon.csv": 64,
+    "hfm_context_usd.csv": 136,
+    "hfm_binance_alignment.csv": 4,
+    "jst_hour_event_frequency.csv": 1150,
+    "jst_hour_performance.csv": 5961,
+    "confluence_oi.csv": 1062,
+    "confluence_native_flow.csv": 1514
+  }
+}

@@ -11,6 +11,12 @@ Delta_Engine_Pro4web/.pytest-*/
 pytest-cache-files-*/
 .pytest-*/
 
+# Research snapshots are preserved locally but are too large or provisional for Git.
+# Curated final CSV/JSON tables and analysis/output/README.md remain trackable.
+Delta_Engine_Pro4web/analysis/output/**/source_snapshot_*/
+Delta_Engine_Pro4web/analysis/output/**/provisional_authoritative_db/
+Delta_Engine_Pro4web/analysis/out/
+
 # Historical backups and generated release artifacts
 DeltaEngine_BACKUP_20260719/
 archive/
