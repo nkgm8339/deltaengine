@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -97,6 +98,7 @@ def test_append_only_journal_round_trip_and_manifest(tmp_path):
     )
     assert summary["valid"] is True
     assert summary["persisted"] == 3
+    assert summary["durably_committed"] == 3
     replayed = list(JournalReplay(session_dir).records())
     assert [record.payload for record in replayed] == rows
     assert [record.record_type for record in replayed] == [
@@ -105,6 +107,7 @@ def test_append_only_journal_round_trip_and_manifest(tmp_path):
         "LIQUIDATION",
     ]
     manifest = (session_dir / "manifest_events.jsonl").read_text(encoding="utf-8")
+    assert "FRAME_COMMIT" in manifest
     assert "SEGMENT_CLOSE" in manifest
     assert "SESSION_END" in manifest
 
@@ -138,6 +141,57 @@ def test_replay_rejects_crash_incomplete_session(tmp_path):
     with pytest.raises(JournalIntegrityError, match="no summary"):
         JournalReplay(journal.session_dir)
     journal.close()
+
+
+def test_crash_incomplete_xz_replays_only_durably_committed_frames(tmp_path):
+    journal = _journal(tmp_path)
+    rows = [
+        {"e": "depthUpdate", "U": index, "u": index, "b": [], "a": []}
+        for index in range(1, 4)
+    ]
+    for row in rows:
+        journal.write(row)
+    deadline = time.monotonic() + 5
+    while journal.durably_committed < len(rows) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert journal.durably_committed == len(rows)
+    session_dir = journal.session_dir
+    journal.close()
+
+    (session_dir / "session_summary.json").unlink()
+    segment = next(session_dir.glob("raw-*.jsonl.xz"))
+    with segment.open("ab") as handle:
+        handle.write(b"uncommitted-crash-tail")
+
+    with pytest.raises(JournalIntegrityError, match="no summary"):
+        JournalReplay(session_dir)
+    replay = JournalReplay(session_dir, allow_active=True)
+    assert [record.payload for record in replay.records()] == rows
+    assert replay.uncommitted_tail_bytes == len(b"uncommitted-crash-tail")
+
+
+def test_committed_xz_frame_hash_mismatch_is_rejected(tmp_path):
+    journal = _journal(tmp_path)
+    journal.write({"e": "forceOrder", "E": 1, "o": {"S": "SELL"}})
+    session_dir = journal.session_dir
+    journal.close()
+
+    manifest_rows = [
+        json.loads(line)
+        for line in (session_dir / "manifest_events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    frame = next(row for row in manifest_rows if row["event"] == "FRAME_COMMIT")
+    segment = session_dir / frame["file"]
+    with segment.open("r+b") as handle:
+        handle.seek(frame["offset"] + 1)
+        original = handle.read(1)
+        handle.seek(frame["offset"] + 1)
+        handle.write(bytes([original[0] ^ 0x01]))
+
+    with pytest.raises(JournalIntegrityError, match="frame hash mismatch"):
+        list(JournalReplay(session_dir).records())
 
 
 def test_hook_event_storage_is_separate_append_only_parquet(tmp_path):

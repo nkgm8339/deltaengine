@@ -659,4 +659,29 @@ Flow単体mappingから`order_send`へ到達するLIVE経路はfail closedであ
 
 Stage 2Aはデータ収録と共通契約の完成であり、統合ENTRY GOの完成ではない。
 A/C/D/E/F/G detector、閾値較正、playbook選抜、期間外成績、check／LIVE移行は別段階である。
-Stage 2Bは別作業として進行中であり、完了報告とユーザー確認までは未完成として扱う。
+Stage 2Bは2026-07-26に完了した。詳細は次節と
+`ArchitectureRepository/00_Master/トリガー作成指示書群/HOOK_STAGE2B_COMPLETION_REPORT_20260726.md`
+を正本とする。
+
+## Hook Stage 2B耐障害化・自動復旧・detector基礎（2026-07-26完成）
+
+Hook観測基盤を、PC再起動やprocess不意停止を含めて継続運用できる状態へ更新し、
+A/C/D/E/F/Gの較正前detectorを実装した。
+
+- XZを最大1秒の独立frameへ分割し、data fsync後にmanifestの`FRAME_COMMIT`をfsync
+- summaryなしcrash sessionでもcommit済みframeのhash、件数、sequenceを検証して回収
+- 未commit tailは削除せず明示除外
+- coverageと停止延長をappend-only台帳へ記録し、original deadlineを改変しない
+- Windows Scheduled TaskからDocker、Compose、health、同一campaignを1コマンドで自動復旧
+- 二度目の実機再起動でTask結果0、GREEN、新session、durable増加を人手起動なしで確認
+- boot前full session 126,707件、6,406 frameを全件replayし、tail 0 byte
+- DOM／interaction／Flow transition／liquidation／OI／価格構造の56 Hook候補を実装
+- stale、DOM gap、crossed book、future-dataをcandidate生成前に拒否
+- r3 image内DOM benchmarkはp99 4.314ms、max 12.733ms
+- 全体回帰 **516 tests passed**
+- 完成済みFlow Price Response、3段チャート、8パターン、UIの変更なし
+
+全thresholdは`UNCALIBRATED`、HookEvent発火0、Playbookは`OBSERVE`、
+`execution_enabled: false`である。Stage 2B完成は統合ENTRY GOや自動発注の完成ではない。
+収録完了、較正、HookEvent解禁、Playbook選抜、期間外評価、Stage 2C、check／LIVE移行は
+別工程であり、ユーザー確認前に進めない。

@@ -1,0 +1,9 @@
+ARG BASE_IMAGE=deltaengine_05m-deltaengine-clone:stage2a-20260726
+FROM ${BASE_IMAGE}
+
+# Overlay only the independent Stage 2B Hook observation/detector runtime.
+# The completed Flow Price Response, chart UI, and existing storage remain in
+# the pinned Stage 2A base image.
+COPY src/observation /app/src/observation
+COPY src/orderflow/hooks /app/src/orderflow/hooks
+COPY tools/benchmark_stage2b_dom.py /app/tools/benchmark_stage2b_dom.py

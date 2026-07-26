@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from src.observation.capture_coverage import CaptureCoverageLedger
 from src.orderflow.hooks.config import HookObserverConfig
 
 logger = logging.getLogger("observation.raw_journal")
@@ -124,6 +125,7 @@ class AppendOnlyRawJournal:
         self._sequence = 0
         self.accepted = 0
         self.persisted = 0
+        self.durably_committed = 0
         self.dropped_queue_full = 0
         self.rejected_disk_low = 0
         self.rejected_deadline = 0
@@ -160,6 +162,7 @@ class AppendOnlyRawJournal:
         )
         self._manifest(
             "SESSION_START",
+            durable=True,
             campaign_id=campaign_id,
             config_hash=config_hash,
             deadline=_utc_text(self.deadline),
@@ -173,7 +176,7 @@ class AppendOnlyRawJournal:
 
     @property
     def written(self) -> int:
-        return self.persisted
+        return self.durably_committed
 
     @property
     def pending(self) -> int:
@@ -184,7 +187,7 @@ class AppendOnlyRawJournal:
         with self._state_lock:
             return self._accepting and not self._closed
 
-    def _manifest(self, event: str, **details: Any) -> None:
+    def _manifest(self, event: str, *, durable: bool = False, **details: Any) -> None:
         row = {
             "journal_version": 1,
             "event": event,
@@ -201,6 +204,8 @@ class AppendOnlyRawJournal:
         with self._manifest_lock:
             self._manifest_handle.write(line + "\n")
             self._manifest_handle.flush()
+            if durable:
+                os.fsync(self._manifest_handle.fileno())
 
     def _check_disk(self) -> bool:
         current = time.monotonic()
@@ -269,24 +274,116 @@ class AppendOnlyRawJournal:
         compression_handle: Any = None
         text_handle: Any = None
         segment_count = 0
-        last_flush = time.monotonic()
+        frame_batch: list[_QueuedRecord] = []
+        last_commit = time.monotonic()
 
-        def close_segment() -> None:
-            nonlocal raw_handle, compression_handle, text_handle, segment_path, segment_count
-            if text_handle is None or segment_path is None:
+        def envelope_bytes(item: _QueuedRecord) -> bytes:
+            envelope = {
+                "journal_version": 1,
+                "sequence": item.sequence,
+                "record_type": _record_type(item.payload),
+                "received_time": _utc_text(item.received_time),
+                "payload": item.payload,
+            }
+            return (
+                json.dumps(
+                    envelope,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                    default=str,
+                )
+                + "\n"
+            ).encode("utf-8")
+
+        def commit_xz_frame() -> None:
+            nonlocal segment_count, last_commit
+            if not frame_batch:
                 return
-            text_handle.flush()
-            compression_handle.flush()
-            text_handle.close()
+            if raw_handle is None or segment_path is None:
+                raise RuntimeError("XZ frame has no open segment")
+            uncompressed = b"".join(envelope_bytes(item) for item in frame_batch)
+            compressed = lzma.compress(
+                uncompressed,
+                format=lzma.FORMAT_XZ,
+                preset=self._compression_level,
+            )
+            offset = raw_handle.tell()
+            raw_handle.write(compressed)
             raw_handle.flush()
             os.fsync(raw_handle.fileno())
+            first = frame_batch[0]
+            last = frame_batch[-1]
+            count = len(frame_batch)
+            self._manifest(
+                "FRAME_COMMIT",
+                durable=True,
+                file=segment_path.name,
+                offset=offset,
+                compressed_bytes=len(compressed),
+                frame_sha256=hashlib.sha256(compressed).hexdigest(),
+                first_sequence=first.sequence,
+                last_sequence=last.sequence,
+                records=count,
+                first_received_time=_utc_text(first.received_time),
+                last_received_time=_utc_text(last.received_time),
+            )
+            segment_count += count
+            with self._state_lock:
+                self.persisted += count
+                self.durably_committed += count
+            frame_batch.clear()
+            last_commit = time.monotonic()
+
+        def open_segment(hour: str) -> None:
+            nonlocal segment_hour, segment_path, raw_handle
+            nonlocal compression_handle, text_handle, segment_count
+            segment_hour = hour
+            segment_count = 0
+            extension = "gz" if self._compression == "gzip" else "xz"
+            segment_path = self.session_dir / f"raw-{hour}.jsonl.{extension}"
+            raw_handle = segment_path.open("xb")
+            if self._compression == "gzip":
+                compression_handle = gzip.GzipFile(
+                    fileobj=raw_handle,
+                    mode="wb",
+                    compresslevel=self._compression_level,
+                    mtime=0,
+                )
+                import io
+
+                text_handle = io.TextIOWrapper(
+                    compression_handle, encoding="utf-8", newline="\n"
+                )
+            self._manifest(
+                "SEGMENT_OPEN", durable=True, file=segment_path.name
+            )
+
+        def close_segment() -> None:
+            nonlocal raw_handle, compression_handle, text_handle, segment_path
+            if raw_handle is None or segment_path is None:
+                return
+            if self._compression == "xz":
+                commit_xz_frame()
+                raw_handle.flush()
+                os.fsync(raw_handle.fileno())
+            else:
+                text_handle.flush()
+                compression_handle.flush()
+                text_handle.close()
+                raw_handle.flush()
+                os.fsync(raw_handle.fileno())
             raw_handle.close()
             raw_handle = None
             compression_handle = None
             text_handle = None
+            if self._compression == "gzip":
+                with self._state_lock:
+                    self.durably_committed = self.persisted
             digest = _sha256(segment_path)
             self._manifest(
                 "SEGMENT_CLOSE",
+                durable=True,
                 file=segment_path.name,
                 records=segment_count,
                 bytes=segment_path.stat().st_size,
@@ -320,53 +417,24 @@ class AppendOnlyRawJournal:
                     hour = item.received_time.strftime("%Y%m%dT%H")
                     if hour != segment_hour:
                         close_segment()
-                        segment_hour = hour
-                        segment_count = 0
-                        extension = "gz" if self._compression == "gzip" else "xz"
-                        segment_path = self.session_dir / f"raw-{hour}.jsonl.{extension}"
-                        raw_handle = segment_path.open("xb")
-                        if self._compression == "gzip":
-                            compression_handle = gzip.GzipFile(
-                                fileobj=raw_handle,
-                                mode="wb",
-                                compresslevel=self._compression_level,
-                                mtime=0,
-                            )
-                        else:
-                            compression_handle = lzma.LZMAFile(
-                                raw_handle, mode="wb", preset=self._compression_level
-                            )
-                        import io
-
-                        text_handle = io.TextIOWrapper(
-                            compression_handle, encoding="utf-8", newline="\n"
-                        )
-                        self._manifest("SEGMENT_OPEN", file=segment_path.name)
-                    envelope = {
-                        "journal_version": 1,
-                        "sequence": item.sequence,
-                        "record_type": _record_type(item.payload),
-                        "received_time": _utc_text(item.received_time),
-                        "payload": item.payload,
-                    }
-                    text_handle.write(
-                        json.dumps(
-                            envelope,
-                            sort_keys=True,
-                            separators=(",", ":"),
-                            ensure_ascii=False,
-                            default=str,
-                        )
-                        + "\n"
-                    )
-                    segment_count += 1
-                    with self._state_lock:
-                        self.persisted += 1
+                        open_segment(hour)
+                    if self._compression == "xz":
+                        frame_batch.append(item)
+                        if self.mode == "liquidation":
+                            commit_xz_frame()
+                    else:
+                        text_handle.write(envelope_bytes(item).decode("utf-8"))
+                        segment_count += 1
+                        with self._state_lock:
+                            self.persisted += 1
                 now_mono = time.monotonic()
-                if text_handle is not None and now_mono - last_flush >= self._flush_interval_sec:
-                    text_handle.flush()
-                    compression_handle.flush()
-                    last_flush = now_mono
+                if now_mono - last_commit >= self._flush_interval_sec:
+                    if self._compression == "xz":
+                        commit_xz_frame()
+                    elif text_handle is not None:
+                        text_handle.flush()
+                        compression_handle.flush()
+                        last_commit = now_mono
                 with self._state_lock:
                     dropped = self.dropped_queue_full
                 if dropped != self._gap_manifested:
@@ -382,7 +450,7 @@ class AppendOnlyRawJournal:
             with self._state_lock:
                 self._accepting = False
             try:
-                self._manifest("WRITER_ERROR", error=self.writer_error)
+                self._manifest("WRITER_ERROR", durable=True, error=self.writer_error)
             except Exception:
                 logger.exception("Hook raw capture manifest write also failed")
         finally:
@@ -402,11 +470,14 @@ class AppendOnlyRawJournal:
                 self.writer_error is None
                 and self.dropped_queue_full == 0
                 and self.rejected_disk_low == 0
+                and self.accepted == self.durably_committed
             )
             self._manifest(
                 "SESSION_END",
+                durable=True,
                 accepted=self.accepted,
                 persisted=self.persisted,
+                durably_committed=self.durably_committed,
                 dropped_queue_full=self.dropped_queue_full,
                 rejected_disk_low=self.rejected_disk_low,
                 rejected_deadline=self.rejected_deadline,
@@ -426,6 +497,7 @@ class AppendOnlyRawJournal:
                     "closed_at": _utc_text(self._now()),
                     "accepted": self.accepted,
                     "persisted": self.persisted,
+                    "durably_committed": self.durably_committed,
                     "dropped_queue_full": self.dropped_queue_full,
                     "rejected_disk_low": self.rejected_disk_low,
                     "rejected_deadline": self.rejected_deadline,
@@ -461,6 +533,7 @@ class AppendOnlyRawJournal:
             "accepting": self.accepting,
             "accepted": self.accepted,
             "persisted": self.persisted,
+            "durably_committed": self.durably_committed,
             "pending": self.pending,
             "high_watermark": self.high_watermark,
             "dropped_queue_full": self.dropped_queue_full,
@@ -481,15 +554,56 @@ class CaptureCampaign:
         config_hash: str,
         full_capture_until: datetime,
         liquidation_capture_until: datetime,
+        full_effective_capture_until: datetime,
+        liquidation_effective_capture_until: datetime,
         journals: tuple[AppendOnlyRawJournal, ...],
+        coverage: CaptureCoverageLedger,
     ) -> None:
         self.campaign_dir = campaign_dir
         self.campaign_id = campaign_id
         self.config_hash = config_hash
         self.full_capture_until = full_capture_until
         self.liquidation_capture_until = liquidation_capture_until
+        self.full_effective_capture_until = full_effective_capture_until
+        self.liquidation_effective_capture_until = liquidation_effective_capture_until
         self._journals = journals
+        self._coverage = coverage
         self._closed = False
+        self._coverage_stop = threading.Event()
+        self._coverage_thread: threading.Thread | None = None
+
+    def _stream_stats(self) -> dict[str, dict[str, Any]]:
+        return {journal.mode: journal.stats() for journal in self._journals}
+
+    def _start_coverage(self, opened_at: datetime) -> None:
+        stream_stats = self._stream_stats()
+        if not stream_stats:
+            return
+        self._coverage.record_start(
+            tuple(stream_stats),
+            event_time=opened_at,
+            session_ids={
+                stream: str(stats["session_id"])
+                for stream, stats in stream_stats.items()
+            },
+        )
+        self._coverage.record_heartbeat(stream_stats, event_time=opened_at)
+
+        def heartbeat_loop() -> None:
+            while not self._coverage_stop.wait(10.0):
+                try:
+                    self._coverage.record_heartbeat(
+                        self._stream_stats(), event_time=_utc_now()
+                    )
+                except Exception:
+                    logger.exception("Hook capture coverage heartbeat failed")
+
+        self._coverage_thread = threading.Thread(
+            target=heartbeat_loop,
+            name="hook-capture-coverage",
+            daemon=True,
+        )
+        self._coverage_thread.start()
 
     @classmethod
     def open(
@@ -531,6 +645,21 @@ class CaptureCampaign:
                 },
             )
 
+        coverage = CaptureCoverageLedger(
+            campaign_dir,
+            original_deadlines={
+                "full": full_until,
+                "liquidation": liquidation_until,
+            },
+            extension_caps={
+                "full": timedelta(hours=72),
+                "liquidation": timedelta(days=7),
+            },
+        )
+        coverage.recover_downtime(opened_at)
+        full_effective_until = coverage.effective_deadline("full")
+        liquidation_effective_until = coverage.effective_deadline("liquidation")
+
         def create(mode: str, deadline: datetime, include: Callable[[dict], bool]):
             return AppendOnlyRawJournal(
                 stream_root=campaign_dir / mode,
@@ -547,24 +676,31 @@ class CaptureCampaign:
             )
 
         journals: list[AppendOnlyRawJournal] = []
-        if opened_at < full_until:
-            journals.append(create("full", full_until, lambda _payload: True))
-        if opened_at < liquidation_until:
+        if opened_at < full_effective_until:
+            journals.append(
+                create("full", full_effective_until, lambda _payload: True)
+            )
+        if opened_at < liquidation_effective_until:
             journals.append(
                 create(
                     "liquidation",
-                    liquidation_until,
+                    liquidation_effective_until,
                     lambda payload: payload.get("e") == "forceOrder",
                 )
             )
-        return cls(
+        campaign = cls(
             campaign_dir=campaign_dir,
             campaign_id=config.capture.campaign_id,
             config_hash=config.config_hash,
             full_capture_until=full_until,
             liquidation_capture_until=liquidation_until,
+            full_effective_capture_until=full_effective_until,
+            liquidation_effective_capture_until=liquidation_effective_until,
             journals=tuple(journals),
+            coverage=coverage,
         )
+        campaign._start_coverage(opened_at)
+        return campaign
 
     @property
     def written(self) -> int:
@@ -593,16 +729,30 @@ class CaptureCampaign:
         if self._closed:
             return
         self._closed = True
+        self._coverage_stop.set()
+        if self._coverage_thread is not None:
+            self._coverage_thread.join(timeout=12)
         for journal in self._journals:
             journal.close()
+        if self._journals:
+            self._coverage.record_stop(
+                self._stream_stats(), event_time=_utc_now()
+            )
 
     def stats(self) -> dict[str, Any]:
-        streams = {journal.mode: journal.stats() for journal in self._journals}
+        streams = self._stream_stats()
         return {
             "campaign_id": self.campaign_id,
             "campaign_dir": str(self.campaign_dir),
             "full_capture_until": _utc_text(self.full_capture_until),
             "liquidation_capture_until": _utc_text(self.liquidation_capture_until),
+            "full_effective_capture_until": _utc_text(
+                self.full_effective_capture_until
+            ),
+            "liquidation_effective_capture_until": _utc_text(
+                self.liquidation_effective_capture_until
+            ),
+            "coverage": self._coverage.stats(),
             "closed": self._closed,
             "streams": streams,
         }
