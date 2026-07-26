@@ -1,7 +1,7 @@
 # Hook Detector / Trigger Observe — Stage 2C Checkpoint
 
-最終更新: 2026-07-26 19:37 JST
-状態: **Stage 2C着手承認済み。2C-1 full stream期限待機中。実装・較正未着手。**
+最終更新: 2026-07-26 20:10 JST
+状態: **収録継続中。Hook実市場妥当性・Trigger検証・継続PDCA仕様は承認待ち。threshold較正は停止中。**
 
 ## 承認範囲
 
@@ -14,6 +14,18 @@
   4. 2C-4: ユーザー承認後、較正済みHookだけobserve発火解禁
 - fullとliquidationは期限が異なるため、2C-1を個別に報告する。
 - 各工程完了後、次工程へ進む前にユーザー承認を得る。
+
+2026-07-26 20:10 JST、ユーザーの最新指示により、現行工程には次の必須要件が不足していると
+確認した。
+
+- 88 Hookが生データ上の現象を正しく捉えたかの独立照合
+- 日、session、side、regimeをまたぐ実市場耐性
+- 検証済みHookを時系列・確認・否定条件で意思決定へ結ぶTrigger検証
+- 新旧版を同じraw inputで比較し、再検証・昇格・rollbackできる継続PDCA
+
+この不足を解消する承認案を
+`HOOK_TRIGGER_VALIDATION_PDCA_SPEC_V1_20260726.md`へ記録した。正本承認書は履歴として
+改変しない。本仕様が承認された場合、2C-1以後の順序を同仕様の2C-H1以後へ置き換える。
 
 ## 禁止境界
 
@@ -84,7 +96,8 @@ effective deadlineだけが延長される。判定時は固定転記値では�
 9. episode型Hookのside別eligible episode 100件以上を確認する。
 10. Hookごとに`GATE_PASS`／`GATE_FAIL`と不足量を報告する。
 
-この判定結果をユーザーへ報告し、2C-2へ進む承認を得るまでthresholdを変更しない。
+この判定結果をユーザーへ報告する。`HOOK_TRIGGER_VALIDATION_PDCA_SPEC_V1_20260726.md`が
+承認され、Hook claimの独立照合と実市場耐性gateを通過するまでthresholdを変更しない。
 
 ## liquidation期限到達時に行うread-only判定
 
@@ -122,12 +135,30 @@ source code、config、UI、runtime、収録データの変更0。
 
 ## Blockerの限定範囲
 
-- 現在blockerなし。
+- 収録継続と2C-1 read-only判定にblockerなし。
+- Hook manifest、独立validator、Trigger validatorの実装は新仕様のユーザー承認待ち。
+- threshold較正は、仕様承認後もHook独立照合・実市場耐性gate完了まで停止する。
 - liquidation 0件は現時点の観測事実であり、期限到達前のgate failureとは判定しない。
 - 次の工程は時間依存のため、full effective deadline到達までは収録継続が正しい待機状態である。
 
 ## 次の再開位置
 
-full effective deadline到達後、上記「2C-1 full期限到達時に行うread-only判定」から再開する。
+最初の再開位置は、`HOOK_TRIGGER_VALIDATION_PDCA_SPEC_V1_20260726.md`のユーザーレビューである。
+承認された場合、期限前でも88 Hook claim監査と独立validator実装から開始する。
+full effective deadline到達後は、承認状況にかかわらず上記2C-1 read-only判定を実施する。
 期限前に停止や容量警告が発生した場合は、その限定工程だけを先に監査し、収録保全を優先する。
-ユーザー承認前に2C-2へ進まない。
+ユーザー承認前に新仕様を実装せず、Hook妥当性gate前に2C-2 threshold較正へ進まない。
+
+## 2026-07-26 20:10 JST 追加checkpoint
+
+- 承認範囲: Hook／Trigger検証・PDCAの仕様作成のみ。実装、較正、発火解禁は未承認。
+- 完了済み: 既存catalog、detector、runtime、threshold、playbook、Stage 2C文書の再監査。
+- 完了済み: `HOOK_TRIGGER_VALIDATION_PDCA_SPEC_V1_20260726.md`承認案の作成。
+- 未完了: ユーザー仕様レビュー、88 Hook claim監査、独立reference実装、市場耐性検証。
+- 変更file: 新仕様書、本checkpoint、`PROJECT_MEMORY.md`。
+- source code、config、runtime、UI、raw収録データの変更0。
+- 検証結果: 仕様467行、trailing whitespace 0、SHA-256
+  `d8289069b4d9e473c8340bbcf0432b975323f5d656f50bb4f080ce59cf6c840b`。
+- 検証結果: `git diff --check`合格。変更対象は本仕様、checkpoint、PROJECT_MEMORYの文書3件だけ。
+- blockerの限定範囲: 新仕様を必要とする実装・較正だけ。収録と2C-1は継続する。
+- 次の再開位置: ユーザーの仕様承認または修正指示。

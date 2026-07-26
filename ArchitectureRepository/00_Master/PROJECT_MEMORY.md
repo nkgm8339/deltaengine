@@ -711,3 +711,22 @@ Playbook選抜、check移行、LIVE注文、既存Flow Price Response／3段チ�
 次の再開位置は、full effective deadline到達後のread-only 2C-1判定である。
 詳細checkpointは
 `ArchitectureRepository/00_Master/トリガー作成指示書群/HOOK_STAGE2C_CHECKPOINT_20260726.md`。
+
+## Hook実市場妥当性・Trigger検証・継続PDCAの追加要件（2026-07-26）
+
+ユーザーは、現行の収録、detector実装、threshold較正、発火頻度確認だけでは本質的に不足し、
+88 Hookが生データ上で主張する現象を正しく捉えるか、そのHookが市場条件をまたいで耐えるか、
+検証済みHookをどのTrigger条件で意思決定へ接続するかを継続的に検証できる必要があると指示した。
+
+この指示を受け、次の承認案を作成した。
+
+`ArchitectureRepository/00_Master/トリガー作成指示書群/HOOK_TRIGGER_VALIDATION_PDCA_SPEC_V1_20260726.md`
+
+同仕様は、88 HookとT01-T50を完成品でなく版管理された仮説として扱い、raw journalからの
+独立reference照合、検出例と見逃し・反例・near miss、市場条件別耐性、untouched holdout、
+Triggerの時系列・confirmation・veto・expiry・重複・re-arm、旧版／新版shadow比較、drift、
+rollbackを必須にする。Hookの妥当性、threshold較正、observe昇格は別statusで管理する。
+
+仕様は2026-07-26 20:10 JST時点でユーザー承認待ちであり、実装承認ではない。
+収録と2C-1 read-only判定は継続するが、Hook独立照合と実市場耐性gateを通る前の
+threshold較正は禁止する。source code、config、runtime、UI、収録データの変更は行っていない。
