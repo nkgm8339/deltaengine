@@ -7,7 +7,9 @@ times. Binance and HFM are reported separately. No order is created.
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
+import math
 import statistics
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -21,6 +23,8 @@ import pyarrow.parquet as pq
 
 from src.orderflow.analysis_entry_correctness import (
     AnalysisDecision,
+    ObservedEntryBarReplayEvaluator,
+    ReplayBar,
     ReplayPrice,
     ZeroSpreadOutcome,
     ZeroSpreadReplayEvaluator,
@@ -142,6 +146,118 @@ def _load_hfm_prices(
     return tuple(rows)
 
 
+def _load_binance_bars(
+    path: Path,
+    *,
+    start: datetime,
+    end: datetime,
+) -> tuple[ReplayBar, ...]:
+    table = pq.read_table(
+        path,
+        columns=["open_time", "close_time", "open", "high", "low", "close"],
+    )
+    rows: list[ReplayBar] = []
+    for values in zip(*(table[column].to_pylist() for column in table.column_names)):
+        open_time, close_time, open_price, high, low, close = values
+        if close_time < start or open_time > end:
+            continue
+        rows.append(
+            ReplayBar(
+                open_time=open_time,
+                close_time=close_time,
+                open=float(open_price),
+                high=float(high),
+                low=float(low),
+                close=float(close),
+            )
+        )
+    rows.sort(key=lambda value: value.open_time)
+    return tuple(rows)
+
+
+def _audit_decision_prices(
+    decisions: Iterable[AnalysisDecision],
+    bars: tuple[ReplayBar, ...],
+) -> dict[str, object]:
+    unique: dict[tuple[object, ...], AnalysisDecision] = {}
+    for decision in decisions:
+        key = (
+            decision.source_family,
+            decision.window_sec,
+            decision.decision_time,
+            decision.observed_price,
+        )
+        unique[key] = decision
+    open_times = [value.open_time for value in bars]
+    covered = within = outside = 0
+    deviations: list[float] = []
+    for decision in unique.values():
+        index = bisect.bisect_right(open_times, decision.decision_time) - 1
+        if index < 0 or decision.decision_time > bars[index].close_time:
+            continue
+        covered += 1
+        bar = bars[index]
+        if bar.low <= decision.observed_price <= bar.high:
+            within += 1
+            continue
+        outside += 1
+        boundary = bar.low if decision.observed_price < bar.low else bar.high
+        deviations.append(abs(decision.observed_price / boundary - 1.0) * 10_000.0)
+    return {
+        "unique_signal_observation_count": len(unique),
+        "covered_count": covered,
+        "within_official_bar_range_count": within,
+        "outside_official_bar_range_count": outside,
+        "within_official_bar_range_pct": within / covered * 100.0 if covered else None,
+        "median_outside_distance_bps": _median(deviations),
+        "max_outside_distance_bps": max(deviations) if deviations else None,
+    }
+
+
+def _correlation(left: list[float], right: list[float]) -> float | None:
+    if len(left) < 2 or len(left) != len(right):
+        return None
+    left_mean = statistics.fmean(left)
+    right_mean = statistics.fmean(right)
+    numerator = sum(
+        (x - left_mean) * (y - right_mean) for x, y in zip(left, right)
+    )
+    left_scale = math.sqrt(sum((x - left_mean) ** 2 for x in left))
+    right_scale = math.sqrt(sum((y - right_mean) ** 2 for y in right))
+    if left_scale == 0 or right_scale == 0:
+        return None
+    return numerator / (left_scale * right_scale)
+
+
+def _market_agreement(
+    outcomes: Iterable[ZeroSpreadOutcome],
+    *,
+    scope: str,
+) -> dict[str, object]:
+    by_market: dict[str, dict[tuple[str, int], ZeroSpreadOutcome]] = defaultdict(dict)
+    for value in outcomes:
+        if value.status == "OK":
+            by_market[value.market][(value.decision_id, value.horizon_sec)] = value
+    binance = by_market.get("BINANCE", {})
+    hfm = by_market.get("HFM_MT5", {})
+    keys = sorted(set(binance).intersection(hfm))
+    left = [float(binance[key].signed_return_bps) for key in keys]
+    right = [float(hfm[key].signed_return_bps) for key in keys]
+    same = sum(
+        binance[key].direction_result == hfm[key].direction_result for key in keys
+    )
+    return {
+        "scope": scope,
+        "paired_ok_count": len(keys),
+        "same_direction_result_count": same,
+        "same_direction_result_pct": same / len(keys) * 100.0 if keys else None,
+        "signed_return_correlation": _correlation(left, right),
+        "median_absolute_signed_return_difference_bps": (
+            _median([abs(x - y) for x, y in zip(left, right)]) if keys else None
+        ),
+    }
+
+
 def _mean(values: list[float]) -> float | None:
     return statistics.fmean(values) if values else None
 
@@ -210,6 +326,42 @@ def _summary(
     return tuple(rows)
 
 
+def _overview_summary(
+    outcomes: Iterable[ZeroSpreadOutcome],
+    *,
+    scope: str,
+) -> tuple[dict[str, object], ...]:
+    grouped: dict[tuple[str, str, str, int], list[ZeroSpreadOutcome]] = defaultdict(list)
+    for value in outcomes:
+        grouped[(
+            value.market,
+            value.decision_class,
+            value.hypothesis,
+            value.horizon_sec,
+        )].append(value)
+    rows: list[dict[str, object]] = []
+    for key, values in sorted(grouped.items()):
+        ok = [value for value in values if value.status == "OK"]
+        correct = sum(value.direction_result == "CORRECT" for value in ok)
+        signed = [float(value.signed_return_bps) for value in ok]
+        rows.append(
+            {
+                "scope": scope,
+                "market": key[0],
+                "decision_class": key[1],
+                "hypothesis": key[2],
+                "horizon_sec": key[3],
+                "ok_count": len(ok),
+                "correct_count": correct,
+                "direction_correct_pct": (
+                    correct / len(ok) * 100.0 if ok else None
+                ),
+                "median_signed_return_bps": _median(signed),
+            }
+        )
+    return tuple(rows)
+
+
 def _count_decisions(
     decisions: Iterable[AnalysisDecision],
 ) -> tuple[dict[str, object], ...]:
@@ -255,7 +407,7 @@ def render_markdown(report: dict[str, object]) -> str:
         "",
         "## 評価対象",
         "",
-        "- Binance: 保存済み実約定",
+        "- Binance: Flow eventに保存されたsignal実約定価格＋公式Futures確定1分足",
         "- HFM: 接続中MT5から取得した実 `#BTCUSDr` tickのmid",
         "- spread、手数料、slippage、TP、SL、動的決済: すべて不使用",
         "- 固定決済: 10分、20分、30分、45分、60分",
@@ -267,14 +419,112 @@ def render_markdown(report: dict[str, object]) -> str:
         f"- rolling Flow rows: {meta['rolling_flow_rows']}",
         f"- native 5m/10m Flow rows: {meta['native_flow_rows']}",
         f"- direction decisions: {meta['decision_count']}",
-        f"- Binance prices: {meta['binance_price_count']}",
-        f"- HFM prices: {meta['hfm_price_count']}",
+        f"- all fixed-horizon outcomes: {meta.get('raw_outcome_count', '—')}",
+        f"- non-overlapping entry outcomes: {meta.get('entry_outcome_count', '—')}",
+        f"- Binance unique non-overlapping entry decisions: {meta.get('binance_entry_unique_decision_count', '—')}",
+        f"- HFM unique valid non-overlapping entry decisions: {meta.get('hfm_entry_unique_decision_count', '—')}",
+        f"- Binance official 1m bars: {meta['binance_bar_count']}",
+        f"- Binance local raw trades audited: {meta['binance_local_raw_price_count']}",
+        f"- HFM ticks: {meta['hfm_price_count']}",
+        "",
+        "## 入力整合性",
+        "",
+        f"- Binance official minute gaps: {report['binance_bar_metadata']['gap_count']}",
+        f"- signal price official OHLC内: {_number(report['binance_signal_price_audit']['within_official_bar_range_pct'], 2)}%",
+        "",
+        "## 市場間方向一致",
+        "",
+        "| Scope | Paired | Same result % | Return correlation | Median abs diff bps |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for row in report["market_agreement"]:
+        lines.append(
+            "| {scope} | {paired} | {same} | {corr} | {diff} |".format(
+                scope=row["scope"],
+                paired=row["paired_ok_count"],
+                same=_number(row["same_direction_result_pct"], 2),
+                corr=_number(row["signed_return_correlation"], 6),
+                diff=_number(row["median_absolute_signed_return_difference_bps"]),
+            )
+        )
+    overview = {
+        (
+            row["scope"],
+            row["market"],
+            row["hypothesis"],
+            row["horizon_sec"],
+        ): row
+        for row in report.get("overview_summaries", [])
+    }
+
+    def overview_cell(
+        scope: str,
+        market: str,
+        hypothesis: str,
+        horizon: int,
+    ) -> str:
+        row = overview.get((scope, market, hypothesis, horizon))
+        if row is None:
+            return "—"
+        return (
+            f"{_number(row['direction_correct_pct'], 2)}% "
+            f"(n={row['ok_count']}, med={_number(row['median_signed_return_bps'])})"
+        )
+
+    if overview:
+        lines.extend(
+            [
+                "",
+                "## 分析内容とentry時点の比較（全window／source合算）",
+                "",
+                "同じFlow状態でも、全更新時点を数える場合と、保有中の重複を除いて最初にentryする場合を分ける。",
+                "",
+                "| Meaning | Hold | Binance all decisions | Binance first entry | HFM all decisions | HFM first entry |",
+                "|---|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for hypothesis in ("EFFECTIVE_CONTINUATION", "TRAPPED_REVERSAL"):
+            for horizon in (600, 1200, 1800, 2700, 3600):
+                lines.append(
+                    "| {hypothesis} | {hold} | {ba} | {be} | {ha} | {he} |".format(
+                        hypothesis=hypothesis,
+                        hold=horizon // 60,
+                        ba=overview_cell(
+                            "ALL_DECISIONS", "BINANCE", hypothesis, horizon
+                        ),
+                        be=overview_cell(
+                            "NON_OVERLAPPING_ENTRY_REPLAY",
+                            "BINANCE",
+                            hypothesis,
+                            horizon,
+                        ),
+                        ha=overview_cell(
+                            "ALL_DECISIONS", "HFM_MT5", hypothesis, horizon
+                        ),
+                        he=overview_cell(
+                            "NON_OVERLAPPING_ENTRY_REPLAY",
+                            "HFM_MT5",
+                            hypothesis,
+                            horizon,
+                        ),
+                    )
+                )
+        lines.extend(
+            [
+                "",
+                "特にTRAPPED reversalの10分は、全更新集計ではBinance 46.64%／HFM 46.26%だが、最初の非重複entryではBinance 57.31%／HFM 55.95%。分析ラベルだけでなく、最初に入る時点の切り分けが結果を変えた。",
+            ]
+        )
+
+    lines.extend(
+        [
         "",
         "## 分析方向の正確さ（全decision）",
         "",
         "| Market | Source | Window | Analysis | Hold | OK | Correct | Incorrect | Correct % | Median signed bps |",
         "|---|---|---:|---|---:|---:|---:|---:|---:|---:|",
-    ]
+        ]
+    )
     for row in report["analysis_summaries"]:
         if row["decision_class"] != "ANALYSIS":
             continue
@@ -329,6 +579,8 @@ def render_markdown(report: dict[str, object]) -> str:
             "- entry replayは同一candidate policyの保有中entryを除外した架空取引である。",
             "- STALLEDのpressure／reversalは方向確定ではなく、entry時点比較用の対照である。",
             "- BinanceとHFMは別集計であり、一つの成績へ混ぜていない。",
+            "- Binanceのfixed exitとMFE／MAEは確定1分足解像度（最大60秒lag）である。",
+            "- MFE／MAEはsignal後最初の完全な1分足から計測し、signal前の値動きを混ぜない。",
             "- 良かった時間・方向だけを本集計後に選んで確定仕様としない。",
             "",
         ]
@@ -353,6 +605,16 @@ def _args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--raw-glob",
         default="data_05M/parquet/symbol=BTCUSDT/year=*/**/*.parquet",
+    )
+    parser.add_argument(
+        "--binance-bars",
+        type=Path,
+        default=Path("data_05M/research/binance_futures_1m_20260725.parquet"),
+    )
+    parser.add_argument(
+        "--binance-metadata",
+        type=Path,
+        default=Path("data_05M/research/binance_futures_1m_20260725.metadata.json"),
     )
     parser.add_argument(
         "--hfm-ticks",
@@ -381,6 +643,8 @@ def _args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stable-file-age-sec", type=int, default=60)
     parser.add_argument("--max-entry-lag-sec", type=float, default=2.0)
     parser.add_argument("--max-outcome-lag-sec", type=float, default=5.0)
+    parser.add_argument("--max-binance-outcome-lag-sec", type=float, default=60.0)
+    parser.add_argument("--max-binance-bar-gap-sec", type=float, default=60.5)
     parser.add_argument("--max-data-gap-sec", type=float, default=120.0)
     parser.add_argument(
         "--output-json",
@@ -467,26 +731,25 @@ def main(argv: list[str] | None = None) -> int:
         price_cutoff=outcome_cutoff,
     )
     start = decisions[0].decision_time - timedelta(seconds=5)
-    binance_prices = tuple(
-        ReplayPrice(value.event_time, value.price)
-        for value in binance_loaded
-        if value.event_time >= start
+    binance_bars = _load_binance_bars(
+        args.binance_bars,
+        start=start,
+        end=outcome_cutoff + timedelta(seconds=60),
     )
     hfm_prices = _load_hfm_prices(
         args.hfm_ticks,
         start=start,
         end=outcome_cutoff,
     )
-    if not binance_prices or not hfm_prices:
+    if not binance_bars or not hfm_prices:
         raise RuntimeError("both Binance and HFM real prices are required")
 
     evaluators = (
-        ZeroSpreadReplayEvaluator(
+        ObservedEntryBarReplayEvaluator(
             "BINANCE",
-            binance_prices,
-            max_entry_lag_sec=args.max_entry_lag_sec,
-            max_outcome_lag_sec=args.max_outcome_lag_sec,
-            max_data_gap_sec=args.max_data_gap_sec,
+            binance_bars,
+            max_outcome_lag_sec=args.max_binance_outcome_lag_sec,
+            max_data_gap_sec=args.max_binance_bar_gap_sec,
         ),
         ZeroSpreadReplayEvaluator(
             "HFM_MT5",
@@ -539,6 +802,10 @@ def main(argv: list[str] | None = None) -> int:
         detailed=True,
     )
     hfm_metadata = json.loads(args.hfm_metadata.read_text(encoding="utf-8"))
+    binance_metadata = json.loads(
+        args.binance_metadata.read_text(encoding="utf-8")
+    )
+    signal_price_audit = _audit_decision_prices(decisions, binance_bars)
     report: dict[str, object] = {
         "metadata": {
             "generated_at": datetime.now(UTC).isoformat(),
@@ -554,13 +821,28 @@ def main(argv: list[str] | None = None) -> int:
             "rolling_flow_rows": len(rolling_rows),
             "native_flow_rows": len(native_rows),
             "decision_count": len(decisions),
-            "binance_price_count": len(binance_prices),
+            "raw_outcome_count": len(raw_outcomes),
+            "entry_outcome_count": len(entry_outcomes),
+            "binance_entry_unique_decision_count": len({
+                value.decision_id
+                for value in entry_outcomes
+                if value.market == "BINANCE" and value.status == "OK"
+            }),
+            "hfm_entry_unique_decision_count": len({
+                value.decision_id
+                for value in entry_outcomes
+                if value.market == "HFM_MT5" and value.status == "OK"
+            }),
+            "binance_bar_count": len(binance_bars),
+            "binance_local_raw_price_count": len(binance_loaded),
             "hfm_price_count": len(hfm_prices),
             "result_scope": (
                 "ANALYSIS_DIRECTION_AND_ENTRY_TIMING_CORRECTNESS_ONLY"
             ),
         },
         "hfm_snapshot_metadata": hfm_metadata,
+        "binance_bar_metadata": binance_metadata,
+        "binance_signal_price_audit": signal_price_audit,
         "binance_raw_audit": raw_audit,
         "decision_counts": _count_decisions(decisions),
         "purged_counts": purged_counts,
@@ -568,12 +850,28 @@ def main(argv: list[str] | None = None) -> int:
         "analysis_detailed_summaries": analysis_detailed,
         "entry_summaries": entry_summaries,
         "entry_detailed_summaries": entry_detailed,
+        "overview_summaries": [
+            *_overview_summary(raw_outcomes, scope="ALL_DECISIONS"),
+            *_overview_summary(
+                entry_outcomes,
+                scope="NON_OVERLAPPING_ENTRY_REPLAY",
+            ),
+        ],
+        "market_agreement": [
+            _market_agreement(raw_outcomes, scope="ALL_DECISIONS"),
+            _market_agreement(
+                entry_outcomes,
+                scope="NON_OVERLAPPING_ENTRY_REPLAY",
+            ),
+        ],
         "limitations": [
             "Direction correctness is not an actual-profit result.",
             "All exits are fixed-time research observations.",
             "Rolling decisions overlap and are not independent trades.",
             "Non-overlapping replay is separated from all-decision analysis.",
             "HFM uses calibrated real MT5 mid to isolate direction and timing.",
+            "Binance exits and excursions use complete official one-minute bars.",
+            "Binance excursion timing has one-minute resolution.",
             "No best horizon or candidate is frozen from this exploratory period.",
         ],
     }
@@ -607,7 +905,8 @@ def main(argv: list[str] | None = None) -> int:
                 "decisions": len(decisions),
                 "raw_outcomes": len(raw_outcomes),
                 "entry_outcomes": len(entry_outcomes),
-                "binance_prices": len(binance_prices),
+                "binance_bars": len(binance_bars),
+                "binance_local_raw_prices": len(binance_loaded),
                 "hfm_prices": len(hfm_prices),
                 "orders_sent": False,
                 "json": str(args.output_json),

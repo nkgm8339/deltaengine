@@ -1,5 +1,18 @@
 # Session handoff: 2026-07-25
 
+## 2026-07-26 最優先更新
+
+このhandoffは過去経緯として残す。次セッションの現在の再開文書は次である。
+
+- `ArchitectureRepository/00_Master/ORDERFLOW_ENTRY_TRIGGER_DESIGN_HANDOFF_20260726.md`
+
+ユーザーがクライアントであり、最新の明示意向が最優先。過去のNO-GO、手動限定、
+Flow単体発注などを使って最新指示を上書きしてはならない。同時に、Flow単体発注を
+オーダーフロー全体のENTRY完成と扱ってはならない。
+
+現在は統合ENTRY GO未完成、Flow単体sidecar停止、LIVE注文0件。
+次はコード実装ではなく、現象別ENTRYトリガーの詳細設計報告から再開する。
+
 ## このセッションで実施したこと
 
 1. `PROJECT_MEMORY.md`、既存の5M/10M研究計画、Episode／Outcome／HFM時刻checkpoint、元のhandoffを全文確認。

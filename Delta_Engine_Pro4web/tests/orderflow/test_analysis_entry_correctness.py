@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 
 from src.orderflow.analysis_entry_correctness import (
     AnalysisDecision,
+    ObservedEntryBarReplayEvaluator,
+    ReplayBar,
     ReplayPrice,
     ZeroSpreadReplayEvaluator,
     decisions_from_flow_rows,
@@ -127,3 +129,48 @@ def test_nonoverlap_keeps_boundary_decision() -> None:
         BASE + timedelta(seconds=10),
     ]
 
+
+
+def bar(minute: int, *, high: float, low: float, close: float) -> ReplayBar:
+    open_time = BASE + timedelta(minutes=minute)
+    return ReplayBar(
+        open_time=open_time,
+        close_time=open_time + timedelta(seconds=59, milliseconds=999),
+        open=100.0,
+        high=high,
+        low=low,
+        close=close,
+    )
+
+
+def test_observed_entry_bar_replay_uses_signal_trade_and_causal_full_bars() -> None:
+    value = decision(10)
+    outcome = ObservedEntryBarReplayEvaluator(
+        "BINANCE",
+        [
+            bar(0, high=999.0, low=1.0, close=100.0),
+            bar(1, high=103.0, low=99.0, close=102.0),
+            bar(2, high=102.0, low=100.0, close=101.0),
+        ],
+    ).evaluate([value], [100])[0]
+    assert outcome.status == "OK"
+    assert outcome.entry_time == value.decision_time
+    assert outcome.entry_price == value.observed_price
+    assert outcome.entry_lag_ms == 0
+    assert outcome.outcome_time == BASE + timedelta(minutes=1, seconds=59, milliseconds=999)
+    assert outcome.outcome_lag_ms == 9999
+    assert outcome.direction_result == "CORRECT"
+    assert round(outcome.signed_return_bps, 6) == 200.0
+    assert round(outcome.mfe_bps, 6) == 300.0
+    assert round(outcome.mae_bps, 6) == -100.0
+
+
+def test_observed_entry_bar_replay_rejects_missing_minute() -> None:
+    outcome = ObservedEntryBarReplayEvaluator(
+        "BINANCE",
+        [
+            bar(0, high=101.0, low=99.0, close=100.0),
+            bar(2, high=102.0, low=100.0, close=101.0),
+        ],
+    ).evaluate([decision(0)], [100])[0]
+    assert outcome.status == "OUTCOME_LAG"

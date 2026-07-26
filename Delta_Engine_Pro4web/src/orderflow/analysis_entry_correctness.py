@@ -60,6 +60,28 @@ class ReplayPrice:
 
 
 @dataclass(frozen=True)
+class ReplayBar:
+    open_time: datetime
+    close_time: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+
+    def __post_init__(self) -> None:
+        if self.open_time.tzinfo is None or self.close_time.tzinfo is None:
+            raise ValueError("bar times must be timezone-aware")
+        if self.close_time <= self.open_time:
+            raise ValueError("bar close_time must follow open_time")
+        if min(self.open, self.high, self.low, self.close) <= 0:
+            raise ValueError("bar prices must be positive")
+        if self.high < max(self.open, self.low, self.close):
+            raise ValueError("bar high is inconsistent")
+        if self.low > min(self.open, self.high, self.close):
+            raise ValueError("bar low is inconsistent")
+
+
+@dataclass(frozen=True)
 class ZeroSpreadOutcome:
     market: str
     decision_id: str
@@ -279,6 +301,254 @@ class _ExtremaIndex:
         if min_index < 0 or max_index < 0:
             raise ValueError("empty extrema query")
         return min_index, max_index
+
+
+class ObservedEntryBarReplayEvaluator:
+    """Evaluate a stored signal price against later real OHLC bars.
+
+    The entry is the actual last trade stored in the Flow decision, so entry
+    lag is zero.  The first complete bar after the decision is used for
+    MFE/MAE to avoid including pre-decision movement from a partial minute.
+    """
+
+    def __init__(
+        self,
+        market: str,
+        bars: Iterable[ReplayBar],
+        *,
+        max_outcome_lag_sec: float = 60.0,
+        max_first_bar_lag_sec: float = 60.0,
+        max_data_gap_sec: float = 60.5,
+    ) -> None:
+        if (
+            not market
+            or max_outcome_lag_sec < 0
+            or max_first_bar_lag_sec <= 0
+            or max_data_gap_sec <= 0
+        ):
+            raise ValueError("market and lag/gap limits must be valid")
+        self.market = market
+        self.bars = list(bars)
+        previous: ReplayBar | None = None
+        for value in self.bars:
+            if previous is not None:
+                if value.open_time < previous.open_time:
+                    raise ValueError("bars must be chronological")
+                if value.close_time < previous.close_time:
+                    raise ValueError("bar close times must be chronological")
+            previous = value
+        self.open_times = [value.open_time for value in self.bars]
+        self.close_times = [value.close_time for value in self.bars]
+        self.high_values = [value.high for value in self.bars]
+        self.low_values = [value.low for value in self.bars]
+        self.max_outcome_lag_sec = max_outcome_lag_sec
+        self.max_first_bar_lag_sec = max_first_bar_lag_sec
+        self.max_data_gap_sec = max_data_gap_sec
+        self.high_index = (
+            _ExtremaIndex(self.high_values) if self.high_values else None
+        )
+        self.low_index = _ExtremaIndex(self.low_values) if self.low_values else None
+        bad_gap_prefix = [0]
+        for left, right in zip(self.open_times, self.open_times[1:]):
+            bad_gap_prefix.append(
+                bad_gap_prefix[-1]
+                + int((right - left).total_seconds() > max_data_gap_sec)
+            )
+        self.bad_gap_prefix = bad_gap_prefix
+
+    def _missing(
+        self,
+        decision: AnalysisDecision,
+        horizon_sec: int,
+        status: str,
+        *,
+        outcome_index: int | None = None,
+    ) -> ZeroSpreadOutcome:
+        outcome = self.bars[outcome_index] if outcome_index is not None else None
+        target = decision.decision_time + timedelta(seconds=horizon_sec)
+        return ZeroSpreadOutcome(
+            market=self.market,
+            decision_id=decision.decision_id,
+            source_family=decision.source_family,
+            symbol=decision.symbol,
+            window_sec=decision.window_sec,
+            state=decision.state,
+            hypothesis=decision.hypothesis,
+            decision_class=decision.decision_class,
+            side=decision.side,
+            decision_time=decision.decision_time,
+            horizon_sec=horizon_sec,
+            status=status,
+            entry_time=decision.decision_time,
+            entry_price=decision.observed_price,
+            entry_lag_ms=0,
+            outcome_time=outcome.close_time if outcome else None,
+            outcome_price=outcome.close if outcome else None,
+            outcome_lag_ms=(
+                int((outcome.close_time - target).total_seconds() * 1000)
+                if outcome
+                else None
+            ),
+            raw_return_bps=None,
+            signed_return_bps=None,
+            direction_result=None,
+            mfe_bps=None,
+            mae_bps=None,
+            mfe_time=None,
+            mae_time=None,
+            mfe_after_entry_sec=None,
+            mae_after_entry_sec=None,
+        )
+
+    def evaluate(
+        self,
+        decisions: Iterable[AnalysisDecision],
+        horizons_sec: Iterable[int],
+    ) -> tuple[ZeroSpreadOutcome, ...]:
+        horizons = tuple(sorted(set(int(value) for value in horizons_sec)))
+        if not horizons or any(value < 1 for value in horizons):
+            raise ValueError("horizons_sec must contain positive values")
+        decisions = tuple(decisions)
+        if not self.bars or self.high_index is None or self.low_index is None:
+            return tuple(
+                self._missing(decision, horizon, "OUTCOME_MISSING")
+                for decision in decisions
+                for horizon in horizons
+            )
+
+        results: list[ZeroSpreadOutcome] = []
+        for decision in decisions:
+            first_full_index = bisect.bisect_left(
+                self.open_times, decision.decision_time
+            )
+            for horizon in horizons:
+                target = decision.decision_time + timedelta(seconds=horizon)
+                outcome_index = bisect.bisect_left(self.close_times, target)
+                if outcome_index >= len(self.bars):
+                    results.append(
+                        self._missing(decision, horizon, "OUTCOME_MISSING")
+                    )
+                    continue
+                outcome = self.bars[outcome_index]
+                outcome_lag = (outcome.close_time - target).total_seconds()
+                if outcome_lag > self.max_outcome_lag_sec:
+                    results.append(
+                        self._missing(
+                            decision,
+                            horizon,
+                            "OUTCOME_LAG",
+                            outcome_index=outcome_index,
+                        )
+                    )
+                    continue
+                if first_full_index >= len(self.bars) or first_full_index > outcome_index:
+                    results.append(
+                        self._missing(
+                            decision,
+                            horizon,
+                            "DATA_GAP",
+                            outcome_index=outcome_index,
+                        )
+                    )
+                    continue
+                first_bar_lag = (
+                    self.open_times[first_full_index] - decision.decision_time
+                ).total_seconds()
+                if (
+                    first_bar_lag > self.max_first_bar_lag_sec
+                    or self.bad_gap_prefix[outcome_index]
+                    - self.bad_gap_prefix[first_full_index]
+                    > 0
+                ):
+                    results.append(
+                        self._missing(
+                            decision,
+                            horizon,
+                            "DATA_GAP",
+                            outcome_index=outcome_index,
+                        )
+                    )
+                    continue
+
+                low_index, _ = self.low_index.query(
+                    first_full_index, outcome_index
+                )
+                _, high_index = self.high_index.query(
+                    first_full_index, outcome_index
+                )
+                sign = 1.0 if decision.side == "BUY" else -1.0
+                entry_price = decision.observed_price
+                raw_return = (outcome.close / entry_price - 1.0) * _BPS
+                signed_return = sign * raw_return
+                if signed_return > 0:
+                    direction_result = "CORRECT"
+                elif signed_return < 0:
+                    direction_result = "INCORRECT"
+                else:
+                    direction_result = "FLAT"
+
+                favorable_index = high_index if sign > 0 else low_index
+                adverse_index = low_index if sign > 0 else high_index
+                favorable_price = (
+                    self.high_values[favorable_index]
+                    if sign > 0
+                    else self.low_values[favorable_index]
+                )
+                adverse_price = (
+                    self.low_values[adverse_index]
+                    if sign > 0
+                    else self.high_values[adverse_index]
+                )
+                favorable = sign * (favorable_price / entry_price - 1.0) * _BPS
+                adverse = sign * (adverse_price / entry_price - 1.0) * _BPS
+                if favorable > 0:
+                    mfe = favorable
+                    mfe_time = self.bars[favorable_index].close_time
+                else:
+                    mfe = 0.0
+                    mfe_time = decision.decision_time
+                if adverse < 0:
+                    mae = adverse
+                    mae_time = self.bars[adverse_index].close_time
+                else:
+                    mae = 0.0
+                    mae_time = decision.decision_time
+                results.append(
+                    ZeroSpreadOutcome(
+                        market=self.market,
+                        decision_id=decision.decision_id,
+                        source_family=decision.source_family,
+                        symbol=decision.symbol,
+                        window_sec=decision.window_sec,
+                        state=decision.state,
+                        hypothesis=decision.hypothesis,
+                        decision_class=decision.decision_class,
+                        side=decision.side,
+                        decision_time=decision.decision_time,
+                        horizon_sec=horizon,
+                        status="OK",
+                        entry_time=decision.decision_time,
+                        entry_price=entry_price,
+                        entry_lag_ms=0,
+                        outcome_time=outcome.close_time,
+                        outcome_price=outcome.close,
+                        outcome_lag_ms=int(outcome_lag * 1000),
+                        raw_return_bps=raw_return,
+                        signed_return_bps=signed_return,
+                        direction_result=direction_result,
+                        mfe_bps=mfe,
+                        mae_bps=mae,
+                        mfe_time=mfe_time,
+                        mae_time=mae_time,
+                        mfe_after_entry_sec=(
+                            mfe_time - decision.decision_time
+                        ).total_seconds(),
+                        mae_after_entry_sec=(
+                            mae_time - decision.decision_time
+                        ).total_seconds(),
+                    )
+                )
+        return tuple(results)
 
 
 class ZeroSpreadReplayEvaluator:

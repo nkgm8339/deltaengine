@@ -77,14 +77,28 @@ def test_markdown_states_zero_spread_and_both_real_markets() -> None:
             "rolling_flow_rows": 2,
             "native_flow_rows": 0,
             "decision_count": 2,
-            "binance_price_count": 10,
+            "binance_bar_count": 10,
+            "binance_local_raw_price_count": 20,
             "hfm_price_count": 10,
         },
+        "binance_bar_metadata": {"gap_count": 0},
+        "binance_signal_price_audit": {
+            "within_official_bar_range_pct": 100.0,
+        },
+        "market_agreement": [
+            {
+                "scope": "ALL_DECISIONS",
+                "paired_ok_count": 2,
+                "same_direction_result_pct": 100.0,
+                "signed_return_correlation": 1.0,
+                "median_absolute_signed_return_difference_bps": 0.1,
+            }
+        ],
         "analysis_summaries": [summary],
         "entry_summaries": [summary],
     }
     markdown = render_markdown(report)
-    assert "Binance: 保存済み実約定" in markdown
+    assert "Binance: Flow eventに保存されたsignal実約定価格" in markdown
     assert "HFM: 接続中MT5" in markdown
     assert "spread、手数料、slippage" in markdown
 
