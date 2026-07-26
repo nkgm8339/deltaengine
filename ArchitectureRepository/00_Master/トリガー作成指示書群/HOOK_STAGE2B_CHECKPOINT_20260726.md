@@ -1,6 +1,6 @@
 # Hook Detector / Trigger Observe — Stage 2B 提案 Checkpoint
 
-最終更新: 2026-07-26 19:05 JST
+最終更新: 2026-07-26 19:16 JST
 状態: **Stage 2B完了。二度目の実機再起動と正式受入に合格、Stage 2C未着手。**
 
 ## 現在の承認範囲
@@ -361,6 +361,19 @@
 - `git diff --check`: 合格。改行コード変換warning以外なし。
 - 完了報告のStage 2B完了、Stage 2C停止、execution無効境界を機械確認。
 
+## 最終commitと稼働確認
+
+- Stage 2B本体commit: `394cd83 feat(observation): complete Hook Stage 2B`。
+- 31 file、4,587 insertions、88 deletions。
+- commit直後のtracked／untracked visible差分0。
+- branch `ui-refresh-v2`はremoteに対してahead 1。pushは未実施。
+- 2026-07-26 19:16:19 JST: health GREEN。
+- post-boot full sessionは同じ
+  `session-20260726T093841.387745Z-595a71bc`。
+- durably committed 37,754まで継続増加。
+- drop 0、disk reject 0、writer errorなし。
+- C:空き17,475,584,000 bytes、8GB gate合格。
+
 ## build cache削除結果
 
 - 実行: `docker buildx prune --all --force`
@@ -376,5 +389,5 @@
 
 ## 次の再開位置
 
-Stage 2B成果をexact path指定で独立commitし、最終statusを確認してユーザーへ完了報告する。
-収録はbackgroundで継続する。ユーザー確認前にStage 2Cへ進まない。
+ユーザーへStage 2B完了を報告する。収録はbackgroundで継続する。
+ユーザー確認前にStage 2Cへ進まない。

@@ -201,3 +201,11 @@ Stage 2Bとして未完了項目はない。ただし、次は別工程であり
 収録はeffective deadlineまでbackgroundで継続する。
 
 ユーザー確認前にStage 2Cへ進まない。
+
+## 7. Version control
+
+- Stage 2B本体commit:
+  `394cd83 feat(observation): complete Hook Stage 2B`
+- 対象: 31 file、4,587 insertions、88 deletions
+- commit直後のvisible未コミット差分: 0
+- remoteへのpush: 未実施
