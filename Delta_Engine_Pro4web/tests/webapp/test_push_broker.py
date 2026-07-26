@@ -970,9 +970,45 @@ def test_price_cvd_delta_oi_combination_guide_is_clickable_observation_reference
     assert "P${pattern.no}_MISSING" in source
     assert "P${pattern.no}_UNCHANGED" in source
     assert "P${pattern.no}_${oiDirection>0?'BUILDING':'UNWINDING'}" in source
-    assert '<div class="ct-oi-context-dirs">' in source
+    assert 'class="ct-pattern-oi"' in source
+    assert 'chartDirection("OI",oiDirection)' in source
+    assert 'const oiComment=combined?' in source
     assert "これは観測評価であり、売買シグナルではありません。" in source
     assert 'event.key==="Escape"&&!backdrop.hidden' in source
+
+
+def test_live_observation_and_fixed_chart_detail_keep_final_readability_contract():
+    import pathlib
+
+    source = pathlib.Path(__file__).resolve().parents[2].joinpath(
+        "webapp", "static", "index.html",
+    ).read_text(encoding="utf-8")
+    assert 'grid-template-columns:minmax(0,1fr) 238px' in source
+    assert 'grid-template-columns:minmax(0,1fr) 334px!important' in source
+    assert '#charttip{display:block;position:relative;z-index:8;pointer-events:auto' in source
+    assert '#lotime{color:#24D6F2;font:800 13px' in source
+    assert '.lo-measure-head b{font:800 14px' in source
+    assert '.lo-inline-measure b{color:#25B7E8;font:800 14px' in source
+    assert '.lo-value,.lo-change{font:700 14px' in source
+    assert '.lo-change{font-size:11px' in source
+    assert '.lo-arrow{font:900 16px/1' in source
+    assert '.lo-context-row b{' in source and 'font-size:11px' in source
+    assert '.lo-context-dot{width:8px;height:8px' in source
+    assert '.lo-facts .lo-title{font-size:9px}' in source
+    assert '.lo-fact{' in source and 'font-size:14px' in source
+    assert '#charttip .ct-time{color:#23DFFF;font-size:14px' in source
+    assert '#charttip .ct-v{color:#FFFFFF;font-size:14px' in source
+    assert '#charttip .ct-num{font-size:14px}' in source
+    assert '#charttip .ct-pattern{' in source and 'font-size:12px' in source
+    assert '#charttip .ct-dirs{' in source and 'font-size:14px' in source
+    assert 'function footprintTotalsForBar(bar)' in source
+    assert 'function footprintTotalsHtml(bar)' in source
+    assert 'Σ BID' in source and 'Σ ASK' in source
+    assert 'function selectChartIndex(index,preserveScroll=false)' in source
+    assert 'const tip=$("charttip"),scrollTop=preserveScroll?tip.scrollTop:0;' in source
+    assert 'if(index>=0)selectChartIndex(index,true);' in source
+    assert 'tip.scrollTop=scrollTop;' in source
+    assert '$("charttip").scrollTop=0;' in source
 
 
 def test_flow_response_state_guide_explains_all_colors_without_changing_chart():

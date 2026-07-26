@@ -239,18 +239,24 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #nativecontext{display:flex;align-items:center;padding:5px 9px;border:1px solid #8D6BFF66;border-radius:6px;background:#211A4966;color:#F6F1FF;font-size:14px;font-weight:900;letter-spacing:.02em;white-space:nowrap;text-overflow:ellipsis}
 #chartwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:8px;flex:1;min-height:0;padding:0 4px 4px;background:#090D20;touch-action:none;overflow:hidden}
 #chart{display:block;width:100%;height:100%;min-width:0;cursor:crosshair;outline:none}
-#charttip{display:block;position:relative;z-index:8;pointer-events:none;min-width:0;width:100%;height:100%;overflow-y:auto;padding:10px 11px;border:1px solid #56629B;border-radius:8px;background:#0B1028F2;box-shadow:inset 3px 0 14px #0005;color:#FFFFFF;font:750 11px/1.55 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#charttip{display:block;position:relative;z-index:8;pointer-events:auto;min-width:0;width:100%;height:100%;overflow-y:auto;padding:10px 11px;border:1px solid #56629B;border-radius:8px;background:#0B1028F2;box-shadow:inset 3px 0 14px #0005;color:#FFFFFF;font:750 11px/1.55 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
 #charttip .ct-empty{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#FFFFFF;font-weight:850;line-height:1.7}
-#charttip .ct-time{color:#23DFFF;font-weight:950;margin-bottom:3px}
-#charttip .ct-pattern{margin:5px 0 4px;padding:4px 6px;border-radius:6px;font-size:10px;line-height:1.35}
+#charttip .ct-time{color:#23DFFF;font-size:14px;font-weight:950;margin-bottom:3px}
+#charttip .ct-pattern{margin:5px 0 4px;padding:4px 6px;border-radius:6px;font-size:12px;line-height:1.35}
 #charttip .ct-pattern.ok{background:#173F33;color:#C7FFE8;border:1px solid #39F89D55}
 #charttip .ct-pattern.warn{background:#3F3616;color:#FFF2A8;border:1px solid #FFE35D55}
 #charttip .ct-pattern.bad{background:#3A1731;color:#FFD3EA;border:1px solid #FF365F55}
-#charttip .ct-dirs{margin:3px 0 2px;font-size:12px;font-weight:950;letter-spacing:.03em;color:#FFFFFF}
+#charttip .ct-dirs{margin:3px 0 2px;font-size:14px;font-weight:950;letter-spacing:.03em;color:#FFFFFF}
 #charttip .ct-dir-up{color:#72FFC0}#charttip .ct-dir-down{color:#FF6B86}
+#charttip .ct-pattern-oi{margin-top:4px;padding-top:4px;border-top:1px solid #FFFFFF24;color:#FFFFFF;font-weight:800}
+#charttip .ct-pattern-oi b{color:#BFA7FF}
 #charttip .ct-grid{display:grid;grid-template-columns:repeat(4,auto);gap:2px 10px}
-#charttip .ct-v{color:#FFFFFF;font-weight:900}
+#charttip .ct-v{color:#FFFFFF;font-size:14px;font-weight:900}
 #charttip .ct-k{color:#DDE3FF}.ct-buy{color:#39F89D}.ct-sell{color:#FF365F}.ct-flow{margin-top:5px;padding-top:5px;border-top:1px solid #56629B;font-weight:900}
+#charttip .ct-footprint{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:4px;padding-top:4px;border-top:1px solid #56629B}
+#charttip .ct-footprint>span{min-width:0;color:#DDE3FF;font-size:9px;white-space:nowrap}
+#charttip .ct-footprint b{margin-left:3px;font-size:14px}
+#charttip .ct-num{font-size:14px}
 #charttip .ct-events{margin-top:6px;padding-top:6px;border-top:1px solid #56629B}
 #charttip .ct-events-title{margin-bottom:4px;color:#FFFFFF;font-size:10px;font-weight:950;letter-spacing:.08em}
 #charttip .ct-event{display:grid;grid-template-columns:17px minmax(0,1fr) auto;align-items:center;gap:5px;margin:2px 0;color:#FFFFFF;font-size:10px}
@@ -330,7 +336,7 @@ body{
 }
 #appgrid{
   display:grid!important;
-  grid-template-columns:minmax(0,1fr) 322px;
+  grid-template-columns:minmax(0,1fr) 238px;
   grid-template-rows:62px 552px 344px;
   gap:12px!important;
   width:100%;height:auto!important;min-width:1280px;min-height:990px;
@@ -405,7 +411,7 @@ body{
 .flow-response-slot{border-color:#2D3D5B!important;background:#0A1323!important;border-radius:5px!important}
 #nativecontext{padding:3px 8px!important;border-color:#33415E!important;background:#0A1323!important}
 #chartwrap{
-  grid-template-columns:minmax(0,1fr) 250px!important;gap:8px!important;
+  grid-template-columns:minmax(0,1fr) 334px!important;gap:8px!important;
   padding:0 4px 4px!important;background:#070D18!important;
 }
 #charttip{
@@ -477,7 +483,7 @@ body{
   background:linear-gradient(180deg,#091220,#060C17)!important;
 }
 .lo-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px;border-bottom:1px solid #20304B}
-#lotime{color:#24D6F2;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.03em}
+#lotime{color:#24D6F2;font:800 13px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.03em}
 .lo-label{color:#70809D;font-size:8px;font-weight:800;letter-spacing:.13em}
 .lo-card{
   position:relative;min-height:0;padding:11px 12px;border:1px solid #22324E;border-radius:7px;
@@ -491,27 +497,28 @@ body{
 #lopriceresponse{margin-top:4px;color:var(--lo-accent);font-size:25px;font-weight:800;line-height:1;letter-spacing:.01em}
 .lo-measure{margin-top:12px}
 .lo-measure-head{display:flex;align-items:center;justify-content:space-between;color:#C7D1E5;font-size:10px}
-.lo-measure-head b{font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.lo-measure-head b{font:800 14px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
 .lo-bar{position:relative;height:6px;margin-top:6px;border-radius:3px;background:#18243A;overflow:hidden}
 .lo-bar i{display:block;width:0;height:100%;background:var(--lo-color,#25B7E8);border-radius:3px;transition:width .18s ease,opacity .18s ease}
 .lo-bar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(12.5% - 1px),#07101C calc(12.5% - 1px) 12.5%);pointer-events:none}
 .lo-inline-measure{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:10px;border-top:1px solid #1C2940;color:#C7D1E5;font-size:10px}
-.lo-inline-measure b{color:#25B7E8;font:800 12px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.lo-inline-measure b{color:#25B7E8;font:800 14px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
 .lo-metric-list{margin-top:7px}
 .lo-metric{display:grid;grid-template-columns:74px minmax(0,1fr) 58px 16px;align-items:center;gap:4px;height:27px;border-bottom:1px solid #162239}
 .lo-metric:last-child{border-bottom:0}
 .lo-metric span:first-child{color:#91A0BC;font-size:9px;letter-spacing:.04em}
-.lo-value,.lo-change{font:700 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right;color:#EAF0FF;white-space:nowrap}
-.lo-change{font-size:9px;color:#8FA0BC}
-.lo-arrow{font:900 14px/1 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right}
+.lo-value,.lo-change{font:700 14px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right;color:#EAF0FF;white-space:nowrap}
+.lo-change{font-size:11px;color:#8FA0BC}
+.lo-arrow{font:900 16px/1 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right}
 .lo-context-list{margin-top:7px}
 .lo-context-row{display:grid;grid-template-columns:78px minmax(0,1fr) 8px;align-items:center;gap:6px;height:27px;border-bottom:1px solid #17243B}
 .lo-context-row:last-child{border-bottom:0}
 .lo-context-row>span:first-child{color:#91A0BC;font-size:9px}
-.lo-context-row b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;color:#DCE5F7;font-size:9px}
-.lo-context-dot{width:6px;height:6px;border-radius:50%;background:#6E7B96}
+.lo-context-row b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;color:#DCE5F7;font-size:11px}
+.lo-context-dot{width:8px;height:8px;border-radius:50%;background:#6E7B96}
 .lo-fact-list{margin-top:8px;display:flex;flex-direction:column;gap:9px}
-.lo-fact{display:grid;grid-template-columns:13px minmax(0,1fr);gap:7px;align-items:start;color:#BAC6DC;font-size:9px;line-height:1.35}
+.lo-facts .lo-title{font-size:9px}
+.lo-fact{display:grid;grid-template-columns:13px minmax(0,1fr);gap:7px;align-items:start;color:#BAC6DC;font-size:14px;line-height:1.35}
 .lo-fact i{font-style:normal;color:#6E7B96;font-weight:900}
 .lo-fact b{color:#DCE5F7;font-weight:700}
 
@@ -1477,7 +1484,7 @@ function normalizeMarketBar(raw,live=false){
   return {time,bar_time:raw.bar_time,timeframe:raw.timeframe||"1m",o,h,l,c,
     volume:Number.isFinite(N(raw.volume))?N(raw.volume):0,
     delta:Number.isFinite(N(raw.delta))?N(raw.delta):0,
-    cvd:Number.isFinite(N(raw.cvd))?N(raw.cvd):0,live};
+    cvd:Number.isFinite(N(raw.cvd))?N(raw.cvd):0,footprint:raw.footprint||null,live};
 }
 function marketBars(){
   const byTime=new Map();
@@ -1561,45 +1568,45 @@ function flowEventsDetail(events){
   if(!events.length)return "";
   const rows=aggregateFlowEvents(events).map(group=>{
     const meta=flowMarkerMeta(group.category),sideColor=group.side==="BUY"?BUY:group.side==="SELL"?SELL:DIS;
-    return `<div class="ct-event"><span class="ct-event-mark" style="background:${meta.color}">${meta.mark}</span><span><b>${meta.label}</b> <span style="color:${sideColor}">${group.side}</span></span><span class="ct-event-meta">×${group.count} · MAX ${fmt(group.maxStrength,2)}</span></div>`;
+    return `<div class="ct-event"><span class="ct-event-mark" style="background:${meta.color}">${meta.mark}</span><span><b>${meta.label}</b> <span style="color:${sideColor}">${group.side}</span></span><span class="ct-event-meta">×<b class="ct-num">${group.count}</b> · MAX <b class="ct-num">${fmt(group.maxStrength,2)}</b></span></div>`;
   }).join("");
   return `<div class="ct-events"><div class="ct-events-title">FLOW EVENTS · 2H MEMORY</div>${rows}</div>`;
 }
 const CVD_PATTERNS=[
-  {no:'1',name:'UPTREND',klass:'ok',price:1,cvd:1,delta:1,summary:'Cumulative and recent flow favor buys; price is rising'},
-  {no:'2',name:'UPTREND PULLBACK',klass:'warn',price:1,cvd:1,delta:-1,summary:'Cumulative flow favors buys; recent flow sells; price remains higher'},
-  {no:'3',name:'UPWARD REBOUND',klass:'warn',price:1,cvd:-1,delta:1,summary:'Cumulative flow favors sells; recent buying accompanies a price rise'},
-  {no:'4',name:'UPWARD DIVERGENCE',klass:'bad',price:1,cvd:-1,delta:-1,summary:'Price rises despite selling pressure'},
-  {no:'5',name:'DOWNWARD DIVERGENCE',klass:'bad',price:-1,cvd:1,delta:1,summary:'Price falls despite buying pressure'},
-  {no:'6',name:'DOWNTREND PULLBACK',klass:'warn',price:-1,cvd:1,delta:-1,summary:'Cumulative flow favors buys; recent selling accompanies a price fall'},
-  {no:'7',name:'DOWNWARD REBOUND',klass:'warn',price:-1,cvd:-1,delta:1,summary:'Cumulative flow favors sells; recent buying has entered'},
-  {no:'8',name:'DOWNTREND',klass:'ok',price:-1,cvd:-1,delta:-1,summary:'Cumulative and recent flow favor sells; price is falling'},
+  {no:'1',name:'UPTREND',klass:'ok',price:1,cvd:1,delta:1,summary:'累積・直近フローは買い優勢で、価格は上昇。'},
+  {no:'2',name:'UPTREND PULLBACK',klass:'warn',price:1,cvd:1,delta:-1,summary:'累積フローは買い優勢。直近は売りだが、価格は高い位置を維持。'},
+  {no:'3',name:'UPWARD REBOUND',klass:'warn',price:1,cvd:-1,delta:1,summary:'累積フローは売り優勢だが、直近の買いとともに価格が上昇。'},
+  {no:'4',name:'UPWARD DIVERGENCE',klass:'bad',price:1,cvd:-1,delta:-1,summary:'売り圧力にもかかわらず価格が上昇。'},
+  {no:'5',name:'DOWNWARD DIVERGENCE',klass:'bad',price:-1,cvd:1,delta:1,summary:'買い圧力にもかかわらず価格が下落。'},
+  {no:'6',name:'DOWNTREND PULLBACK',klass:'warn',price:-1,cvd:1,delta:-1,summary:'累積フローは買い優勢だが、直近の売りとともに価格が下落。'},
+  {no:'7',name:'DOWNWARD REBOUND',klass:'warn',price:-1,cvd:-1,delta:1,summary:'累積フローは売り優勢だが、直近の買いが入っている。'},
+  {no:'8',name:'DOWNTREND',klass:'ok',price:-1,cvd:-1,delta:-1,summary:'累積・直近フローは売り優勢で、価格は下落。'},
 ];
 const OI_COMBINED_CONTEXTS=Object.freeze({
-  '1:1':{title:'NEW LONG BUILDUP',summary:'非常に強い上昇。新規ロングが積み上がっている。'},
-  '1:-1':{title:'SHORT-COVER RALLY',summary:'ショートカバー主体。上昇は続かないことも多い。'},
-  '2:1':{title:'SELLING INTO STRENGTH',summary:'上昇中に売りが増加。吸収や分配の可能性がある。'},
-  '2:-1':{title:'LONG PROFIT-TAKING',summary:'ロングの利確が主体。上昇の勢いが鈍る可能性がある。'},
-  '3:1':{title:'REBOUND WITH NEW PARTICIPATION',summary:'上昇反発に新規参加。直近買いとOI増加が反発を支えている。'},
-  '3:-1':{title:'SHORT-COVER REBOUND',summary:'ショートカバーによる反発。新規買い主導とは限らない。'},
-  '4:1':{title:'SHORT PRESSURE ABSORBED',summary:'OI増加中の売り圧力でも価格が上昇。ショート側が捕まる候補。'},
-  '4:-1':{title:'UNWINDING UPWARD DIVERGENCE',summary:'ポジション解消を伴う上昇ダイバージェンス。継続には新規参加の確認が必要。'},
-  '5:1':{title:'LONG PRESSURE ABSORBED',summary:'OI増加中の買い圧力でも価格が下落。ロング側が捕まる候補。'},
-  '5:-1':{title:'UNWINDING DOWNWARD DIVERGENCE',summary:'ポジション解消を伴う下落ダイバージェンス。継続には新規参加の確認が必要。'},
-  '6:1':{title:'RENEWED SHORT BUILDUP',summary:'下落再開に新規参加。直近売りとOI増加が下落を支えている。'},
-  '6:-1':{title:'LONG-LIQUIDATION LEG',summary:'ロング解消による下落。新規ショート主導とは限らない。'},
-  '7:1':{title:'REBOUND ATTEMPT WITH NEW OI',summary:'反発候補。買いが入り始め、新規資金も流入している。'},
-  '7:-1':{title:'SHORT PROFIT-TAKING',summary:'ショートの利確による買い戻し。本格反転とは限らない。'},
-  '8:1':{title:'NEW SHORT BUILDUP',summary:'非常に強い下落。新規ショートが積み上がっている。'},
-  '8:-1':{title:'LONG LIQUIDATION',summary:'ロングの投げ売り・手仕舞い。売り一巡後に反発することもある。'},
+  '1:1':{title:'NEW LONG BUILDUP',summary:'可能性：新規ロングの積み上がり<br>OI増加を伴う上昇。'},
+  '1:-1':{title:'SHORT-COVER RALLY',summary:'可能性：ショートカバー主体<br>OI減少を伴う上昇。上昇が続かないこともある。'},
+  '2:1':{title:'SELLING INTO STRENGTH',summary:'可能性：吸収または分配<br>OI増加中の上昇で、直近の売りが増加。'},
+  '2:-1':{title:'LONG PROFIT-TAKING',summary:'可能性：ロングの利確主体<br>OI減少中の上昇で、直近の売りが増加。'},
+  '3:1':{title:'REBOUND WITH NEW PARTICIPATION',summary:'可能性：新規参加が反発を支えている<br>OI増加と直近買いを伴う反発。'},
+  '3:-1':{title:'SHORT-COVER REBOUND',summary:'可能性：ショートカバー主体<br>OI減少と直近買いを伴う反発。'},
+  '4:1':{title:'SHORT PRESSURE ABSORBED',summary:'可能性：ショート側が捕まっている<br>OI増加中、売り圧力にもかかわらず価格が上昇。'},
+  '4:-1':{title:'UNWINDING UPWARD DIVERGENCE',summary:'可能性：ポジション解消主体<br>OI減少を伴う上昇ダイバージェンス。'},
+  '5:1':{title:'LONG PRESSURE ABSORBED',summary:'可能性：ロング側が捕まっている<br>OI増加中、買い圧力にもかかわらず価格が下落。'},
+  '5:-1':{title:'UNWINDING DOWNWARD DIVERGENCE',summary:'可能性：ポジション解消主体<br>OI減少を伴う下落ダイバージェンス。'},
+  '6:1':{title:'RENEWED SHORT BUILDUP',summary:'可能性：新規ショートの参加<br>OI増加と直近売りを伴う下落。'},
+  '6:-1':{title:'LONG-LIQUIDATION LEG',summary:'可能性：ロング解消主体<br>OI減少と直近売りを伴う下落。'},
+  '7:1':{title:'REBOUND ATTEMPT WITH NEW OI',summary:'可能性：新規参加の流入<br>OI増加と直近買いを伴う反発候補。'},
+  '7:-1':{title:'SHORT PROFIT-TAKING',summary:'可能性：ショートの利確による買い戻し<br>OI減少と直近買いを伴う反発候補。'},
+  '8:1':{title:'NEW SHORT BUILDUP',summary:'可能性：新規ショートの積み上がり<br>OI増加を伴う下落。'},
+  '8:-1':{title:'LONG LIQUIDATION',summary:'可能性：ロングの投げ売り・手仕舞い<br>OI減少を伴う下落。'},
 });
 function combinedOiContext(pattern,oiChange){
   if(!pattern)return null;
   if(oiChange==null||!Number.isFinite(oiChange)){
-    return {code:`P${pattern.no}_MISSING`,oiDirection:null,title:'OI DATA MISSING',summary:'時刻同期できるOIがないため、既存8パターンだけを表示する。'};
+    return {code:`P${pattern.no}_MISSING`,oiDirection:null,title:'OI DATA MISSING',summary:'可能性：判定不可<br>OIデータ欠測。PRICE・CVD・Δによる基本評価のみ。'};
   }
   if(oiChange===0){
-    return {code:`P${pattern.no}_UNCHANGED`,oiDirection:0,title:'OI UNCHANGED',summary:'OIは変化なし。既存8パターンの観測評価を維持する。'};
+    return {code:`P${pattern.no}_UNCHANGED`,oiDirection:0,title:'OI UNCHANGED',summary:'可能性：追加評価なし<br>OI変化なし。PRICE・CVD・Δによる基本評価を維持。'};
   }
   const oiDirection=oiChange>0?1:-1,context=OI_COMBINED_CONTEXTS[`${pattern.no}:${oiDirection}`];
   return context?{...context,code:`P${pattern.no}_${oiDirection>0?'BUILDING':'UNWINDING'}`,oiDirection}:null;
@@ -1818,14 +1825,22 @@ function oiDetailNumber(value,digits=3){
   if(value==null||!Number.isFinite(value))return "—";
   return value.toLocaleString(undefined,{minimumFractionDigits:digits,maximumFractionDigits:digits});
 }
-function oiContextHtml(bar,pattern){
+function footprintTotalsForBar(bar){
+  const levels=bar&&bar.footprint&&Array.isArray(bar.footprint.levels)?bar.footprint.levels:[];
+  if(levels.length)return computeFootprintTotals(levels);
+  const volume=N(bar&&bar.volume),delta=N(bar&&bar.delta);
+  if(!Number.isFinite(volume)||!Number.isFinite(delta)||volume<0||Math.abs(delta)>volume+1e-9)return null;
+  return {bid:Math.max(0,(volume-delta)/2),ask:Math.max(0,(volume+delta)/2),delta};
+}
+function footprintTotalsHtml(bar){
+  const totals=footprintTotalsForBar(bar),bid=totals?fmt(totals.bid):"—",ask=totals?fmt(totals.ask):"—";
+  const delta=totals?`${totals.delta>0?"+":""}${fmt(totals.delta)}`:"—",deltaColor=totals?(totals.delta>0?BUY:totals.delta<0?SELL:DIS):DIS;
+  return `<div class="ct-footprint"><span>Σ BID <b style="color:${SELL}">${bid}</b></span><span>Σ ASK <b style="color:${BUY}">${ask}</b></span><span>Δ <b style="color:${deltaColor}">${delta}</b></span></div>`;
+}
+function oiContextHtml(bar){
   const oi=oiContextForBar(bar);
   let html='<div class="ct-oi"><div class="ct-oi-title">OPEN INTEREST · BINANCE USDⓈ-M</div>';
-  if(!oi.available){
-    const combined=combinedOiContext(pattern,null);
-    const missing=combined?'<div class="ct-oi-context"><div class="ct-oi-context-title">'+combined.code+' · '+combined.title+'</div><div class="ct-oi-context-summary">'+combined.summary+'</div></div>':'';
-    return html+'<div style="margin-top:3px;color:#DDE3FF">NO ALIGNED DATA · NOT FILLED</div>'+missing+'</div>';
-  }
+  if(!oi.available)return html+'<div style="margin-top:3px;color:#DDE3FF">NO ALIGNED DATA · NOT FILLED</div></div>';
   const changeText=oi.change==null?"—":(oi.change>=0?"+":"")+oiDetailNumber(oi.change,3);
   const pctText=oi.pct==null?"—":(oi.pct>=0?"+":"")+oi.pct.toFixed(4)+"%";
   html+='<div class="ct-oi-grid">'
@@ -1834,22 +1849,12 @@ function oiContextHtml(bar,pattern){
     +'<span class="ct-k">CHANGE</span><span class="ct-v">'+changeText+'</span>'
     +'<span class="ct-k">CHANGE %</span><span class="ct-v">'+pctText+'</span>'
     +'<span class="ct-k">SAMPLES</span><span class="ct-v">'+oi.sampleCount+' · '+S.oiPollIntervalSec+'S</span></div>';
-  if(oi.change!=null){
-    const context=oi.change>0?"BUILDING ↑":oi.change<0?"UNWINDING ↓":"UNCHANGED →";
-    const combined=combinedOiContext(pattern,oi.change);
-    if(combined){
-      const directions=chartDirection("PRICE",pattern.price)+'<span> / </span>'+chartDirection("CVD",pattern.cvd)+'<span> / </span>'+chartDirection("Δ",pattern.delta)+'<span> / </span>'
-        +(combined.oiDirection===0?'<span style="color:#FFE35D">OI →</span>':chartDirection("OI",combined.oiDirection));
-      html+='<div class="ct-oi-context"><div class="ct-oi-context-title">'+combined.code+' · '+combined.title+'</div><div class="ct-oi-context-dirs">'+directions+'</div><div class="ct-oi-context-summary">'+combined.summary+'</div></div>';
-    }else{
-      html+='<div class="ct-oi-context"><div class="ct-oi-context-title">OI '+context+'</div></div>';
-    }
-  }
   return html+'</div>';
 }
-function selectChartIndex(index){
+function selectChartIndex(index,preserveScroll=false){
   const bars=CHART.currentBars;
   if(!bars.length||index<0||index>=bars.length)return;
+  const tip=$("charttip"),scrollTop=preserveScroll?tip.scrollTop:0;
   const b=bars[index],flow=CHART.currentFlows[index],events=CHART.currentEventBuckets.get(b.time)||[],slot=(MC.R-MC.L)/bars.length,x=MC.L+(index+.5)*slot;
   CHART.selectedTime=b.time;
   const g=$("chartcross"),shade=$("chartselectshade"),xl=$("chartcrossx"),yl=$("chartcrossy");
@@ -1860,21 +1865,25 @@ function selectChartIndex(index){
   xl.setAttribute("x1",x);xl.setAttribute("x2",x);
   yl.setAttribute("y1",closeY);yl.setAttribute("y2",closeY);
   const d=new Date(b.time),time=d.toLocaleString("en-GB",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
-  const priceDigits=chartPriceDigits(b.h-b.l,b.c),tip=$("charttip"),flowName=flow?FLOW_RESPONSE_LABELS[flow.state]||flow.state:"—",fv=flow&&flowVisual(flow.state);
-  const flowFacts=flow?`PRESSURE ${flow.pressure_ratio>=0?"+":""}${fmt(flow.pressure_ratio*100,0)}% · PRICE ${flow.price_change_bps>=0?"+":""}${fmt(flow.price_change_bps,1)}bp · PERSISTENCE ${fmt(flow.persistence*100,0)}%${flow.relative_volume==null?"":` · VOLUME ×${fmt(flow.relative_volume,1)}`}`:"NO DATA";
+  const priceDigits=chartPriceDigits(b.h-b.l,b.c),flowName=flow?FLOW_RESPONSE_LABELS[flow.state]||flow.state:"—",fv=flow&&flowVisual(flow.state);
+  const flowFacts=flow?`PRESSURE <b class="ct-num">${flow.pressure_ratio>=0?"+":""}${fmt(flow.pressure_ratio*100,0)}%</b> · PRICE <b class="ct-num">${flow.price_change_bps>=0?"+":""}${fmt(flow.price_change_bps,1)}bp</b> · PERSISTENCE <b class="ct-num">${fmt(flow.persistence*100,0)}%</b>${flow.relative_volume==null?"":` · VOLUME <b class="ct-num">×${fmt(flow.relative_volume,1)}</b>`}`:"NO DATA";
   const patternBars=marketBars(),patternIndex=patternBars.findIndex(row=>row.time===b.time);
   const pattern=classifyCvdPattern(patternBars,patternIndex);
-  const directions=pattern?`${chartDirection("PRICE",pattern.price)}<span> / </span>${chartDirection("CVD",pattern.cvd)}<span> / </span>${chartDirection("Δ",pattern.delta)}`:"";
-  const patternHtml=pattern?`<div class="ct-pattern ${pattern.klass}">${pattern.no} ${pattern.name}<div class="ct-dirs">${directions}</div><span style="font-weight:800;opacity:.95">${pattern.summary}</span></div>`:`<div class="ct-pattern warn">— NO 8-PATTERN CLASSIFICATION</div>`;
-  tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div>${patternHtml}<div class="ct-grid"><span class="ct-k">O</span><span class="ct-v">${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span class="ct-v">${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span class="ct-v">${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="ct-v">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span class="ct-v">${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="ct-v">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span class="ct-v">${compact(b.volume)}</span></div>${flowEventsDetail(events)}<div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW RESPONSE · ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:#FFFFFF;font-weight:800">${flowFacts}</span></div>`;
+  const oi=oiContextForBar(b),combined=combinedOiContext(pattern,oi.available?oi.change:null);
+  const oiDirection=combined?combined.oiDirection:null;
+  const oiDirectionHtml=oiDirection==null?`<span style="color:${DIS}">OI —</span>`:oiDirection===0?'<span style="color:#FFE35D">OI →</span>':chartDirection("OI",oiDirection);
+  const directions=pattern?`${chartDirection("PRICE",pattern.price)}<span> / </span>${chartDirection("CVD",pattern.cvd)}<span> / </span>${chartDirection("Δ",pattern.delta)}<span> / </span>${oiDirectionHtml}`:"";
+  const oiComment=combined?`<div class="ct-pattern-oi"><b>OI:</b> ${combined.summary}</div>`:"";
+  const patternHtml=pattern?`<div class="ct-pattern ${pattern.klass}">${pattern.no} ${pattern.name}<div class="ct-dirs">${directions}</div><span style="font-weight:800;opacity:.95">${pattern.summary}</span>${oiComment}</div>`:`<div class="ct-pattern warn">— NO 8-PATTERN CLASSIFICATION</div>`;
+  tip.innerHTML=`<div class="ct-time">${time} ${b.live?"· FORMING":""}</div>${patternHtml}<div class="ct-grid"><span class="ct-k">O</span><span class="ct-v">${b.o.toFixed(priceDigits)}</span><span class="ct-k">H</span><span class="ct-v">${b.h.toFixed(priceDigits)}</span><span class="ct-k">L</span><span class="ct-v">${b.l.toFixed(priceDigits)}</span><span class="ct-k">C</span><span class="ct-v">${b.c.toFixed(priceDigits)}</span><span class="ct-k">CVD</span><span class="ct-v">${compact(b.cvd)}</span><span class="ct-k">Δ</span><span class="ct-v">${b.delta>=0?"+":""}${compact(b.delta)}</span><span class="ct-k">VOL</span><span class="ct-v">${compact(b.volume)}</span></div>${footprintTotalsHtml(b)}${flowEventsDetail(events)}<div class="ct-flow" style="color:${fv?fv.color:DIS}">FLOW RESPONSE · ${flowWindowText(CHART.windowSec)} · ${flowName}<br><span style="color:#FFFFFF;font-weight:800">${flowFacts}</span></div>`;
   const flowBlock=tip.querySelector(".ct-flow");
-  if(flowBlock)flowBlock.insertAdjacentHTML("beforebegin",oiContextHtml(b,pattern));
-  tip.scrollTop=0;
+  if(flowBlock)flowBlock.insertAdjacentHTML("beforebegin",oiContextHtml(b));
+  tip.scrollTop=scrollTop;
 }
 function restoreChartSelection(){
   if(CHART.selectedTime==null)return;
   const index=CHART.currentBars.findIndex(b=>b.time===CHART.selectedTime);
-  if(index>=0)selectChartIndex(index);
+  if(index>=0)selectChartIndex(index,true);
 }
 function clearChartSelection(){
   CHART.selectedTime=null;
@@ -1897,6 +1906,7 @@ function moveChartSelection(step){
   const target=Math.max(0,Math.min(all.length-1,current+step));
   if(target===current){restoreChartSelection();return;}
   CHART.selectedTime=all[target].time;
+  $("charttip").scrollTop=0;
   const end=Math.max(0,all.length-CHART.offset),start=Math.max(0,end-CHART.visible);
   if(target<start)CHART.offset=Math.min(Math.max(0,all.length-CHART.visible),CHART.offset+(start-target));
   else if(target>=end)CHART.offset=Math.max(0,CHART.offset-(target-end+1));
