@@ -11,6 +11,7 @@ __pycache__/
 test_tmp/
 tmp_pytest_run/
 latency_test_tmp/
+.test_tmp_stage2b_*/
 
 # Runtime observation artifacts. Curated JSON reports and Markdown summaries
 # remain commit-eligible; raw quote streams, process files, and logs do not.
