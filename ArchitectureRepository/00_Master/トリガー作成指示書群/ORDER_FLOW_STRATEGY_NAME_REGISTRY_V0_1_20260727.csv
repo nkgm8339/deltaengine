@@ -1,0 +1,11 @@
+strategy_family_id,strategy_family_name,primary_basis,canonical_status
+STR-CVD-DIVERGENCE,CVD Divergence,price_vs_cvd_divergence,USER_CANONICAL
+STR-ABSORPTION-REVERSAL,Absorption Reversal,absorption_then_reversal,USER_CANONICAL
+STR-EXHAUSTION-REVERSAL,Exhaustion Reversal,buyer_or_seller_exhaustion,USER_CANONICAL
+STR-STACKED-IMBALANCE-CONTINUATION,Stacked Imbalance Continuation,stacked_imbalance_continuation,USER_CANONICAL
+STR-ICEBERG-BREAKOUT,Iceberg Breakout,iceberg_depletion_breakout,USER_CANONICAL
+STR-LIQUIDITY-SWEEP,Liquidity Sweep,stop_sweep_then_reversal,USER_CANONICAL
+STR-FAILED-AUCTION,Failed Auction,auction_failure_then_reversal,USER_CANONICAL
+STR-PULLING-STACKING,Pulling / Stacking Strategy,book_pull_stack_dynamics,USER_CANONICAL
+STR-DELTA-FLIP,Delta Flip,delta_sign_or_control_flip,USER_CANONICAL
+STR-BOOK-IMBALANCE,Book Imbalance,order_book_imbalance_follow_or_fade,USER_CANONICAL
