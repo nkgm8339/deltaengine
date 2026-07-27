@@ -118,6 +118,15 @@ def v_number(
         return None
     return check
 
+def v_positive_decimal_string(value: Any) -> Optional[str]:
+    error = v_decimal_string()(value)
+    if error:
+        return error
+    if Decimal(value) <= Decimal("0"):
+        return "must be a finite Decimal string > 0"
+    return None
+
+
 def v_decimal_string(lo: Decimal = Decimal("0")) -> Validator:
     def check(value: Any) -> Optional[str]:
         if not isinstance(value, str):
@@ -231,6 +240,7 @@ SCHEMA: dict[str, dict[str, Field]] = {
         "symbol": Field(v_nonempty_str, "BTCUSDT"),
         "exchange": Field(v_nonempty_str, "BINANCE"),
         "bar_timeframe": Field(v_enum(TIMEFRAMES), "1m"),  # CVD_v3.2 §5 default 1m
+        "tick_size": Field(v_positive_decimal_string, REQUIRED),
     },
     "websocket": {
         "url": Field(v_nonempty_str, REQUIRED),                   # WebSocket §6 "—"

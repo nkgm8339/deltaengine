@@ -51,6 +51,21 @@ def test_I1_cvd_change_and_slope():
     assert conditions["cvd_slope_5s"] == Decimal("-2")
 
 
+def test_I1_price_progress_uses_asof_source_time_and_tick_units():
+    snap = MarketStateSnapshot(
+        engine_time_ns=1 * S,
+        price_samples=(_ts(0, 100), _ts(1, "99.6")),
+        tick_size=Decimal("0.1"),
+    )
+
+    conditions = _ADAPTER.to_conditions(snap)
+
+    assert conditions["upward_progress_ticks_1s"] == Decimal("0")
+    assert conditions["downward_progress_ticks_1s"] == Decimal("4")
+    assert "upward_progress_ticks_5s" not in conditions
+    assert "downward_progress_ticks_5s" not in conditions
+
+
 # --- I2: wall concentration + distance --------------------------------------
 
 def test_I2_bid_wall_concentration_and_distance():
@@ -61,12 +76,51 @@ def test_I2_bid_wall_concentration_and_distance():
             BookLevel(Decimal("99.9"), Decimal("50")),  # the wall
             BookLevel(Decimal("99.8"), Decimal("5")),
         ),
+        ask_levels=(BookLevel(Decimal("100.1"), Decimal("1")),),
         tick_size=Decimal("0.1"),
     )
     conditions = _ADAPTER.to_conditions(snap)
     assert conditions["bid_wall_concentration_top10"] == Decimal("50") / Decimal("60")
     # distance from best bid (100.0) to the wall (99.9) is one tick
     assert conditions["distance_to_nearest_bid_wall"] == Decimal("1")
+
+
+def test_I2_wall_tie_uses_nearest_candidate_and_crossed_book_omits_all():
+    tied = MarketStateSnapshot(
+        engine_time_ns=0,
+        bid_levels=(
+            BookLevel(Decimal("100.0"), Decimal("1")),
+            BookLevel(Decimal("99.9"), Decimal("10")),
+            BookLevel(Decimal("99.8"), Decimal("10")),
+        ),
+        ask_levels=(BookLevel(Decimal("100.1"), Decimal("2")),),
+        tick_size=Decimal("0.1"),
+    )
+    tied_conditions = _ADAPTER.to_conditions(tied)
+    assert tied_conditions["distance_to_nearest_bid_wall"] == Decimal("1")
+
+    crossed = MarketStateSnapshot(
+        engine_time_ns=0,
+        bid_levels=(BookLevel(Decimal("100.1"), Decimal("1")),),
+        ask_levels=(BookLevel(Decimal("100.0"), Decimal("1")),),
+        tick_size=Decimal("0.1"),
+    )
+    assert not any("wall" in key for key in _ADAPTER.to_conditions(crossed))
+
+
+def test_I2_off_grid_wall_distance_is_omitted_without_rounding():
+    snap = MarketStateSnapshot(
+        engine_time_ns=0,
+        bid_levels=(
+            BookLevel(Decimal("100.0"), Decimal("1")),
+            BookLevel(Decimal("99.95"), Decimal("10")),
+        ),
+        ask_levels=(BookLevel(Decimal("100.1"), Decimal("1")),),
+        tick_size=Decimal("0.1"),
+    )
+    conditions = _ADAPTER.to_conditions(snap)
+    assert "bid_wall_concentration_top10" in conditions
+    assert "distance_to_nearest_bid_wall" not in conditions
 
 
 # --- I3: OI change / pct / joint state --------------------------------------

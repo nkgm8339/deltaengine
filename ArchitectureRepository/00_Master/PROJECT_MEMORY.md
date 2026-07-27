@@ -952,3 +952,28 @@ global context refresh 4件である。これは同時成立数ではなく、En
 これらは全件`UNVALIDATED`のdesign台帳である。次はreplay契約とnegative testを作り、
 順序逆転、同一event再利用、timeout、途中反証、context-only hard advance、
 Hookからの直接注文を拒否する。
+
+## P3-C price／book／wall材料契約の解決（2026-07-27）
+
+Strategy Engineへ渡すTier A材料のうち、時刻、price response履歴、book event履歴、
+wall距離の曖昧さを、停止理由のまま残さず個別契約へ分解して解決した。
+
+- engine clockとsource UTC epochを分離し、Strategy snapshotの評価境界をbar開始時刻でなく、
+  snapshot生成を起こした最後の受理normalized event時刻へ固定
+- normalized tradeをauthoritative price sourceとして300秒＋境界直前sampleを保持
+- G09既存100ms／1s／5s／30sのupward／downward price progressをDecimal ticksで生成
+- applied depth DIFFと`ApplyResult`からG07 Book Event Flow全48 keyをsource-time集計
+- gap、snapshot、resyncでbook履歴を破棄し、新window完成までfail closed
+- wallをtop10最大数量のthreshold-free candidateとし、同量時はbestに最も近いlevelを選択
+- wall concentrationとdistanceを同一candidateへ結び、距離をticksへ固定
+- 空／locked／crossed bookとoff-grid distanceをfail closed
+
+正本契約:
+
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/PRICE_RESPONSE_HISTORY_CONTRACT_V0_1_20260727.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/BOOK_EVENT_HISTORY_RESET_CONTRACT_V0_1_20260727.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/WALL_DISTANCE_SEMANTICS_CONTRACT_V0_1_20260727.md`
+
+Strategy Engine対象43件、pipeline／book境界79件、全回帰 **590 passed, 1 skipped**。
+完成済みFlow Price Response、3段チャート、8パターン、OI、UIの計算・表示は変更していない。
+runtime有効化、発注権限、G16 composite、CalibrationBook thresholdは別工程であり未承認のまま。

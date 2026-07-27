@@ -18,6 +18,12 @@ from .market_state import NS_PER_SECOND, BookLevel, MarketStateSnapshot, TimeSam
 
 _WINDOW_5S_NS = 5 * NS_PER_SECOND
 _WINDOW_5M_NS = 300 * NS_PER_SECOND
+_PRICE_PROGRESS_WINDOWS = (
+    (NS_PER_SECOND // 10, "100ms"),
+    (NS_PER_SECOND, "1s"),
+    (5 * NS_PER_SECOND, "5s"),
+    (30 * NS_PER_SECOND, "30s"),
+)
 _TOP_N = 10
 
 # price_oi_joint_state_5m ENUM encoded as a numeric code (documented mapping).
@@ -36,6 +42,7 @@ class IngestionAdapter:
     def to_conditions(self, snapshot: MarketStateSnapshot) -> dict[str, Decimal]:
         conditions: dict[str, Decimal] = {}
         self._add_cvd(snapshot, conditions)
+        self._add_price_progress(snapshot, conditions)
         self._add_walls(snapshot, conditions)
         self._add_open_interest(snapshot, conditions)
         self._add_pre_aggregated(snapshot, conditions)
@@ -44,7 +51,7 @@ class IngestionAdapter:
     # -- CVD (AGGTRADE / DELTA_FOOTPRINT) ----------------------------------
 
     def _add_cvd(self, snapshot: MarketStateSnapshot, out: dict[str, Decimal]) -> None:
-        now = snapshot.engine_time_ns
+        now = snapshot.source_time_ns if snapshot.source_time_ns is not None else snapshot.engine_time_ns
         samples = _sorted(snapshot.cvd_samples)
         latest = _latest_at(samples, now)
         base = _value_at_or_before(samples, now - _WINDOW_5S_NS)
@@ -60,11 +67,46 @@ class IngestionAdapter:
                 dt_s = Decimal(dt_ns) / Decimal(NS_PER_SECOND)
                 out["cvd_slope_5s"] = (last.value - first.value) / dt_s
 
+    # -- Price response (AGGTRADE / PRICE_RESPONSE) ------------------------
+
+    def _add_price_progress(
+        self, snapshot: MarketStateSnapshot, out: dict[str, Decimal]
+    ) -> None:
+        if snapshot.tick_size is None or snapshot.tick_size <= 0:
+            return
+        now = (
+            snapshot.source_time_ns
+            if snapshot.source_time_ns is not None
+            else snapshot.engine_time_ns
+        )
+        samples = _sorted(snapshot.price_samples)
+        latest = _latest_at(samples, now)
+        if latest is None:
+            return
+        for window_ns, label in _PRICE_PROGRESS_WINDOWS:
+            base = _value_at_or_before(samples, now - window_ns)
+            if base is None:
+                continue
+            delta_ticks = (latest.value - base.value) / snapshot.tick_size
+            out[f"upward_progress_ticks_{label}"] = max(delta_ticks, Decimal(0))
+            out[f"downward_progress_ticks_{label}"] = max(-delta_ticks, Decimal(0))
+
     # -- Book walls (DEPTH / BOOK_SHAPE) -----------------------------------
 
     def _add_walls(self, snapshot: MarketStateSnapshot, out: dict[str, Decimal]) -> None:
-        self._add_side_walls(snapshot.bid_levels, snapshot, "bid", out)
-        self._add_side_walls(snapshot.ask_levels, snapshot, "ask", out)
+        bids = sorted(
+            (level for level in snapshot.bid_levels if level.quantity > 0),
+            key=lambda level: level.price,
+            reverse=True,
+        )
+        asks = sorted(
+            (level for level in snapshot.ask_levels if level.quantity > 0),
+            key=lambda level: level.price,
+        )
+        if not bids or not asks or bids[0].price >= asks[0].price:
+            return
+        self._add_side_walls(bids, snapshot, "bid", out)
+        self._add_side_walls(asks, snapshot, "ask", out)
 
     def _add_side_walls(
         self,
@@ -77,21 +119,27 @@ class IngestionAdapter:
             return
         top = list(levels[:_TOP_N])
         total = sum((lvl.quantity for lvl in top), Decimal(0))
-        wall = max(top, key=lambda lvl: lvl.quantity)
-        if total > 0:
-            out[f"{side}_wall_concentration_top10"] = wall.quantity / total
-        # distance from the best level to the largest (wall) level, in ticks
-        if snapshot.tick_size is not None and snapshot.tick_size > 0:
-            best_price = top[0].price
-            distance = abs(best_price - wall.price) / snapshot.tick_size
-            out[f"distance_to_nearest_{side}_wall"] = distance
+        if total <= 0:
+            return
+        maximum_quantity = max(level.quantity for level in top)
+        # top is best-first, so the first maximum is the nearest tie candidate.
+        wall = next(level for level in top if level.quantity == maximum_quantity)
+        out[f"{side}_wall_concentration_top10"] = wall.quantity / total
+        if snapshot.tick_size is None or snapshot.tick_size <= 0:
+            return
+        best_price = top[0].price
+        price_distance = abs(best_price - wall.price)
+        distance_ticks = price_distance / snapshot.tick_size
+        if distance_ticks != distance_ticks.to_integral_value():
+            return
+        out[f"distance_to_nearest_{side}_wall"] = distance_ticks
 
     # -- Open interest (OI) -------------------------------------------------
 
     def _add_open_interest(
         self, snapshot: MarketStateSnapshot, out: dict[str, Decimal]
     ) -> None:
-        now = snapshot.engine_time_ns
+        now = snapshot.source_time_ns if snapshot.source_time_ns is not None else snapshot.engine_time_ns
         samples = _sorted(snapshot.oi_samples)
         latest = _latest_at(samples, now)
         base = _value_at_or_before(samples, now - _WINDOW_5M_NS)
@@ -116,7 +164,7 @@ class IngestionAdapter:
         self, snapshot: MarketStateSnapshot, out: dict[str, Decimal]
     ) -> None:
         for key, value in snapshot.pre_aggregated.items():
-            out[key] = value if isinstance(value, Decimal) else Decimal(str(value))
+            out.setdefault(key, value if isinstance(value, Decimal) else Decimal(str(value)))
 
 
 def _sorted(samples: Sequence[TimeSample]) -> list[TimeSample]:

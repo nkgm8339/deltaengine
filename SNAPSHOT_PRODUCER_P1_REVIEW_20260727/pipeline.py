@@ -23,10 +23,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import time
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
@@ -81,7 +79,6 @@ from .orderflow.imbalance import ImbalanceDetector, ImbalanceResult
 from .orderflow.orderbook import OrderBookStateManager
 from .orderflow.signal import SignalEngine, SignalResult
 from .orderflow.volume_ref import VolumeRefTracker
-from .strategy_engine.ingestion.snapshot_producer import SnapshotProducer
 
 logger = logging.getLogger("pipeline")
 
@@ -287,7 +284,6 @@ class ReplayPipeline:
         reorder_tolerance_ms: int = 500,
         batch_size: int = 1000,
         flush_interval_sec: int = 5,
-        tick_size: Decimal = Decimal("0.1"),
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -298,7 +294,6 @@ class ReplayPipeline:
         self.reorder_tolerance_ms = reorder_tolerance_ms
         self.batch_size = batch_size
         self.flush_interval_sec = flush_interval_sec
-        self.tick_size = tick_size
 
     def __init__(
         self,
@@ -312,7 +307,6 @@ class ReplayPipeline:
         reorder_tolerance_ms: int = 500,
         batch_size: int = 1000,
         flush_interval_sec: int = 5,
-        tick_size: Decimal = Decimal("0.1"),
         cvd_slope_ref: Optional[Decimal] = None,
         imbalance_ratio_threshold: Decimal = Decimal("3.0"),
         imbalance_min_volume: Decimal = Decimal("50"),
@@ -351,7 +345,6 @@ class ReplayPipeline:
         self.reorder_tolerance_ms = reorder_tolerance_ms
         self.batch_size = batch_size
         self.flush_interval_sec = flush_interval_sec
-        self.tick_size = tick_size
         self.cvd_slope_ref = cvd_slope_ref
         self.imbalance_ratio_threshold = imbalance_ratio_threshold
         self.imbalance_min_volume = imbalance_min_volume
@@ -409,7 +402,6 @@ class ReplayPipeline:
             reorder_tolerance_ms=config.normalizer.reorder_tolerance_ms,
             batch_size=config.database.batch_size,
             flush_interval_sec=config.database.flush_interval_sec,
-            tick_size=Decimal(str(config.market.tick_size)),
             cvd_slope_ref=Decimal(str(cvd_ref)) if cvd_ref is not None else None,
             imbalance_ratio_threshold=Decimal(str(imb.ratio_threshold)),
             imbalance_min_volume=_resolve_imbalance_min_volume(imb.min_volume),
@@ -470,11 +462,6 @@ class ReplayPipeline:
         self.flow_response = ()
         self.flow_response_events = deque(maxlen=5000)
         self.flow_response_outcomes = deque(maxlen=5000)
-        producer = SnapshotProducer(self.symbol)
-        self._last_market_state = None
-        replay_origin_source_ns: int | None = None
-        replay_last_source_ns: int | None = None
-        self._last_market_state = None
         footprint = FootprintCalculator(self.symbol, self.timeframe)
         book_state = OrderBookStateManager(symbol=self.symbol)
         volume_ref = VolumeRefTracker(bars=self.absorption_volume_ref_bars)
@@ -511,20 +498,13 @@ class ReplayPipeline:
         analysis_engine = AnalysisEngine()
 
         def handle(normalized) -> None:
-            nonlocal analysis_count, replay_origin_source_ns, replay_last_source_ns
-            event_source_ns = _to_source_ns(normalized.event_time)
-            if replay_origin_source_ns is None:
-                replay_origin_source_ns = event_source_ns
-            replay_last_source_ns = event_source_ns
-            producer.observe_trade(normalized)
+            nonlocal analysis_count
             storage.add_trade(trade_to_row(normalized))
             native_coordinator.process(normalized, storage)
             if flow_response_detector is not None and flow_response_tracker is not None:
                 snapshots = flow_response_detector.process(normalized)
                 if snapshots:
                     self.flow_response = snapshots
-                    for _snap in snapshots:
-                        producer.observe_flow_response(_snap)
                     events = flow_response_tracker.register(snapshots)
                     self.flow_response_events.extend(events)
                     for event in events:
@@ -534,8 +514,6 @@ class ReplayPipeline:
                 for outcome in outcomes:
                     storage.add_flow_response_outcome(flow_response_outcome_to_row(outcome))
             cvd_result = cvd.process(normalized)
-            if cvd_result.update is not None:
-                producer.observe_cvd(cvd_result.update)
             if cvd_result.accepted:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
@@ -553,19 +531,12 @@ class ReplayPipeline:
                         cvd_result.closed_candle.bar_time,
                     )
                 else:
-                    _bar_result = _evaluate_and_store(
+                    _evaluate_and_store(
                         cvd_result.closed_candle, fp_closed,
                         imbalance_detector, signal_engine, storage,
                         self.cvd_slope_ref, self.signal_stack_ref,
                         volume_ref, absorption, analysis_engine, trend_state=self.trend_state,
-                    )
-                    producer.observe_absorption(_bar_result.absorption_result)
-                    producer.observe_imbalance(_bar_result.imbalance_result)
-                    self._last_market_state = producer.build_market_state(
-                        engine_time_ns=event_source_ns - replay_origin_source_ns,
-                        source_time_ns=event_source_ns,
-                        tick_size=self.tick_size,
-                    )
+                    )  # return value unused in replay
                     analysis_count += 1
 
         for raw in raws:
@@ -576,14 +547,7 @@ class ReplayPipeline:
             if kind == "depth":
                 update = normalizer.process_depth(raw)
                 if update is not None:
-                    apply_result = book_state.apply(update)
-                    book_snapshot = book_state.snapshot()
-                    producer.observe_book_update(
-                        update,
-                        apply_result,
-                        book_snapshot,
-                        approved_tick_size=self.tick_size,
-                    )
+                    book_state.apply(update)
             else:
                 for normalized in normalizer.process(raw):
                     handle(normalized)
@@ -594,8 +558,6 @@ class ReplayPipeline:
             snapshots = flow_response_detector.finalize()
             if snapshots:
                 self.flow_response = snapshots
-                for _snap in snapshots:
-                    producer.observe_flow_response(_snap)
                 events = flow_response_tracker.register(snapshots)
                 self.flow_response_events.extend(events)
                 for event in events:
@@ -609,28 +571,12 @@ class ReplayPipeline:
             if final_fp is None:
                 logger.warning("E9001 footprint final bar missing for bar_time=%s", final_candle.bar_time)
             else:
-                _bar_result = _evaluate_and_store(
+                _evaluate_and_store(
                     final_candle, final_fp,
                     imbalance_detector, signal_engine, storage,
                     self.cvd_slope_ref, self.signal_stack_ref,
                     volume_ref, absorption, analysis_engine, trend_state=self.trend_state,
-                )
-                producer.observe_absorption(_bar_result.absorption_result)
-                producer.observe_imbalance(_bar_result.imbalance_result)
-                final_source_ns = (
-                    replay_last_source_ns
-                    if replay_last_source_ns is not None
-                    else _to_source_ns(final_candle.bar_time)
-                )
-                self._last_market_state = producer.build_market_state(
-                    engine_time_ns=(
-                        final_source_ns - replay_origin_source_ns
-                        if replay_origin_source_ns is not None
-                        else 0
-                    ),
-                    source_time_ns=final_source_ns,
-                    tick_size=self.tick_size,
-                )
+                )  # return value unused in replay
                 analysis_count += 1
         storage.close()
 
@@ -650,22 +596,6 @@ class ReplayPipeline:
             native_flow_events_stored=len(native_coordinator.events),
             native_flow_outcomes_stored=len(native_coordinator.outcomes),
         )
-
-
-def _to_source_ns(dt: datetime) -> int:
-    """Convert a source datetime to UTC epoch nanoseconds."""
-
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-    td = dt - epoch
-    return (td.days * 86400 + td.seconds) * 1_000_000_000 + td.microseconds * 1000
-
-def _to_engine_ns(dt: datetime, origin_source_ns: int | None) -> int:
-    if origin_source_ns is None:
-        return 0
-    return _to_source_ns(dt) - origin_source_ns
-
 
 
 @dataclass(frozen=True)
@@ -822,7 +752,6 @@ class LivePipeline:
         reorder_tolerance_ms: int = 500,
         batch_size: int = 1000,
         flush_interval_sec: int = 5,
-        tick_size: Decimal = Decimal("0.1"),
         queue_depth: int = 10000,
         overflow_policy: str = "drop_oldest_log",
         reconnect: bool = True,
@@ -895,7 +824,6 @@ class LivePipeline:
         self.reorder_tolerance_ms = reorder_tolerance_ms
         self.batch_size = batch_size
         self.flush_interval_sec = flush_interval_sec
-        self.tick_size = tick_size
         self.queue_depth = queue_depth
         self.overflow_policy = overflow_policy
         self.reconnect = reconnect
@@ -989,7 +917,6 @@ class LivePipeline:
             reorder_tolerance_ms=config.normalizer.live_reorder_tolerance_ms,
             batch_size=config.database.batch_size,
             flush_interval_sec=config.database.flush_interval_sec,
-            tick_size=Decimal(str(config.market.tick_size)),
             queue_depth=config.queue.default_depth,
             overflow_policy=config.queue.overflow_policy,
             reconnect=ws.reconnect,
@@ -1222,11 +1149,6 @@ class LivePipeline:
         self.flow_response = ()
         self.flow_response_events = deque(maxlen=5000)
         self.flow_response_outcomes = deque(maxlen=5000)
-        producer = SnapshotProducer(self.symbol)
-        self._last_market_state = None
-
-        self._last_market_state = None
-        self._snapshot_producer = producer
         # Per-direction cooldown state for webapp IMBALANCE flow events (Task-A).
         self._imbalance_fire_state: dict = {}
 
@@ -1252,13 +1174,10 @@ class LivePipeline:
             storage.add_trade(trade_to_row(normalized))
             native_coordinator.process(normalized, storage)
             self._last_event_time = normalized.event_time
-            producer.observe_trade(normalized)
             if flow_response_detector is not None and flow_response_tracker is not None:
                 snapshots = flow_response_detector.process(normalized)
                 if snapshots:
                     self.flow_response = snapshots
-                    for _snap in snapshots:
-                        producer.observe_flow_response(_snap)
                     events = flow_response_tracker.register(snapshots)
                     self.flow_response_events.extend(events)
                     for event in events:
@@ -1272,8 +1191,6 @@ class LivePipeline:
             if self.on_trade is not None:
                 self.on_trade(normalized)
             cvd_result = cvd.process(normalized)
-            if cvd_result.update is not None:
-                producer.observe_cvd(cvd_result.update)
             if cvd_result.accepted:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
@@ -1332,13 +1249,6 @@ class LivePipeline:
                         flow_events=list(flow_event_buffer),
                         on_webapp_flow_event=self.on_webapp_flow_event,
                         imbalance_fire_state=self._imbalance_fire_state,
-                    )
-                    producer.observe_absorption(bar_close.absorption_result)
-                    producer.observe_imbalance(bar_close.imbalance_result)
-                    self._last_market_state = producer.build_market_state(
-                        engine_time_ns=time.monotonic_ns(),
-                        source_time_ns=_to_source_ns(normalized.event_time),
-                        tick_size=self.tick_size,
                     )
                     self._last_bar_close = bar_close
                     self._last_fp_bar = fp_closed
@@ -1408,14 +1318,7 @@ class LivePipeline:
                 elif kind == "depth":
                     update = normalizer.process_depth(raw)
                     if update is not None:
-                        apply_result = book_state.apply(update)
-                        book_snapshot = book_state.snapshot()
-                        producer.observe_book_update(
-                            update,
-                            apply_result,
-                            book_snapshot,
-                            approved_tick_size=self.tick_size,
-                        )
+                        book_state.apply(update)
                 else:
                     for normalized in normalizer.process(raw):
                         handle(normalized)
@@ -1455,14 +1358,7 @@ class LivePipeline:
                 elif kind == "depth":
                     update = normalizer.process_depth(pending)
                     if update is not None:
-                        apply_result = book_state.apply(update)
-                        book_snapshot = book_state.snapshot()
-                        producer.observe_book_update(
-                            update,
-                            apply_result,
-                            book_snapshot,
-                            approved_tick_size=self.tick_size,
-                        )
+                        book_state.apply(update)
                 else:
                     for normalized in normalizer.process(pending):
                         handle(normalized)
@@ -1472,8 +1368,6 @@ class LivePipeline:
                 snapshots = flow_response_detector.finalize()
                 if snapshots:
                     self.flow_response = snapshots
-                    for _snap in snapshots:
-                        producer.observe_flow_response(_snap)
                     events = flow_response_tracker.register(snapshots)
                     self.flow_response_events.extend(events)
                     for event in events:
@@ -1501,17 +1395,6 @@ class LivePipeline:
                         flow_events=list(flow_event_buffer),
                         on_webapp_flow_event=self.on_webapp_flow_event,
                         imbalance_fire_state=self._imbalance_fire_state,
-                    )
-                    producer.observe_absorption(bar_close.absorption_result)
-                    producer.observe_imbalance(bar_close.imbalance_result)
-                    self._last_market_state = producer.build_market_state(
-                        engine_time_ns=time.monotonic_ns(),
-                        source_time_ns=_to_source_ns(
-                            self._last_event_time
-                            if self._last_event_time is not None
-                            else final_candle.bar_time
-                        ),
-                        tick_size=self.tick_size,
                     )
                     if mt5_server is not None and bar_close.analysis_result is not None:
                         await mt5_server.broadcast(

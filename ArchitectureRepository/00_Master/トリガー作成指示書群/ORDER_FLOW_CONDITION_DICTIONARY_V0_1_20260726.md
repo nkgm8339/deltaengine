@@ -266,6 +266,11 @@ independence_lineage: string
 
 ### G06 Book Shape and Static Imbalance
 
+P3-Cのwall候補と距離の機械算出契約は
+`WALL_DISTANCE_SEMANTICS_CONTRACT_V0_1_20260727.md`を正本とする。
+wall candidateはbest-first top10内の最大数量level、同量時はbestに最も近いlevelである。
+これはthreshold-free raw観測であり、G16 wall成立や注文者同一性を断定しない。
+
 | ID | condition_key | type | window | source | 定義 | independence_lineage |
 |---|---|---|---|---|---|---|
 | CD-G06-001 | `bid_cumulative_depth_top1` | FLOAT | POINT_IN_TIME | DEPTH | bid top1累積depth | `BOOK_SHAPE:CUM_DEPTH:bid` |
@@ -296,12 +301,18 @@ independence_lineage: string
 | CD-G06-026 | `ask_depth_convexity_top5` | FLOAT | POINT_IN_TIME | DEPTH | ask top5 depth convexity | `BOOK_SHAPE:CONVEXITY:ask` |
 | CD-G06-027 | `ask_depth_slope_top10` | FLOAT | POINT_IN_TIME | DEPTH | ask top10 depth slope | `BOOK_SHAPE:SLOPE:ask` |
 | CD-G06-028 | `ask_depth_convexity_top10` | FLOAT | POINT_IN_TIME | DEPTH | ask top10 depth convexity | `BOOK_SHAPE:CONVEXITY:ask` |
-| CD-G06-029 | `bid_wall_concentration_top10` | FLOAT | POINT_IN_TIME | DEPTH | bid top10最大level数量比率 | `BOOK_SHAPE:WALL_CONCENTRATION:bid` |
-| CD-G06-030 | `distance_to_nearest_bid_wall` | FLOAT | POINT_IN_TIME | DEPTH | nearest bid wall距離 | `BOOK_SHAPE:WALL_DISTANCE:bid` |
-| CD-G06-031 | `ask_wall_concentration_top10` | FLOAT | POINT_IN_TIME | DEPTH | ask top10最大level数量比率 | `BOOK_SHAPE:WALL_CONCENTRATION:ask` |
-| CD-G06-032 | `distance_to_nearest_ask_wall` | FLOAT | POINT_IN_TIME | DEPTH | nearest ask wall距離 | `BOOK_SHAPE:WALL_DISTANCE:ask` |
+| CD-G06-029 | `bid_wall_concentration_top10` | FLOAT | POINT_IN_TIME | DEPTH | bid top10最大数量wall candidateのtop10累積数量比率。同量時はbest寄り | `BOOK_SHAPE:WALL_CONCENTRATION:bid` |
+| CD-G06-030 | `distance_to_nearest_bid_wall` | FLOAT | POINT_IN_TIME | DEPTH | best bidから同じbid wall candidateまでの非負ticks | `BOOK_SHAPE:WALL_DISTANCE:bid` |
+| CD-G06-031 | `ask_wall_concentration_top10` | FLOAT | POINT_IN_TIME | DEPTH | ask top10最大数量wall candidateのtop10累積数量比率。同量時はbest寄り | `BOOK_SHAPE:WALL_CONCENTRATION:ask` |
+| CD-G06-032 | `distance_to_nearest_ask_wall` | FLOAT | POINT_IN_TIME | DEPTH | best askから同じask wall candidateまでの非負ticks | `BOOK_SHAPE:WALL_DISTANCE:ask` |
 
 ### G07 Book Event Flow
+
+P3-Cの機械算出契約は
+`BOOK_EVENT_HISTORY_RESET_CONTRACT_V0_1_20260727.md`を正本とする。
+applied depth DIFFの前後数量差をsource-timeで集計し、gap／resyncでは履歴を破棄する。
+Market-by-Price上の`cancel_volume`は表示数量減少量であり、注文者の取消意図を断定しない。
+window未完成時はkeyを出力しない。
 
 | ID | condition_key | type | window | source | 定義 | independence_lineage |
 |---|---|---|---|---|---|---|
@@ -408,6 +419,11 @@ independence_lineage: string
 | CD-G08-048 | `sell_side_share_5s` | FLOAT | 5s | AGGTRADE | sell 全flow内side比率 | `TAPE:sell:side_share` |
 
 ### G09 Flow Price Response
+
+P3-Cのprice progress機械算出契約は
+`PRICE_RESPONSE_HISTORY_CONTRACT_V0_1_20260727.md`を正本とする。
+normalized tradeのsource-time as-of価格差をtick sizeで割り、正方向をupward、負方向の絶対値を
+downwardとして出力する。baseline欠測、tick size欠測、window未完成時はkeyを出力しない。
 
 | ID | condition_key | type | window | source | 定義 | independence_lineage |
 |---|---|---|---|---|---|---|

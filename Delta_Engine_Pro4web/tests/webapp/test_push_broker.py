@@ -609,6 +609,7 @@ market:
   symbol: BTCUSDT
   exchange: BINANCE
   bar_timeframe: 1m
+  tick_size: "0.1"
 websocket:
   url: wss://example.com
   subscribe_streams:

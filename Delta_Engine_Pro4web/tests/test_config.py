@@ -30,7 +30,7 @@ def _base_dict() -> dict:
     """A full, valid v3.1 configuration as a plain dict (YAMLReference §2)."""
     return {
         "system": {"timezone": "UTC", "log_level": "INFO"},
-        "market": {"symbol": "BTCUSDT", "exchange": "BINANCE", "bar_timeframe": "1m"},
+        "market": {"symbol": "BTCUSDT", "exchange": "BINANCE", "bar_timeframe": "1m", "tick_size": "0.1"},
         "websocket": {
             "url": "wss://fstream.binance.com/ws",
             "reconnect": True,
@@ -128,6 +128,18 @@ def test_bar_timeframe_defaults_when_absent(tmp_path: Path) -> None:
     data = _base_dict()
     del data["market"]["bar_timeframe"]
     assert load_config(_write(tmp_path, data)).market.bar_timeframe == "1m"
+
+def test_tick_size_zero_is_rejected(tmp_path: Path) -> None:
+    data = _base_dict()
+    data["market"]["tick_size"] = "0"
+    with pytest.raises(ConfigValidationError):
+        load_config(_write(tmp_path, data))
+
+def test_tick_size_is_required_decimal_string(tmp_path: Path) -> None:
+    data = _base_dict()
+    del data["market"]["tick_size"]
+    with pytest.raises(ConfigValidationError):
+        load_config(_write(tmp_path, data))
 
 
 def test_optional_sections_default(tmp_path: Path) -> None:
