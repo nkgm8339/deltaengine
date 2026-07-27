@@ -730,3 +730,225 @@ rollbackを必須にする。Hookの妥当性、threshold較正、observe昇格�
 仕様は2026-07-26 20:10 JST時点でユーザー承認待ちであり、実装承認ではない。
 収録と2C-1 read-only判定は継続するが、Hook独立照合と実市場耐性gateを通る前の
 threshold較正は禁止する。source code、config、runtime、UI、収録データの変更は行っていない。
+
+## Strategy Engineの本質とHook定義（2026-07-26ユーザー確定）
+
+DeltaEngineは端的に**自動発注システム**である。分析、Hook、Strategy Engine、検証、画面は、
+正しい発注判断を作り、HFMへ自動発注し、約定後まで管理するために存在する。
+
+ユーザーが確定したHookの意味:
+
+- Hookは「検出イベント＝素材」そのものではない。
+- Hookは注文フロー分析の至る所へ置いた罠であり、相場の変化が引っかかった瞬間に
+  Strategy Engineを呼び出す装置である。
+- Hook一個につきStrategy一個ではない。HookとStrategyは多対多である。
+- Hook発火の都度、Engineは関係する複数Strategyを取り出し、その時点の注文フロー要素で
+  各Strategyの条件を埋める。
+- 条件の充足水準から、entryする／しない、いつentryする、何枚発注するかを決める。
+- entry後もHookがEngineを呼び、追加、縮小、決済、反転候補を再評価する。
+- 最終的に注文を出す条件がOrder Triggerであり、Hookとは別である。
+
+今後Hookを単なる観測素材、Detector、最終Triggerとして説明しない。Hookから直接BUY／SELLまたは
+`order_send`へ接続せず、必ずStrategy Engineの多対多評価、Condition Fill、充足水準、時機、枚数を通す。
+
+ユーザーは「何をStrategyにするかが肝中の肝」と明示した。schemaや基盤の完成をStrategy完成と
+取り違えず、実際に載せるStrategyの市場仮説、条件、競合、反証、時機、枚数、保有後管理を最優先する。
+
+世界実務資料をこの定義で再照合し、初期候補を次の6系統へ具体化した。
+
+1. BREAKOUT_ACCEPTANCE
+2. FAILED_AUCTION_RECLAIM
+3. ABSORPTION_DEFENSE
+4. ABSORPTION_FAILURE
+5. PULLBACK_CONTINUATION
+6. MOMENTUM_EXHAUSTION
+
+正本候補:
+
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_STRATEGY_METHOD_CONSTITUTION_OPERATIONAL_DRAFT_V0_3_20260726.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_STRATEGY_CANDIDATE_SET_V0_1_20260726.md`
+
+v0.2は同一version上書きせず保存した。v0.3とCandidate SetはユーザーGOを受けた設計文書だが、
+Strategyのproduction採用、threshold較正、observe解禁、LIVE発注の承認ではない。
+source code、runtime、config、UI、raw dataの変更は行っていない。
+
+## 世界資料由来Condition Universe（2026-07-26）
+
+ユーザーはConditionSetをローカル既存項目から自己参照で考えず、世界の実トレーダー、教育者、
+取引所資料、市場微細構造研究から学んで作るよう指示した。
+
+DeepLOB、Multi-Level OFI、Order Book Events、Queue Imbalance、LOB Resiliency、LOB-Bench、CME、
+Nasdaq、Binance Futures API、Jigsaw、Axia、SMBを照合し、初版Condition Dictionaryを作成した。
+
+- 全体Condition Universe: **560件、16group**
+- raw LOB: 10段bid/ask価格・数量40件
+- static book shape、multi-level imbalance、book add/cancel/refresh/pull/stack
+- aggressive tape、Flow Price Response、Delta/CVD/Footprint、profile/auction
+- derivatives positioning、cross-venue、execution/risk、position lifecycle
+- absorption-like、fade、breakout follow-through/failure、pullback stall、momentum fade等の合成状態48件
+- 各Conditionにstable ID、key、type、window、source、定義、independence lineageを付与
+
+全体辞書は多いほどcoverageが広がるが、一Strategyが全560件を同時加点してはならない。
+HookがEngineを起動し、Strategy仮説に必要なsubsetだけを埋める。window違い、同source派生、
+合成状態とその材料は独立票にせず、一現象の重複加点を禁止する。最終Order Triggerは少数の
+因果的hard condition、独立確認、反証不在、execution gateで構成する。
+
+正本候補:
+
+`ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_CONDITION_DICTIONARY_V0_1_20260726.md`
+
+これは未較正の条件宇宙であり、Strategy採用、threshold確定、HookEvent解禁、発注許可ではない。
+
+## Strategyをnamed状態遷移として扱う確定事項（2026-07-27ユーザー訂正）
+
+ユーザーは、Strategyを同時点のCondition集合やscoreとして扱う設計を明確に訂正した。
+分足分析と異なる中心は、Hook後に注文フローの**状態変化を順番に観察すること**である。
+
+```text
+Hook
+  -> named Strategy Family
+       -> named Pattern
+            -> Observation Instance
+                 -> ordered State Transition
+                      -> Order Trigger
+```
+
+- Hookが発火した時点ではentryを確定しない。
+- Strategyは、1が出た後に2へ遷移したかを観察するstate machineである。
+- 同じConditionが最終snapshotで同時成立しても、所定順序を通ったことにはならない。
+- 各Patternは開始、順序、分岐、反証、expiry、re-arm、terminalを持つ。
+- Patternの数と正確さ、業界常識に沿った遷移経路のcoverageが勝敗の鍵である。
+- 560 Condition Dictionaryはstate判定の材料辞書であり、Strategy本体ではない。
+- 先に作成したCondition subset CSVは材料索引へ降格し、Strategy正本としない。
+
+ユーザーは、状態観察へ先にStrategy名を付け、どのStrategyが遷移したかをlogと後日の検証で
+識別可能にするよう指示した。初期Family名は次の10件である。
+
+1. CVD Divergence
+2. Absorption Reversal
+3. Exhaustion Reversal
+4. Stacked Imbalance Continuation
+5. Iceberg Breakout
+6. Liquidity Sweep
+7. Failed Auction
+8. Pulling / Stacking Strategy
+9. Delta Flip
+10. Book Imbalance
+
+Family名だけでなく、具体経路には不変`pattern_id`と完全な`pattern_name`を与える。
+遷移logは最低限、family、pattern、version、observation instance、from/to state、根拠event、
+exchange time、反証、expiry、結果をappend-onlyで残す。
+
+ユーザー提示例は次のnamed Patternとして登録した。
+
+`PAT-CVD-BEAR-ABSFAIL-BIDBREAK-OIUNWIND-001`
+
+```text
+bearish CVD divergence
+  -> bid-side absorption
+  -> buy wall failure
+  -> fresh OI unwind
+  -> SELL ready
+```
+
+世界資料の時系列記述をJigsaw、Axia、ATAS、Bookmapから再抽出し、初版として10 Family x 5件、
+計50 named Patternを登録した。49件は`WORLD_DERIVED`、上記1件は`USER_DEFINED`で区別した。
+50 Patternは256 advance、50 terminal、50 invalidation、50 expiry、計406 edgeのFSM台帳へ展開した。
+native MBOを持たないBinanceでiceberg／stop identityを直接観測と偽装せず、観測区分を`DIRECT`、`HYBRID`、`INFERRED`、`LIMITED`に分ける。OI必須経路は10秒poll制約のため`OI_LAGGED`とする。
+
+正本候補:
+
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_STRATEGY_NAME_REGISTRY_V0_1_20260727.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_STRATEGY_NAME_REGISTRY_V0_1_20260727.csv`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_WORLD_NAMED_PATTERN_CATALOG_V0_1_20260727.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_WORLD_NAMED_PATTERN_REGISTRY_V0_1_20260727.csv`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_WORLD_NAMED_PATTERN_FSM_V0_1_20260727.csv`
+
+これらは名称、出典、観察順序の設計台帳であり、threshold較正、production採用、HookEvent解禁、
+発注許可ではない。完成済みFlow Price Response、3段チャート、8パターン、OI、UI、runtime、raw dataは変更していない。
+## 50原型から365 named variantsへの展開（2026-07-27）
+
+50個のsource-grounded原型を、意味が成立する方向とlocationへ束縛し、365個の
+DeltaEngine derived named variantへ展開した。これは365個の世界通称を発見したという意味ではない。
+世界由来49原型とユーザー定義1原型から作った、replay検証前の観察候補である。
+
+- 方向は原型が許す場合だけLONG／SHORTへ展開し、BUY／SELL固定原型を反対方向へmirrorしない。
+- locationは560 Condition Dictionaryに実在する9分類だけを使用する。
+- `active range boundary`と`round number`は専用Conditionがないため作らない。
+- confirmation順序は全365件で`BASE_CANONICAL_ONLY`とし、無根拠な確認条件の直積を行わない。
+- 365 variantを1,876 ADVANCE、365 LOCATION_ARM、365 TERMINAL、365 INVALIDATE、
+  365 EXPIRE、計3,336 edgeへ展開した。
+- terminalは`LONG_READY`／`SHORT_READY`であり、直接注文ではない。
+- `POST_EVENT_BALANCE`の4件は`EXT_CALENDAR_REQUIRED`で、calendar未接続中はarm不可。
+- 365件すべて`UNVALIDATED`。threshold、timeout、枚数、execution gateは未較正。
+
+ユーザー提示経路のlocation束縛例:
+
+`VAR-CVD-BEAR-ABSFAIL-BIDBREAK-OIUNWIND-SHORT-VISIBLE_BOOK_WALL-001`
+
+```text
+Hook arm
+  -> Visible Bid Wall context confirmed
+  -> bearish divergence
+  -> bid-side absorption
+  -> buy wall failure
+  -> fresh OI decrease
+  -> SHORT_READY
+```
+
+正本候補:
+
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_DERIVED_PATTERN_VARIANT_POLICY_V0_1_20260727.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_DERIVED_NAMED_PATTERN_VARIANTS_V0_1_20260727.csv`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_DERIVED_NAMED_PATTERN_VARIANT_FSM_V0_1_20260727.csv`
+
+横断検証は0 error。variant ID／name 365件一意、50原型coverage、560 Condition ID、
+26 source ID、固定方向17原型、各variantのarm／terminal／invalidation／expiryを確認した。
+次は各stateへCondition材料を`required / contradiction / invalidation`として接続し、
+Hookがどのvariantをarm／update／expireするかを定義する。
+## State-Condition bindingとHook多対多routing（2026-07-27）
+
+365 named variantsの3,336 edgeすべてを、state単位の観察述語と560 Condition Dictionaryへ接続した。
+StrategyはCondition snapshotではなく、直前遷移より後のfresh evidenceでのみ次stateへ進む。
+
+- Predicate Class 37件。
+- Observation Predicate 236件。
+- Invalidation Predicate 50件。
+- Predicate合計286件。
+- Variant State Binding 3,336件。edge過不足0。
+- 同じsource eventを複数stateの成立証拠へ再利用しない。
+- Condition IDは候補材料routeであり、全IDの同時PASSや独立加点を意味しない。
+- 24 ADVANCEはpause／別eventを扱う`TEMPORAL_SEQUENCE`で、市場Conditionなしを仕様とする。
+- TERMINALは`LONG_READY / SHORT_READY`をrisk／execution gateへ渡すだけで直接注文しない。
+
+Hookの定義も固定した。Hookはstate成立を断定するDetectorではなく、関連source更新により
+Strategy Engineを呼び、該当Predicateを再評価させる装置である。
+
+- 既存Hook 88件へ`asserted_event_classes`と`capability_predicate_classes`を分けて付与。
+- 84 Hookから365 variantすべてへ25,664件のdesign routeを作成。
+- Hook↔variantは多対多。direction hintはreversalを消さないようhard filterにしない。
+- route roleはlocation arm候補、first-state wake、active update、invalidation recheck、
+  context refreshへ分離する。
+- runtime enabled 0、direct order authority 0。
+- G07/G08はVWAP variant locationなし、G10はround-number Conditionなし、
+  G11はactive-range-edge variant locationなしのためrouteを作らない。
+- suspected/context-only Hookはhard stateを単独advanceしない。
+
+ユーザー提示variantは78 eligible Hook routeを持ち、CVD divergenceのfirst-state wake候補28件、
+Visible Book Wall location候補9件、active update／recheck候補74件、invalidation recheck候補38件、
+global context refresh 4件である。これは同時成立数ではなく、Engineが現在stateとfreshnessで絞る
+再評価候補数である。
+
+正本候補:
+
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_STATE_CONDITION_BINDING_POLICY_V0_1_20260727.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_OBSERVATION_PREDICATE_CLASS_REGISTRY_V0_1_20260727.csv`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_OBSERVATION_PREDICATE_REGISTRY_V0_1_20260727.csv`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_VARIANT_STATE_CONDITION_BINDINGS_V0_1_20260727.csv`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_HOOK_VARIANT_ROUTING_POLICY_V0_1_20260727.md`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_HOOK_PREDICATE_CAPABILITY_REGISTRY_V0_1_20260727.csv`
+- `ArchitectureRepository/00_Master/トリガー作成指示書群/ORDER_FLOW_HOOK_VARIANT_OBSERVATION_ROUTING_V0_1_20260727.csv`
+
+これらは全件`UNVALIDATED`のdesign台帳である。次はreplay契約とnegative testを作り、
+順序逆転、同一event再利用、timeout、途中反証、context-only hard advance、
+Hookからの直接注文を拒否する。
