@@ -8,27 +8,33 @@ no Live/Replay source is implemented here.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Iterator, Protocol, runtime_checkable
+from decimal import Decimal
+from typing import Iterator, Mapping, Protocol, runtime_checkable
 
 from src.orderflow.hooks.models import as_utc
 
 
 @dataclass(frozen=True)
 class PredicateObservation:
-    """Scenario-controlled observation the Predicate Evaluator inspects.
+    """Observation the Predicate Evaluator inspects.
 
-    In this stage the observation carries the intended predicate outcome for a
-    synthetic sequence; the real market-derived computation is the calibrated
-    evaluator's job and is out of scope (thresholds uncalibrated).
+    ``conditions`` carries a condition snapshot (condition_key -> value) that the
+    real evaluator reads and compares against calibrated comparators. It is empty
+    by default, so the StubPredicateEvaluator (which ignores it and uses ``holds``)
+    and any code that does not supply conditions keep working unchanged.
+
+    ``holds`` remains the scenario switch used by the StubPredicateEvaluator; the
+    real evaluator ignores it and derives the verdict from ``conditions``.
     """
 
-    holds: bool = True  # does the market predicate hold (advance / invalidation)?
+    holds: bool = True  # scenario switch for the Stub evaluator only
     hard_source_status: str = "OK"  # OK / UNKNOWN / STALE (judgement contract 9)
     location_confirmed: bool = False  # LOCATION_ARM gate (routing 2)
     first_predicate_confirmed: bool = False
     freshness_ok: bool = False
+    conditions: Mapping[str, Decimal] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -113,9 +113,13 @@ class StrategyEngine:
             hard_source_status = verdict.hard_source_status
             holds = verdict.holds
 
-        # A non-holding advance/invalidation predicate is "not yet", not a
-        # violation: stay without attempting a transition.
-        if spec.edge_type in _STAYABLE_EDGES and not holds:
+        is_calibrated = calibration_status is CalibrationStatus.CALIBRATED
+
+        # A calibrated-but-non-holding advance/invalidation predicate is "not yet",
+        # not a violation: stay without attempting a transition. An *uncalibrated*
+        # edge is NOT stayed -- it is attempted so the enforcer rejects it with
+        # UNCALIBRATED_EDGE (contract R7), keeping runtime firing 0.
+        if spec.edge_type in _STAYABLE_EDGES and is_calibrated and not holds:
             return EngineDecision(
                 outcome=EngineOutcome.STAY,
                 edge_id=event.edge_id,
