@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="google" content="notranslate">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DeltaEngine 05M · Footprint × Live DOM Fusion Mock</title>
+  <style>
+    :root{
+      --bg:#050914;--panel:#08101f;--line:#273654;--line2:#3a4b6b;
+      --buy:#19c979;--buy2:#72ffc0;--sell:#ff4058;--sell2:#ff7a8d;
+      --warn:#f4c542;--cyan:#25b7e8;--purple:#8b63e6;
+      --text:#f1f5ff;--sub:#c9d3ea;--muted:#6e7b96;
+      --row:36px;--head:42px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-width:1440px;min-height:930px;background:var(--bg);color:var(--text)}
+    body{
+      overflow:hidden;font-family:Inter,"Segoe UI",Meiryo,sans-serif;
+      background:radial-gradient(circle at 78% 6%,#25b7e812,transparent 28%),linear-gradient(180deg,#050914,#060b16 57%,#050914);
+    }
+    button{font:inherit}
+    .page{height:100vh;min-height:930px;padding:12px;display:flex;flex-direction:column;gap:9px}
+    .top{
+      height:56px;flex:0 0 56px;display:flex;align-items:center;gap:18px;padding:0 18px;
+      border:1px solid var(--line);border-radius:8px;background:linear-gradient(110deg,#0d1729,#12152e 58%,#0a2132);
+      box-shadow:0 11px 26px #0008,inset 0 1px #ffffff0b;
+    }
+    .brand{color:var(--cyan);font-size:12px;font-weight:950;letter-spacing:.16em}
+    .title{font-size:17px;font-weight:950;letter-spacing:.05em}
+    .symbol{color:var(--sub);font:950 12px "Cascadia Mono",monospace}
+    .price{font:950 24px "Cascadia Mono",monospace}
+    .live{
+      display:flex;align-items:center;gap:6px;padding:4px 9px;border:1px solid #25b7e877;border-radius:5px;
+      background:#0b2d3c;color:#9cecff;font-size:9px;font-weight:950;letter-spacing:.12em;
+    }
+    .live i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--cyan)}
+    .mock{margin-left:auto;color:var(--warn);font-size:9px;font-weight:950;letter-spacing:.11em}
+
+    .workspace{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) 238px;gap:9px}
+    .card{
+      min-width:0;min-height:0;overflow:hidden;border:1px solid var(--line);border-radius:8px;
+      background:linear-gradient(145deg,#0c1526f8,#070d19f8);box-shadow:0 13px 31px #0008,inset 0 1px #ffffff09;
+    }
+    .main-card{display:flex;flex-direction:column}
+    .toolbar{
+      height:42px;flex:0 0 42px;display:flex;align-items:center;gap:7px;padding:0 12px;
+      border-bottom:1px solid #1d2a43;background:linear-gradient(180deg,#10192b,#0a1221);
+    }
+    .toolbar-title{font-size:10px;font-weight:950;letter-spacing:.10em}
+    .toolbar-title span{color:var(--cyan)}
+    .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
+    .ctl{
+      height:27px;min-width:30px;padding:0 8px;border:1px solid var(--line2);border-radius:5px;
+      background:#0b0f25;color:var(--sub);font:850 9px "Cascadia Mono",monospace;
+    }
+    .ctl.on{border-color:var(--cyan);background:#102947;color:#9cecff;box-shadow:0 0 11px #25b7e82f}
+    .ctl.lock{color:var(--warn);border-color:#f4c54266}
+    .hint{margin-left:auto;color:var(--muted);font-size:7px;font-weight:900;letter-spacing:.07em}
+
+    .stage{
+      position:relative;height:438px;flex:0 0 438px;display:grid;
+      grid-template-columns:82px repeat(10,minmax(72px,1fr)) 190px;background:#060c17;
+      border-bottom:1px solid var(--line);
+    }
+    .axis,.bar,.dom{display:grid;grid-template-rows:var(--head) repeat(11,var(--row));min-width:0}
+    .axis{border-right:1px solid var(--line);background:#080f1d}
+    .axis-head{
+      display:flex;align-items:flex-end;justify-content:flex-end;padding:0 9px 8px 0;border-bottom:1px solid var(--line);
+      color:var(--muted);font-size:8px;font-weight:950;letter-spacing:.12em;
+    }
+    .price-row{
+      display:flex;align-items:center;justify-content:flex-end;padding-right:9px;border-bottom:1px solid #142039;
+      color:#aeb9d2;font:850 10px "Cascadia Mono",monospace;
+    }
+    .price-row.current{color:#a8edff;background:#25b7e80b}
+
+    .bar{position:relative;border-right:1px solid #1b2942}
+    .bar.selected{z-index:6;box-shadow:inset 0 0 0 1px #f1f5ff}
+    .bar.livebar{z-index:7;box-shadow:inset 0 0 0 2px var(--cyan),inset 0 0 18px #25b7e811}
+    .bar-time{
+      position:relative;z-index:6;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line);
+      background:#0a1323;color:var(--sub);font:950 10px "Cascadia Mono",monospace;
+    }
+    .bar-time small{position:absolute;bottom:3px;color:var(--muted);font:800 6px "Segoe UI",sans-serif;letter-spacing:.08em}
+    .livebar .bar-time{color:#9cecff;background:#0b2130}
+    .level{
+      position:relative;z-index:2;display:grid;grid-template-columns:1fr 11px 1fr;gap:2px;align-items:center;
+      padding:3px 3px;border-bottom:1px solid #142039;
+    }
+    .level.va{background:#f4c54208}
+    .level.poc{box-shadow:inset 0 1px var(--warn),inset 0 -1px var(--warn);background:#f4c54210}
+    .level.current{background:#25b7e809}
+    .vol{
+      height:26px;display:flex;align-items:center;border:1px solid #26344f;border-radius:2px;
+      color:#edf3ff;font:850 8px "Cascadia Mono","JetBrains Mono",monospace;text-shadow:0 1px 2px #000;
+    }
+    .vol.bid{justify-content:flex-end;padding-right:2px;background:rgba(255,64,88,var(--h))}
+    .vol.ask{justify-content:flex-start;padding-left:2px;background:rgba(25,201,121,var(--h))}
+    .vol.zero{color:#46536d;background:transparent}
+    .vol.buyimb{border:1.5px solid var(--buy2);color:#caffdf;box-shadow:0 0 7px #19c97944}
+    .vol.sellimb{border:1.5px solid var(--sell2);color:#ffd2d9;box-shadow:0 0 7px #ff405844}
+    .vol.stackbuy{box-shadow:inset -3px 0 var(--buy2),0 0 7px #19c97944}
+    .vol.stacksell{box-shadow:inset 3px 0 var(--sell2),0 0 7px #ff405844}
+    .cross{color:#53617b;text-align:center;font:800 7px "Cascadia Mono",monospace}
+    .poc{
+      position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);
+      padding:1px 2px;border-radius:2px;background:var(--warn);color:#141006;font:950 5px "Cascadia Mono",monospace;
+    }
+    .candle{
+      position:absolute;z-index:4;left:50%;transform:translateX(-50%);top:var(--wt);height:var(--wh);
+      width:11px;color:var(--c);pointer-events:none;
+    }
+    .candle::before{
+      content:"";position:absolute;left:50%;top:0;bottom:0;transform:translateX(-50%);
+      border-left:1.5px solid #d4dcf0;filter:drop-shadow(0 0 2px #000);
+    }
+    .candle i{
+      position:absolute;left:1px;right:1px;top:var(--bt);height:var(--bh);border:1.5px solid currentColor;border-radius:1px;
+      background:color-mix(in srgb,currentColor 42%,#080f1d);box-shadow:0 0 5px color-mix(in srgb,currentColor 42%,transparent);
+    }
+    .vwap{
+      position:absolute;z-index:10;left:82px;right:190px;top:244px;border-top:1px dashed var(--cyan);
+      box-shadow:0 0 6px #25b7e855;pointer-events:none;
+    }
+    .vwap span{position:absolute;right:7px;top:-16px;color:#8ce8ff;font:950 7px "Cascadia Mono",monospace}
+
+    .dom{
+      position:relative;z-index:11;border-left:3px solid #60708f;background:#08111f;box-shadow:-8px 0 18px #0008;
+    }
+    .dom-head{
+      display:grid;grid-template-columns:1fr 1fr;align-items:center;border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,#102238,#0a1728);font-size:7px;font-weight:950;letter-spacing:.08em;
+    }
+    .dom-head strong{grid-column:1/-1;text-align:center;color:#aeefff;font-size:8px;letter-spacing:.10em}
+    .dom-head span{align-self:end;padding:0 7px 3px;color:var(--muted)}
+    .dom-head span:last-child{text-align:right}
+    .dom-row{
+      position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;border-bottom:1px solid #142039;
+      font:900 9px "Cascadia Mono",monospace;overflow:hidden;
+    }
+    .dom-row.current{background:#25b7e80c}
+    .dom-row.spread{display:flex;justify-content:center;color:#9cecff;background:#0b2737;font-size:8px;letter-spacing:.05em}
+    .depth{position:relative;height:27px;display:flex;align-items:center;padding:0 6px;overflow:hidden}
+    .depth::before{content:"";position:absolute;z-index:0;top:2px;bottom:2px;width:var(--w);opacity:.48}
+    .depth b{position:relative;z-index:2}
+    .depth.bid{justify-content:flex-end;color:#baffdc;border-right:1px solid #28415a}
+    .depth.bid::before{right:0;background:linear-gradient(90deg,#19c97912,#19c979)}
+    .depth.ask{justify-content:flex-start;color:#ffd0d7}
+    .depth.ask::before{left:0;background:linear-gradient(90deg,#ff4058,#ff405812)}
+    .depth.empty{color:#46536d}
+    .depth.wall{outline:1.5px solid var(--warn);outline-offset:-2px;color:#fff6bf}
+    .depth.best{outline:1.5px solid var(--cyan);outline-offset:-2px;color:#d2f6ff}
+    .wall-tag{
+      position:absolute;z-index:4;right:3px;top:2px;padding:1px 3px;border-radius:2px;
+      background:var(--warn);color:#151005;font:950 6px "Cascadia Mono",monospace;
+    }
+
+    .metrics{
+      height:112px;flex:0 0 112px;display:grid;grid-template-columns:82px repeat(10,minmax(72px,1fr)) 190px;
+      border-bottom:1px solid var(--line);background:#080f1d;
+    }
+    .metric-labels,.metric-col{display:grid;grid-template-rows:repeat(5,1fr)}
+    .metric-labels{border-right:1px solid var(--line)}
+    .metric-labels span{
+      display:flex;align-items:center;padding-left:10px;color:var(--sub);font-size:9px;font-weight:900;border-bottom:1px solid #142039;
+    }
+    .metric-col{border-right:1px solid #1b2942}
+    .metric-col span{
+      display:flex;align-items:center;justify-content:center;border-bottom:1px solid #142039;
+      font:900 9px "Cascadia Mono",monospace;
+    }
+    .pos{color:var(--buy2)}.neg{color:var(--sell2)}.neu{color:var(--sub)}
+    .dot{width:9px;height:9px;border-radius:50%;box-shadow:0 0 7px currentColor}
+    .abs{color:#2798e7;background:#2798e7}.exh{color:#ff9d32;background:#ff9d32}
+    .imb{color:#36da74;background:#36da74}.trap{color:#9b54e8;background:#9b54e8}
+    .dom-stats{
+      display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr);padding:7px 9px;
+      border-left:3px solid #60708f;background:#091626;gap:3px 8px;
+    }
+    .dom-stats span{display:flex;align-items:center;color:var(--muted);font-size:7px;font-weight:950;letter-spacing:.05em}
+    .dom-stats b{display:flex;align-items:center;justify-content:flex-end;font:950 9px "Cascadia Mono",monospace}
+    .dom-stats .wide{grid-column:1/-1;justify-content:center;color:#aeefff;border-top:1px solid #243653}
+
+    .context{min-height:0;flex:1;display:grid;grid-template-rows:repeat(4,1fr);background:#070d18}
+    .pane{position:relative;min-height:0;border-bottom:1px solid var(--line);overflow:hidden}
+    .pane:last-child{border-bottom:0}
+    .pane-label{position:absolute;z-index:3;left:10px;top:7px;color:var(--sub);font-size:9px;font-weight:950;letter-spacing:.08em}
+    .pane-scale{position:absolute;z-index:3;right:7px;top:7px;color:var(--muted);font:800 7px "Cascadia Mono",monospace}
+    .pane svg{width:100%;height:100%;display:block}
+    .grid{stroke:#1b2942;stroke-width:1}.zero{stroke:#3a4b6b;stroke-width:1}
+    .cvd{fill:none;stroke:#27a2ff;stroke-width:2}.oi{fill:none;stroke:var(--purple);stroke-width:2}
+    .bpos{fill:#23bb68}.bneg{fill:#e83c50}.vbar{fill:#758096}
+
+    .side{display:flex;flex-direction:column;min-height:0}
+    .guide{height:100%;padding:11px;color:#cbd5ea;font-size:10px;line-height:1.55}
+    .side-title{color:var(--sub);font-size:10px;font-weight:950;letter-spacing:.11em;margin-bottom:9px}
+    .guide-row{display:flex;gap:8px;align-items:flex-start;margin:9px 0}
+    .guide-row i{flex:0 0 19px;height:12px;margin-top:2px;border-radius:2px}
+    .guide strong{display:block;color:var(--text);font-size:9px;letter-spacing:.03em}
+    .guide small{color:var(--muted);font-size:8px}
+    .note{
+      padding:9px;border:1px solid #f4c54255;border-radius:6px;background:#f4c5420b;color:#fff0a5;
+      font-size:9px;font-weight:800;line-height:1.55;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div class="brand">DELTAENGINE 05M</div>
+      <div class="title">FOOTPRINT × LIVE ORDER BOOK</div>
+      <div class="symbol">BTCUSDT · 1M</div>
+      <div class="price">64,520.0</div>
+      <div class="live"><i></i>LIVE</div>
+      <div class="mock">SHARED-PRICE-AXIS FUSION MOCK · NO LIVE DATA</div>
+    </header>
+
+    <div class="workspace">
+      <section class="card main-card">
+        <div class="toolbar">
+          <div class="toolbar-title"><span>FOOTPRINT</span> · BID × ASK │ LIVE DOM · PASSIVE LIQUIDITY</div>
+          <div class="sep"></div>
+          <button class="ctl">3</button><button class="ctl on">10</button><button class="ctl">20</button>
+          <button class="ctl">−</button><button class="ctl">＋</button>
+          <button class="ctl lock">LOCK</button><button class="ctl">VA 70%</button><button class="ctl">VWAP ON</button>
+          <span class="hint">WHEEL 3–20 · DRAG HISTORY · CLICK SELECT</span>
+        </div>
+
+        <div class="stage">
+          <div class="axis" id="axis"></div>
+          <div class="vwap"><span>SESSION VWAP 64,487.4</span></div>
+          <div id="bars" style="display:contents"></div>
+          <div class="dom" id="dom"></div>
+        </div>
+
+        <div class="metrics" id="metrics"></div>
+
+        <div class="context">
+          <div class="pane">
+            <span class="pane-label">CVD</span><span class="pane-scale">+50K / 0 / −50K</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none">
+              <path class="grid" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/>
+              <path class="zero" d="M0 40H1100"/>
+              <path class="cvd" d="M0 51 L45 47 L85 50 L125 37 L165 44 L205 57 L245 55 L285 39 L325 33 L365 21 L405 15 L445 23 L485 31 L525 29 L565 43 L605 47 L645 39 L685 44 L725 53 L765 49 L805 51 L845 43 L885 50 L925 61 L965 65 L1005 58 L1045 53 L1100 57"/>
+            </svg>
+          </div>
+          <div class="pane">
+            <span class="pane-label">DELTA</span><span class="pane-scale">+1K / 0 / −1K</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none"><path class="grid" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/><path class="zero" d="M0 40H1100"/><g id="delta-bars"></g></svg>
+          </div>
+          <div class="pane">
+            <span class="pane-label">VOLUME</span><span class="pane-scale">2K / 0</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none"><path class="grid" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/><g id="volume-bars"></g></svg>
+          </div>
+          <div class="pane">
+            <span class="pane-label">OPEN INTEREST</span><span class="pane-scale">150K / 100K</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none"><path class="grid" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/><path class="oi" d="M0 55 L55 56 L110 51 L165 49 L220 47 L275 43 L330 39 L385 28 L440 35 L495 49 L550 45 L605 37 L660 42 L715 40 L770 35 L825 31 L880 34 L935 24 L990 19 L1045 26 L1100 22"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card guide">
+          <div class="side-title">FUSION READING KEY</div>
+          <div class="note">左は過去に成立した約定、右端は現在待機中の指値注文。同じ価格行へ揃えますが、意味は混ぜません。</div>
+          <div class="guide-row"><i style="background:#ff405899"></i><div><strong>FOOTPRINT BID</strong><small>Aggressive sell volume</small></div></div>
+          <div class="guide-row"><i style="background:#19c97999"></i><div><strong>FOOTPRINT ASK</strong><small>Aggressive buy volume</small></div></div>
+          <div class="guide-row"><i style="border:2px solid #ff7a8d"></i><div><strong>SELL IMBALANCE</strong><small>Red outline / stacked rail</small></div></div>
+          <div class="guide-row"><i style="border:2px solid #72ffc0"></i><div><strong>BUY IMBALANCE</strong><small>Green outline / stacked rail</small></div></div>
+          <div class="guide-row"><i style="height:2px;background:#f4c542"></i><div><strong>BAR POC</strong><small>Highest-volume price per bar</small></div></div>
+          <div class="guide-row"><i style="height:2px;background:#25b7e8"></i><div><strong>SESSION VWAP</strong><small>Trade-based live overlay</small></div></div>
+          <div class="guide-row"><i style="background:#19c979;border:1px solid #72ffc0"></i><div><strong>PASSIVE BID DEPTH</strong><small>Resting buy limits in LIVE DOM</small></div></div>
+          <div class="guide-row"><i style="background:#ff4058;border:1px solid #ff7a8d"></i><div><strong>PASSIVE ASK DEPTH</strong><small>Resting sell limits in LIVE DOM</small></div></div>
+          <div class="guide-row"><i style="border:2px solid #f4c542"></i><div><strong>WALL CANDIDATE</strong><small>Large visible depth; may be pulled</small></div></div>
+          <div class="guide-row"><i style="background:#2798e7;border-radius:50%"></i><div><strong>OBSERVATION EVENT</strong><small>Absorption / Exhaustion / Imbalance</small></div></div>
+          <div class="note">DOM wallはサポート／レジスタンス確定ではありません。EVENTSもBUY／SELL指示ではありません。</div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+    const prices=["64,600","64,580","64,560","64,540","64,520","64,500","64,480","64,460","64,440","64,420","64,400"];
+    const bars=[
+      {t:"09:20",o:7,c:3,h:2,l:8,p:3,d:"−26",v:"1.25K",cvd:"−120",oi:"+15",ev:"abs"},
+      {t:"09:21",o:8,c:5,h:1,l:9,p:5,d:"−25",v:"1.32K",cvd:"+230",oi:"+8",ev:"exh"},
+      {t:"09:22",o:7,c:4,h:3,l:9,p:6,d:"+45",v:"1.18K",cvd:"+110",oi:"−12",ev:"trap"},
+      {t:"09:23",o:5,c:2,h:1,l:7,p:3,d:"+12",v:"1.45K",cvd:"−210",oi:"+20",ev:"trap"},
+      {t:"09:24",o:1,c:5,h:0,l:6,p:4,d:"−38",v:"1.68K",cvd:"+340",oi:"+25",ev:"imb"},
+      {t:"09:25",o:4,c:7,h:2,l:8,p:4,d:"+23",v:"1.22K",cvd:"+150",oi:"−18",ev:"exh"},
+      {t:"09:26",o:7,c:4,h:3,l:9,p:6,d:"−51",v:"1.35K",cvd:"−250",oi:"−22",ev:"exh"},
+      {t:"09:27",o:6,c:3,h:2,l:8,p:5,d:"+14",v:"1.16K",cvd:"+90",oi:"+10",ev:"exh"},
+      {t:"09:28",o:3,c:6,h:2,l:8,p:4,d:"+60",v:"1.50K",cvd:"+280",oi:"+16",ev:"imb",selected:true},
+      {t:"09:29",o:7,c:4,h:3,l:9,p:6,d:"−24",v:"1.28K",cvd:"−130",oi:"−8",ev:"imb",live:true}
+    ];
+    function value(bi,pi,side){const seed=(bi+3)*17+(pi+5)*13+(side==="a"?23:7);if(seed%17===0)return 0;return 6+(seed*7)%35+((pi>=3&&pi<=7)?8:0)}
+    function heat(n){if(!n)return 0;if(n<16)return .08;if(n<25)return .16;if(n<36)return .28;if(n<48)return .43;return .62}
+    function sclass(s){return s.startsWith("+")?"pos":s.startsWith("−")||s.startsWith("-")?"neg":"neu"}
+
+    document.getElementById("axis").innerHTML='<div class="axis-head">PRICE</div>'+prices.map((p,i)=>`<div class="price-row ${i===4?"current":""}">${p}</div>`).join("");
+    document.getElementById("bars").innerHTML=bars.map((b,bi)=>{
+      const levels=prices.map((p,pi)=>{
+        const bid=value(bi,pi,"b"),ask=value(bi,pi,"a");
+        const buyImb=(bi+pi)%7===0||((bi===3||bi===8)&&pi>=3&&pi<=5);
+        const sellImb=(bi*2+pi)%9===0||((bi===1||bi===6)&&pi>=5&&pi<=7);
+        const lc=["level",pi>=Math.max(1,b.p-2)&&pi<=Math.min(9,b.p+2)?"va":"",pi===b.p?"pocrow":"",pi===4?"current":""].filter(Boolean).join(" ");
+        const bc=["vol","bid",!bid?"zero":"",sellImb?"sellimb":"",sellImb&&((bi===1||bi===6)&&pi>=5&&pi<=7)?"stacksell":""].filter(Boolean).join(" ");
+        const ac=["vol","ask",!ask?"zero":"",buyImb?"buyimb":"",buyImb&&((bi===3||bi===8)&&pi>=3&&pi<=5)?"stackbuy":""].filter(Boolean).join(" ");
+        return `<div class="${lc}" style="${pi===b.p?"box-shadow:inset 0 1px #f4c542,inset 0 -1px #f4c542;background:#f4c54210":""}">
+          <span class="${bc}" style="--h:${heat(bid)}">${bid}</span><span class="cross">×</span><span class="${ac}" style="--h:${heat(ask)}">${ask}</span>
+          ${pi===b.p?'<i class="poc">POC</i>':""}
+        </div>`;
+      }).join("");
+      const top=42+b.h*36+7,bottom=42+(b.l+1)*36-7,bodyTop=42+Math.min(b.o,b.c)*36+8,bodyBottom=42+(Math.max(b.o,b.c)+1)*36-8;
+      const color=b.c<=b.o?"#19c979":"#ff4058";
+      return `<div class="bar ${b.selected?"selected":""} ${b.live?"livebar":""}"><div class="bar-time">${b.t}<small>${b.live?"FORMING":"CLOSED"}</small></div>${levels}<span class="candle" style="--wt:${top}px;--wh:${bottom-top}px;--bt:${bodyTop-top}px;--bh:${Math.max(9,bodyBottom-bodyTop)}px;--c:${color}"><i></i></span></div>`;
+    }).join("");
+
+    const domRows=[
+      {ask:"352.1",w:58},{ask:"412.5",w:68,wall:true},{ask:"298.7",w:49},{ask:"256.3",w:42,best:true},
+      {spread:true},{bid:"23.4",w:8,best:true},{bid:"98.1",w:19},{bid:"156.3",w:29},{bid:"278.9",w:47},{bid:"415.6",w:70,wall:true},{bid:"532.8",w:91,wall:true}
+    ];
+    document.getElementById("dom").innerHTML='<div class="dom-head"><strong>LIVE DOM · PASSIVE</strong><span>BID DEPTH</span><span>ASK DEPTH</span></div>'+
+      domRows.map((r,i)=>{
+        if(r.spread)return '<div class="dom-row spread">SPREAD 40.0</div>';
+        const bidClass=["depth","bid",!r.bid?"empty":"",r.best&&r.bid?"best":"",r.wall&&r.bid?"wall":""].filter(Boolean).join(" ");
+        const askClass=["depth","ask",!r.ask?"empty":"",r.best&&r.ask?"best":"",r.wall&&r.ask?"wall":""].filter(Boolean).join(" ");
+        return `<div class="dom-row ${i===4?"current":""}"><span class="${bidClass}" style="--w:${r.w||0}%"><b>${r.bid||"—"}</b></span><span class="${askClass}" style="--w:${r.w||0}%"><b>${r.ask||"—"}</b></span>${r.wall?'<i class="wall-tag">WALL</i>':""}</div>`;
+      }).join("");
+
+    document.getElementById("metrics").innerHTML='<div class="metric-labels"><span>DELTA</span><span>VOLUME</span><span>CVD Δ</span><span>OI Δ</span><span>EVENTS</span></div>'+
+      bars.map(b=>`<div class="metric-col"><span class="${sclass(b.d)}">${b.d}</span><span class="neu">${b.v}</span><span class="${sclass(b.cvd)}">${b.cvd}</span><span class="${sclass(b.oi)}">${b.oi}</span><span><i class="dot ${b.ev}"></i></span></div>`).join("")+
+      '<div class="dom-stats"><span>BEST BID</span><b class="pos">64,500</b><span>BEST ASK</span><b class="neg">64,540</b><span>SPREAD</span><b>40.0</b><span class="wide">BOOK IMBALANCE · BID 61%</span></div>';
+
+    function barsSvg(id,count,kind){
+      const out=[];for(let i=0;i<count;i++){const x=9+i*(1080/count),w=Math.max(3,700/count),raw=(i*19+13)%37;
+        if(kind==="delta"){const positive=i%4===0||i%7===0,h=6+raw*.65;out.push(`<rect class="${positive?"bpos":"bneg"}" x="${x}" y="${positive?40-h:40}" width="${w}" height="${h}"/>`)}
+        else{const h=12+raw*1.15;out.push(`<rect class="vbar" x="${x}" y="${76-h}" width="${w}" height="${h}" opacity="${.45+(i%5)*.1}"/>`)}
+      }document.getElementById(id).innerHTML=out.join("");
+    }
+    barsSvg("delta-bars",54,"delta");barsSvg("volume-bars",54,"volume");
+  </script>
+</body>
+</html>

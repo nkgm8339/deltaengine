@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="google" content="notranslate">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DeltaEngine 05M · Continuous Footprint Chart Reference Mock</title>
+  <style>
+    :root{
+      --bg:#050914;--panel:#08101f;--panel2:#0c1628;--line:#273654;--line2:#3a4b6b;
+      --buy:#19c979;--buy2:#72ffc0;--sell:#ff4058;--sell2:#ff7a8d;
+      --warn:#f4c542;--cyan:#25b7e8;--purple:#8b63e6;
+      --text:#f1f5ff;--sub:#c9d3ea;--muted:#6e7b96;
+      --row:36px;--bar-head:42px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-width:1420px;min-height:930px;background:var(--bg);color:var(--text)}
+    body{
+      overflow:hidden;font-family:Inter,"Segoe UI",Meiryo,sans-serif;
+      background:radial-gradient(circle at 76% 5%,#25b7e812,transparent 27%),linear-gradient(180deg,#050914,#060b16 57%,#050914);
+    }
+    button{font:inherit}
+    .page{height:100vh;min-height:930px;padding:12px;display:flex;flex-direction:column;gap:9px}
+    .top{
+      height:56px;flex:0 0 56px;display:flex;align-items:center;gap:20px;padding:0 18px;
+      border:1px solid var(--line);border-radius:8px;background:linear-gradient(110deg,#0d1729,#12152e 58%,#0a2132);
+      box-shadow:0 11px 26px #0008,inset 0 1px #ffffff0b;
+    }
+    .brand{color:var(--cyan);font-size:12px;font-weight:950;letter-spacing:.16em}
+    .title{font-size:17px;font-weight:950;letter-spacing:.06em}
+    .symbol{color:var(--sub);font:950 12px "Cascadia Mono",monospace}
+    .price{font:950 24px "Cascadia Mono",monospace}
+    .live{
+      display:flex;align-items:center;gap:6px;padding:4px 9px;border:1px solid #25b7e877;border-radius:5px;
+      background:#0b2d3c;color:#9cecff;font-size:9px;font-weight:950;letter-spacing:.12em;
+    }
+    .live i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--cyan)}
+    .mock{margin-left:auto;color:var(--warn);font-size:9px;font-weight:950;letter-spacing:.12em}
+
+    .workspace{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:9px}
+    .card{
+      min-width:0;min-height:0;overflow:hidden;border:1px solid var(--line);border-radius:8px;
+      background:linear-gradient(145deg,#0c1526f8,#070d19f8);box-shadow:0 13px 31px #0008,inset 0 1px #ffffff09;
+    }
+    .main-card{display:flex;flex-direction:column}
+    .toolbar{
+      height:42px;flex:0 0 42px;display:flex;align-items:center;gap:7px;padding:0 12px;
+      border-bottom:1px solid #1d2a43;background:linear-gradient(180deg,#10192b,#0a1221);
+    }
+    .toolbar-title{font-size:11px;font-weight:950;letter-spacing:.13em}
+    .toolbar-title span{color:var(--cyan)}
+    .tool-sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+    .ctl{
+      height:27px;min-width:30px;padding:0 8px;border:1px solid var(--line2);border-radius:5px;
+      background:#0b0f25;color:var(--sub);font:850 9px "Cascadia Mono",monospace;
+    }
+    .ctl.on{border-color:var(--cyan);background:#102947;color:#9cecff;box-shadow:0 0 11px #25b7e82f}
+    .ctl.lock{color:var(--warn);border-color:#f4c54266}
+    .toolbar .right{margin-left:auto;color:var(--muted);font-size:8px;font-weight:900;letter-spacing:.08em}
+
+    .footprint{
+      position:relative;height:438px;flex:0 0 438px;display:grid;
+      grid-template-columns:82px repeat(10,minmax(82px,1fr));background:#060c17;
+      border-bottom:1px solid var(--line);
+    }
+    .price-axis,.fp-bar{display:grid;grid-template-rows:var(--bar-head) repeat(11,var(--row));min-width:0}
+    .price-axis{border-right:1px solid var(--line);background:#080f1d}
+    .axis-title{
+      display:flex;align-items:flex-end;justify-content:flex-end;padding:0 9px 8px 0;border-bottom:1px solid var(--line);
+      color:var(--muted);font-size:8px;font-weight:950;letter-spacing:.12em;
+    }
+    .price-row{
+      display:flex;align-items:center;justify-content:flex-end;padding-right:9px;border-bottom:1px solid #142039;
+      color:#aeb9d2;font:850 10px "Cascadia Mono",monospace;
+    }
+    .price-row.current{color:#a8edff;background:#25b7e80b}
+    .fp-bar{position:relative;border-right:1px solid #1b2942}
+    .fp-bar:last-child{border-right:0}
+    .fp-bar.selected{z-index:6;box-shadow:inset 0 0 0 1px #f1f5ff}
+    .fp-bar.livebar{z-index:7;box-shadow:inset 0 0 0 2px var(--cyan),inset 0 0 18px #25b7e811}
+    .bar-time{
+      position:relative;z-index:6;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line);
+      background:#0a1323;color:var(--sub);font:950 11px "Cascadia Mono",monospace;
+    }
+    .bar-time small{position:absolute;bottom:3px;color:var(--muted);font:800 6px "Segoe UI",sans-serif;letter-spacing:.08em}
+    .livebar .bar-time{color:#9cecff;background:#0b2130}
+    .fp-level{
+      position:relative;z-index:2;display:grid;grid-template-columns:1fr 13px 1fr;gap:2px;align-items:center;
+      padding:3px 3px;border-bottom:1px solid #142039;
+    }
+    .fp-level.va{background:#f4c54208}
+    .fp-level.poc{box-shadow:inset 0 1px var(--warn),inset 0 -1px var(--warn);background:#f4c54210}
+    .fp-level.current{background:#25b7e809}
+    .vol{
+      height:26px;display:flex;align-items:center;border:1px solid #26344f;border-radius:2px;
+      color:#edf3ff;font:850 9px "Cascadia Mono","JetBrains Mono",monospace;text-shadow:0 1px 2px #000;
+    }
+    .vol.bid{justify-content:flex-end;padding-right:3px;background:rgba(255,64,88,var(--h))}
+    .vol.ask{justify-content:flex-start;padding-left:3px;background:rgba(25,201,121,var(--h))}
+    .vol.zero{color:#46536d;background:transparent}
+    .vol.buyimb{border:1.5px solid var(--buy2);color:#caffdf;box-shadow:0 0 7px #19c97944}
+    .vol.sellimb{border:1.5px solid var(--sell2);color:#ffd2d9;box-shadow:0 0 7px #ff405844}
+    .vol.stackbuy{box-shadow:inset -3px 0 var(--buy2),0 0 7px #19c97944}
+    .vol.stacksell{box-shadow:inset 3px 0 var(--sell2),0 0 7px #ff405844}
+    .cross{color:#53617b;text-align:center;font:800 8px "Cascadia Mono",monospace}
+    .poc-tag{
+      position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);
+      padding:1px 2px;border-radius:2px;background:var(--warn);color:#141006;font:950 6px "Cascadia Mono",monospace;
+    }
+    .candle{
+      position:absolute;z-index:4;left:50%;transform:translateX(-50%);top:var(--wt);height:var(--wh);
+      width:13px;color:var(--c);pointer-events:none;
+    }
+    .candle::before{
+      content:"";position:absolute;left:50%;top:0;bottom:0;transform:translateX(-50%);
+      border-left:1.5px solid #d4dcf0;filter:drop-shadow(0 0 2px #000);
+    }
+    .candle i{
+      position:absolute;left:1px;right:1px;top:var(--bt);height:var(--bh);border:1.5px solid currentColor;border-radius:1px;
+      background:color-mix(in srgb,currentColor 42%,#080f1d);box-shadow:0 0 5px color-mix(in srgb,currentColor 42%,transparent);
+    }
+    .vwap-line{
+      position:absolute;z-index:8;left:82px;right:0;top:244px;border-top:1px dashed var(--cyan);
+      box-shadow:0 0 6px #25b7e855;pointer-events:none;
+    }
+    .vwap-line span{
+      position:absolute;right:7px;top:-17px;color:#8ce8ff;font:950 8px "Cascadia Mono",monospace;letter-spacing:.06em;
+    }
+
+    .metrics{
+      height:112px;flex:0 0 112px;display:grid;grid-template-columns:82px repeat(10,minmax(82px,1fr));
+      border-bottom:1px solid var(--line);background:#080f1d;
+    }
+    .metric-labels,.metric-col{display:grid;grid-template-rows:repeat(5,1fr)}
+    .metric-labels{border-right:1px solid var(--line)}
+    .metric-labels span{
+      display:flex;align-items:center;padding-left:10px;color:var(--sub);font-size:9px;font-weight:900;border-bottom:1px solid #142039;
+    }
+    .metric-col{border-right:1px solid #1b2942}
+    .metric-col span{
+      display:flex;align-items:center;justify-content:center;border-bottom:1px solid #142039;
+      font:900 9px "Cascadia Mono",monospace;
+    }
+    .pos{color:var(--buy2)}.neg{color:var(--sell2)}.neu{color:var(--sub)}
+    .dot{width:9px;height:9px;border-radius:50%;box-shadow:0 0 7px currentColor}
+    .abs{color:#2798e7;background:#2798e7}.exh{color:#ff9d32;background:#ff9d32}
+    .imb{color:#36da74;background:#36da74}.trap{color:#9b54e8;background:#9b54e8}
+    .div{color:#dc3a9c;background:#dc3a9c}
+
+    .context{min-height:0;flex:1;display:grid;grid-template-rows:repeat(4,1fr);background:#070d18}
+    .pane{position:relative;min-height:0;border-bottom:1px solid var(--line);overflow:hidden}
+    .pane:last-child{border-bottom:0}
+    .pane-label{position:absolute;z-index:3;left:10px;top:7px;color:var(--sub);font-size:9px;font-weight:950;letter-spacing:.08em}
+    .pane-scale{position:absolute;z-index:3;right:7px;top:7px;color:var(--muted);font:800 7px "Cascadia Mono",monospace}
+    .pane svg{width:100%;height:100%;display:block}
+    .grid-line{stroke:#1b2942;stroke-width:1}.zero-line{stroke:#3a4b6b;stroke-width:1}
+    .cvd-line{fill:none;stroke:#27a2ff;stroke-width:2}.oi-line{fill:none;stroke:var(--purple);stroke-width:2}
+    .bar-pos{fill:#23bb68}.bar-neg{fill:#e83c50}.volume-bar{fill:#758096}
+
+    .side{display:flex;flex-direction:column;gap:9px;min-height:0}
+    .side-card{padding:11px}
+    .side-title{color:var(--sub);font-size:10px;font-weight:950;letter-spacing:.11em;margin-bottom:9px}
+    .book-head,.book-row{display:grid;grid-template-columns:1fr .8fr .8fr;gap:5px;align-items:center}
+    .book-head{padding:0 4px 5px;color:var(--muted);font-size:8px;font-weight:900}
+    .book-row{
+      position:relative;height:25px;padding:0 4px;border-top:1px solid #15223a;
+      font:850 10px "Cascadia Mono",monospace;overflow:hidden;
+    }
+    .book-row::before{content:"";position:absolute;top:2px;bottom:2px;right:0;width:var(--w);background:var(--bgc);opacity:.42}
+    .book-row span{position:relative;z-index:2}.book-row span:nth-child(2),.book-row span:nth-child(3){text-align:right}
+    .book-row.mid{margin:4px 0;border:1px solid #25b7e877;border-radius:4px;background:#0b2635;color:#a9edff}
+    .guide{flex:1;color:#cbd5ea;font-size:10px;line-height:1.6}
+    .guide-row{display:flex;gap:8px;align-items:flex-start;margin:9px 0}
+    .guide-row i{flex:0 0 19px;height:12px;margin-top:2px;border-radius:2px}
+    .guide strong{display:block;color:var(--text);font-size:9px;letter-spacing:.03em}
+    .guide small{color:var(--muted);font-size:8px}
+    .note{
+      padding:9px;border:1px solid #f4c54255;border-radius:6px;background:#f4c5420b;color:#fff0a5;
+      font-size:9px;font-weight:800;line-height:1.55;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div class="brand">DELTAENGINE 05M</div>
+      <div class="title">FOOTPRINT CHART</div>
+      <div class="symbol">BTCUSDT · 1M</div>
+      <div class="price">64,520.0</div>
+      <div class="live"><i></i>LIVE</div>
+      <div class="mock">REFERENCE-ALIGNED DISPLAY MOCK · NO LIVE DATA</div>
+    </header>
+
+    <div class="workspace">
+      <section class="card main-card">
+        <div class="toolbar">
+          <div class="toolbar-title"><span>FOOTPRINT</span> · BID × ASK</div>
+          <div class="tool-sep"></div>
+          <button class="ctl">3</button><button class="ctl on">10</button><button class="ctl">20</button>
+          <button class="ctl">−</button><button class="ctl">＋</button>
+          <button class="ctl lock">LOCK</button>
+          <button class="ctl">VA 70%</button>
+          <button class="ctl">VWAP ON</button>
+          <span class="right">WHEEL: 3–20 BARS · DRAG: HISTORY · CLICK: SELECT</span>
+        </div>
+
+        <div class="footprint">
+          <div class="price-axis" id="price-axis"></div>
+          <div class="vwap-line"><span>SESSION VWAP 64,487.4</span></div>
+          <div id="bars" style="display:contents"></div>
+        </div>
+
+        <div class="metrics" id="metrics"></div>
+
+        <div class="context">
+          <div class="pane">
+            <span class="pane-label">CVD</span><span class="pane-scale">+50K / 0 / −50K</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none">
+              <path class="grid-line" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/>
+              <path class="zero-line" d="M0 40H1100"/>
+              <path class="cvd-line" d="M0 51 L45 47 L85 50 L125 37 L165 44 L205 57 L245 55 L285 39 L325 33 L365 21 L405 15 L445 23 L485 31 L525 29 L565 43 L605 47 L645 39 L685 44 L725 53 L765 49 L805 51 L845 43 L885 50 L925 61 L965 65 L1005 58 L1045 53 L1100 57"/>
+            </svg>
+          </div>
+          <div class="pane">
+            <span class="pane-label">DELTA</span><span class="pane-scale">+1K / 0 / −1K</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none">
+              <path class="grid-line" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/>
+              <path class="zero-line" d="M0 40H1100"/>
+              <g id="delta-bars"></g>
+            </svg>
+          </div>
+          <div class="pane">
+            <span class="pane-label">VOLUME</span><span class="pane-scale">2K / 0</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none">
+              <path class="grid-line" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/>
+              <g id="volume-bars"></g>
+            </svg>
+          </div>
+          <div class="pane">
+            <span class="pane-label">OPEN INTEREST</span><span class="pane-scale">150K / 100K</span>
+            <svg viewBox="0 0 1100 80" preserveAspectRatio="none">
+              <path class="grid-line" d="M0 20H1100M0 40H1100M0 60H1100M110 0V80M220 0V80M330 0V80M440 0V80M550 0V80M660 0V80M770 0V80M880 0V80M990 0V80"/>
+              <path class="oi-line" d="M0 55 L55 56 L110 51 L165 49 L220 47 L275 43 L330 39 L385 28 L440 35 L495 49 L550 45 L605 37 L660 42 L715 40 L770 35 L825 31 L880 34 L935 24 L990 19 L1045 26 L1100 22"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card side-card">
+          <div class="side-title">ORDER BOOK · LIVE</div>
+          <div class="book-head"><span>PRICE</span><span>BID</span><span>ASK</span></div>
+          <div id="book"></div>
+        </section>
+
+        <section class="card side-card guide">
+          <div class="side-title">COLOR / MARKER KEY</div>
+          <div class="guide-row"><i style="background:#ff405899"></i><div><strong>BID VOLUME</strong><small>Aggressive sell volume · intensity only</small></div></div>
+          <div class="guide-row"><i style="background:#19c97999"></i><div><strong>ASK VOLUME</strong><small>Aggressive buy volume · intensity only</small></div></div>
+          <div class="guide-row"><i style="border:2px solid #ff7a8d"></i><div><strong>SELL IMBALANCE</strong><small>Red outline · stacked cells are connected</small></div></div>
+          <div class="guide-row"><i style="border:2px solid #72ffc0"></i><div><strong>BUY IMBALANCE</strong><small>Green outline · stacked cells are connected</small></div></div>
+          <div class="guide-row"><i style="height:2px;background:#f4c542"></i><div><strong>BAR POC</strong><small>Highest-volume price inside each bar</small></div></div>
+          <div class="guide-row"><i style="height:2px;background:#25b7e8"></i><div><strong>SESSION VWAP</strong><small>Existing live trade-based VWAP overlay</small></div></div>
+          <div class="guide-row"><i style="background:#2798e7;border-radius:50%"></i><div><strong>OBSERVATION EVENT</strong><small>Absorption / Exhaustion / Imbalance / Divergence</small></div></div>
+          <div class="note">EVENTS are observations, not BUY/SELL instructions. Existing Flow Price Response and the completed three-stage chart remain independent.</div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+    const prices=["64,600","64,580","64,560","64,540","64,520","64,500","64,480","64,460","64,440","64,420","64,400"];
+    const bars=[
+      {t:"09:20",o:7,c:3,h:2,l:8,p:3,d:"−26",v:"1.25K",cvd:"−120",oi:"+15",ev:"abs"},
+      {t:"09:21",o:8,c:5,h:1,l:9,p:5,d:"−25",v:"1.32K",cvd:"+230",oi:"+8",ev:"exh"},
+      {t:"09:22",o:7,c:4,h:3,l:9,p:6,d:"+45",v:"1.18K",cvd:"+110",oi:"−12",ev:"trap"},
+      {t:"09:23",o:5,c:2,h:1,l:7,p:3,d:"+12",v:"1.45K",cvd:"−210",oi:"+20",ev:"trap"},
+      {t:"09:24",o:1,c:5,h:0,l:6,p:4,d:"−38",v:"1.68K",cvd:"+340",oi:"+25",ev:"imb"},
+      {t:"09:25",o:4,c:7,h:2,l:8,p:4,d:"+23",v:"1.22K",cvd:"+150",oi:"−18",ev:"exh"},
+      {t:"09:26",o:7,c:4,h:3,l:9,p:6,d:"−51",v:"1.35K",cvd:"−250",oi:"−22",ev:"exh"},
+      {t:"09:27",o:6,c:3,h:2,l:8,p:5,d:"+14",v:"1.16K",cvd:"+90",oi:"+10",ev:"exh"},
+      {t:"09:28",o:3,c:6,h:2,l:8,p:4,d:"+60",v:"1.50K",cvd:"+280",oi:"+16",ev:"imb",selected:true},
+      {t:"09:29",o:7,c:4,h:3,l:9,p:6,d:"−24",v:"1.28K",cvd:"−130",oi:"−8",ev:"imb",live:true}
+    ];
+    function val(bi,pi,side){
+      const seed=(bi+3)*17+(pi+5)*13+(side==="a"?23:7);
+      if((seed%17)===0)return 0;
+      return 6+(seed*7)%35+((pi>=3&&pi<=7)?8:0);
+    }
+    function heat(n){if(!n)return 0;if(n<16)return .08;if(n<25)return .16;if(n<36)return .28;if(n<48)return .43;return .62}
+    function signedClass(s){return s.startsWith("+")?"pos":s.startsWith("−")||s.startsWith("-")?"neg":"neu"}
+    const axis=document.getElementById("price-axis");
+    axis.innerHTML='<div class="axis-title">PRICE</div>'+prices.map((p,i)=>`<div class="price-row ${i===4?"current":""}">${p}</div>`).join("");
+    const barsEl=document.getElementById("bars");
+    barsEl.innerHTML=bars.map((b,bi)=>{
+      const levels=prices.map((p,pi)=>{
+        const bid=val(bi,pi,"b"),ask=val(bi,pi,"a");
+        const buyImb=(bi+pi)%7===0||((bi===3||bi===8)&&pi>=3&&pi<=5);
+        const sellImb=(bi*2+pi)%9===0||((bi===1||bi===6)&&pi>=5&&pi<=7);
+        const levelClass=["fp-level",pi>=Math.max(1,b.p-2)&&pi<=Math.min(9,b.p+2)?"va":"",pi===b.p?"poc":"",pi===4?"current":""].filter(Boolean).join(" ");
+        const bidClass=["vol","bid",!bid?"zero":"",sellImb?"sellimb":"",sellImb&&((bi===1||bi===6)&&pi>=5&&pi<=7)?"stacksell":""].filter(Boolean).join(" ");
+        const askClass=["vol","ask",!ask?"zero":"",buyImb?"buyimb":"",buyImb&&((bi===3||bi===8)&&pi>=3&&pi<=5)?"stackbuy":""].filter(Boolean).join(" ");
+        return `<div class="${levelClass}">
+          <span class="${bidClass}" style="--h:${heat(bid)}">${bid}</span><span class="cross">×</span>
+          <span class="${askClass}" style="--h:${heat(ask)}">${ask}</span>${pi===b.p?'<i class="poc-tag">POC</i>':""}
+        </div>`;
+      }).join("");
+      const top=42+b.h*36+7,bottom=42+(b.l+1)*36-7,bodyTop=42+Math.min(b.o,b.c)*36+8,bodyBottom=42+(Math.max(b.o,b.c)+1)*36-8;
+      const candleColor=b.c<=b.o?"#19c979":"#ff4058";
+      return `<div class="fp-bar ${b.selected?"selected":""} ${b.live?"livebar":""}">
+        <div class="bar-time">${b.t}<small>${b.live?"FORMING":"CLOSED"}</small></div>${levels}
+        <span class="candle" style="--wt:${top}px;--wh:${bottom-top}px;--bt:${bodyTop-top}px;--bh:${Math.max(9,bodyBottom-bodyTop)}px;--c:${candleColor}"><i></i></span>
+      </div>`;
+    }).join("");
+
+    const metrics=document.getElementById("metrics");
+    metrics.innerHTML='<div class="metric-labels"><span>DELTA</span><span>VOLUME</span><span>CVD Δ</span><span>OI Δ</span><span>EVENTS</span></div>'+
+      bars.map(b=>`<div class="metric-col"><span class="${signedClass(b.d)}">${b.d}</span><span class="neu">${b.v}</span><span class="${signedClass(b.cvd)}">${b.cvd}</span><span class="${signedClass(b.oi)}">${b.oi}</span><span><i class="dot ${b.ev}"></i></span></div>`).join("");
+
+    const asks=[["64,600","—","352.1"],["64,580","—","412.5"],["64,560","—","298.7"],["64,540","—","256.3"],["64,520","—","198.4"]];
+    const bids=[["64,500","23.4","—"],["64,480","98.1","—"],["64,460","156.3","—"],["64,440","278.9","—"],["64,420","415.6","—"],["64,400","532.8","—"]];
+    document.getElementById("book").innerHTML=
+      asks.map((r,i)=>`<div class="book-row" style="--w:${32+i*12}%;--bgc:#ff4058"><span>${r[0]}</span><span>${r[1]}</span><span class="neg">${r[2]}</span></div>`).join("")+
+      '<div class="book-row mid"><span>64,520</span><span class="pos">23.4</span><span class="neg">45.7</span></div>'+
+      bids.map((r,i)=>`<div class="book-row" style="--w:${28+i*12}%;--bgc:#19c979"><span>${r[0]}</span><span class="pos">${r[1]}</span><span>${r[2]}</span></div>`).join("");
+
+    function makeBars(id,count,kind){
+      const el=document.getElementById(id),parts=[];
+      for(let i=0;i<count;i++){
+        const x=9+i*(1080/count),w=Math.max(3,700/count),raw=(i*19+13)%37;
+        if(kind==="delta"){
+          const positive=i%4===0||i%7===0,h=6+raw*.65;
+          parts.push(`<rect class="${positive?"bar-pos":"bar-neg"}" x="${x}" y="${positive?40-h:40}" width="${w}" height="${h}"/>`);
+        }else{
+          const h=12+raw*1.15;parts.push(`<rect class="volume-bar" x="${x}" y="${76-h}" width="${w}" height="${h}" opacity="${.45+(i%5)*.1}"/>`);
+        }
+      }
+      el.innerHTML=parts.join("");
+    }
+    makeBars("delta-bars",54,"delta");makeBars("volume-bars",54,"volume");
+  </script>
+</body>
+</html>

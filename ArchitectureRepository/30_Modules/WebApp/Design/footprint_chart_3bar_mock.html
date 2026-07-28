@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="google" content="notranslate">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DeltaEngine 05M · Three-Bar Footprint Chart Mock</title>
+  <style>
+    :root{
+      --bg:#050914;
+      --panel:#08101f;
+      --panel2:#0c1628;
+      --line:#273654;
+      --line2:#3a4b6b;
+      --buy:#19c979;
+      --buy-bright:#72ffc0;
+      --sell:#ff4058;
+      --sell-bright:#ff7a8d;
+      --warn:#f4c542;
+      --cyan:#25b7e8;
+      --text:#f1f5ff;
+      --sub:#c9d3ea;
+      --muted:#6e7b96;
+      --row-h:38px;
+      --head-h:58px;
+      --summary-h:68px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{margin:0;min-width:1280px;min-height:820px;background:var(--bg);color:var(--text)}
+    body{
+      overflow:hidden;
+      font-family:Inter,"Segoe UI",Meiryo,sans-serif;
+      background:
+        radial-gradient(circle at 78% 8%,rgba(37,183,232,.10),transparent 28%),
+        radial-gradient(circle at 12% 18%,rgba(139,99,230,.08),transparent 24%),
+        linear-gradient(180deg,#050914,#060b16 55%,#050914);
+    }
+
+    .shell{height:100vh;min-height:820px;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .topbar{
+      height:64px;flex:0 0 64px;display:flex;align-items:center;gap:22px;padding:0 20px;
+      border:1px solid var(--line);border-radius:9px;
+      background:linear-gradient(110deg,#0d1729,#12152e 58%,#0a2132);
+      box-shadow:0 12px 28px #0008,inset 0 1px #ffffff0b;
+    }
+    .brand{font-size:13px;font-weight:950;letter-spacing:.16em;color:var(--cyan)}
+    .price{font:950 29px/1 "Cascadia Mono","JetBrains Mono",monospace;letter-spacing:-.04em}
+    .market{font-size:10px;font-weight:850;letter-spacing:.12em;color:var(--muted)}
+    .market b{display:block;margin-top:3px;color:var(--sub);font-size:12px;letter-spacing:.04em}
+    .live-pill{
+      display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid #25b7e877;
+      border-radius:6px;background:#0b2d3c;color:#92e8ff;font-size:10px;font-weight:950;letter-spacing:.12em;
+    }
+    .live-pill i{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+    .mock-note{margin-left:auto;color:var(--warn);font-size:10px;font-weight:900;letter-spacing:.10em}
+
+    .panel{
+      min-height:0;flex:1;display:flex;flex-direction:column;overflow:hidden;
+      border:1px solid var(--line);border-radius:9px;
+      background:linear-gradient(145deg,#0c1526f8,#070d19f8);
+      box-shadow:0 16px 36px #0009,inset 0 1px #ffffff0a;
+    }
+    .panel-head{
+      height:52px;flex:0 0 52px;display:flex;align-items:center;gap:16px;padding:0 16px;
+      border-bottom:1px solid #1d2a43;background:linear-gradient(180deg,#10192b,#0a1221);
+    }
+    .panel-title{font-size:13px;font-weight:950;letter-spacing:.14em}
+    .panel-title span{color:var(--cyan)}
+    .controls{display:flex;align-items:center;gap:6px;margin-left:auto}
+    .control-label{margin-right:2px;color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.10em}
+    .button{
+      height:29px;min-width:34px;padding:0 9px;border:1px solid var(--line2);border-radius:6px;
+      background:#0b0f25;color:var(--sub);font:850 10px "Cascadia Mono",monospace;
+    }
+    .button.on{border-color:var(--cyan);background:#102947;color:#94eaff;box-shadow:0 0 12px #25b7e833}
+    .button.lock{color:var(--warn);border-color:#f4c54255}
+
+    .chart-wrap{min-height:0;flex:1;display:grid;grid-template-columns:110px minmax(0,1fr);background:#070d19}
+    .price-axis{
+      display:grid;grid-template-rows:var(--head-h) repeat(13,var(--row-h)) var(--summary-h);
+      border-right:1px solid var(--line);background:#080f1d;
+    }
+    .axis-head{
+      display:flex;align-items:flex-end;justify-content:flex-end;padding:0 12px 10px 0;
+      color:var(--muted);font-size:9px;font-weight:950;letter-spacing:.12em;
+      border-bottom:1px solid var(--line);
+    }
+    .axis-price{
+      position:relative;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;
+      border-bottom:1px solid #142039;color:#aeb9d2;font:850 12px "Cascadia Mono",monospace;
+    }
+    .axis-price.current{color:#b8efff;background:#25b7e80d;font-weight:950}
+    .axis-price.current::after{
+      content:"NOW";position:absolute;left:8px;padding:2px 4px;border-radius:3px;
+      background:#12394a;color:#9cecff;font:950 8px "Cascadia Mono",monospace;letter-spacing:.07em;
+    }
+    .axis-summary{
+      display:flex;align-items:center;justify-content:flex-end;padding-right:12px;
+      color:var(--muted);font-size:9px;font-weight:950;letter-spacing:.10em;
+      border-top:1px solid var(--line);
+    }
+
+    .bars{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));min-width:0}
+    .bars::after{
+      content:"";position:absolute;z-index:8;left:0;right:0;
+      top:calc(var(--head-h) + 5 * var(--row-h) + var(--row-h) / 2);
+      border-top:1px solid var(--cyan);box-shadow:0 0 7px #25b7e855;pointer-events:none;
+    }
+    .bar{
+      position:relative;display:grid;grid-template-rows:var(--head-h) repeat(13,var(--row-h)) var(--summary-h);
+      min-width:0;border-right:1px solid var(--line);
+    }
+    .bar:last-child{border-right:0}
+    .bar.selected{box-shadow:inset 0 0 0 2px #f1f5ff;z-index:4}
+    .bar.live{box-shadow:inset 0 0 0 2px var(--cyan);z-index:5}
+    .bar.selected.live{box-shadow:inset 0 0 0 2px var(--cyan),inset 0 0 18px #25b7e811}
+
+    .bar-head{
+      position:relative;z-index:7;display:flex;align-items:center;justify-content:space-between;
+      padding:0 13px;border-bottom:1px solid var(--line);background:#0b1425;
+    }
+    .bar-time{font:950 14px "Cascadia Mono",monospace;color:var(--text)}
+    .bar-time small{display:block;margin-top:3px;color:var(--muted);font:850 8px "Segoe UI",sans-serif;letter-spacing:.10em}
+    .bar.live .bar-time{color:#9cecff}
+    .bar-state{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.08em}
+    .bar-state i{width:6px;height:6px;border-radius:50%;background:currentColor}
+    .bar.live .bar-state{color:var(--cyan)}
+    .column-labels{
+      position:absolute;z-index:8;left:13px;right:13px;bottom:5px;
+      display:grid;grid-template-columns:1fr 46px 1fr;gap:8px;
+      color:var(--muted);font-size:8px;font-weight:950;letter-spacing:.12em;
+    }
+    .column-labels span:first-child{text-align:right}.column-labels span:last-child{text-align:left}
+
+    .level{
+      position:relative;z-index:2;display:grid;grid-template-columns:1fr 46px 1fr;gap:8px;
+      align-items:center;padding:3px 13px;border-bottom:1px solid #142039;
+    }
+    .level.va{background:#f4c5420a}
+    .level.vah{border-top:1px dashed #f4c542aa}
+    .level.val{border-bottom:1px dashed #f4c542aa}
+    .level.poc::before{
+      content:"";position:absolute;z-index:-1;left:0;right:0;top:50%;
+      border-top:2px solid #f4c542;opacity:.82;box-shadow:0 0 7px #f4c54244;
+    }
+    .level.current{background:#25b7e80a}
+    .cell{
+      position:relative;height:29px;display:flex;align-items:center;border:1px solid transparent;
+      border-radius:4px;color:var(--text);font:900 13px "Cascadia Mono","JetBrains Mono",monospace;
+      text-shadow:0 1px 2px #000;overflow:visible;
+    }
+    .cell.bid{justify-content:flex-end;padding:0 9px;background:rgba(255,64,88,var(--heat))}
+    .cell.ask{justify-content:flex-start;padding:0 9px;background:rgba(25,201,121,var(--heat))}
+    .cell.zero{color:#526079;background:transparent}
+    .cell.hot{color:#fff;font-weight:950}
+    .cell.sell-imb{border:2px solid var(--sell-bright);box-shadow:0 0 9px #ff405855}
+    .cell.buy-imb{border:2px solid var(--buy-bright);box-shadow:0 0 9px #19c97955}
+    .cell.sell-imb::before,.cell.buy-imb::after{
+      position:absolute;top:50%;transform:translateY(-52%);font-size:9px;text-shadow:none;
+    }
+    .cell.sell-imb::before{content:"▼";left:3px;color:#ffd6dc}
+    .cell.buy-imb::after{content:"▲";right:3px;color:#d0ffe7}
+    .cell.stack-sell{box-shadow:inset 4px 0 var(--sell-bright),0 0 9px #ff405844}
+    .cell.stack-buy{box-shadow:inset -4px 0 var(--buy-bright),0 0 9px #19c97944}
+    .center-slot{height:100%;position:relative}
+    .center-slot::after{
+      content:"×";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      color:#4d5b78;font:800 10px "Cascadia Mono",monospace;
+    }
+    .level.poc .center-slot::after{
+      content:"POC";color:#151004;background:var(--warn);height:15px;top:50%;transform:translateY(-50%);
+      border-radius:3px;font-size:7px;font-weight:950;letter-spacing:.03em;
+    }
+
+    .candle{
+      position:absolute;z-index:6;left:50%;transform:translateX(-50%);width:24px;pointer-events:none;
+    }
+    .candle::before{
+      content:"";position:absolute;left:50%;top:0;bottom:0;transform:translateX(-50%);
+      border-left:2px solid #c9d3ea;filter:drop-shadow(0 0 3px #000);
+    }
+    .candle i{
+      position:absolute;left:2px;right:2px;border:2px solid currentColor;border-radius:2px;
+      background:color-mix(in srgb,currentColor 38%,transparent);box-shadow:0 0 8px color-mix(in srgb,currentColor 35%,transparent);
+    }
+    .candle.up{color:var(--buy)}.candle.down{color:var(--sell)}
+    .candle.b1{top:calc(var(--head-h) + 1.5 * var(--row-h));height:calc(9 * var(--row-h))}
+    .candle.b1 i{top:calc(2 * var(--row-h));height:calc(5.2 * var(--row-h))}
+    .candle.b2{top:calc(var(--head-h) + 2 * var(--row-h));height:calc(9.6 * var(--row-h))}
+    .candle.b2 i{top:calc(1.5 * var(--row-h));height:calc(6 * var(--row-h))}
+    .candle.b3{top:calc(var(--head-h) + 2.4 * var(--row-h));height:calc(8.7 * var(--row-h))}
+    .candle.b3 i{top:calc(2 * var(--row-h));height:calc(4.2 * var(--row-h))}
+
+    .summary{
+      position:relative;z-index:7;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+      align-items:center;padding:8px 13px;border-top:1px solid var(--line);background:#091221;
+    }
+    .metric{text-align:center}
+    .metric span{display:block;color:var(--muted);font-size:8px;font-weight:950;letter-spacing:.10em}
+    .metric b{display:block;margin-top:4px;font:950 13px "Cascadia Mono",monospace}
+    .positive{color:var(--buy-bright)}.negative{color:var(--sell-bright)}
+
+    .legend{
+      min-height:54px;flex:0 0 54px;display:flex;align-items:center;gap:18px;padding:8px 16px;
+      border-top:1px solid var(--line);background:#080f1d;color:var(--sub);font-size:9px;font-weight:850;
+    }
+    .legend-title{color:var(--muted);font-weight:950;letter-spacing:.12em}
+    .key{display:flex;align-items:center;gap:6px;white-space:nowrap}
+    .swatch{width:20px;height:13px;border-radius:3px;border:1px solid transparent}
+    .swatch.bid{background:#ff40588f}.swatch.ask{background:#19c9798f}
+    .swatch.buy-imb{border:2px solid var(--buy-bright)}
+    .swatch.sell-imb{border:2px solid var(--sell-bright)}
+    .swatch.poc{height:2px;background:var(--warn);border-radius:0}
+    .swatch.now{height:2px;background:var(--cyan);border-radius:0}
+    .legend-note{margin-left:auto;color:var(--muted);font-size:8px;letter-spacing:.05em}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">DELTAENGINE 05M</div>
+      <div class="price">118,453.0</div>
+      <div class="market">MARKET<b>BTCUSDT · BINANCE FUTURES</b></div>
+      <div class="market">TIMEFRAME<b>1 MINUTE</b></div>
+      <div class="live-pill"><i></i>LIVE</div>
+      <div class="mock-note">DISPLAY MOCK · NO LIVE DATA</div>
+    </header>
+
+    <section class="panel" aria-label="Three-bar footprint chart mock">
+      <div class="panel-head">
+        <div class="panel-title"><span>FOOTPRINT</span> CHART · BID × ASK</div>
+        <div class="controls">
+          <span class="control-label">BARS</span>
+          <button class="button on">3</button>
+          <button class="button">10</button>
+          <button class="button">20</button>
+          <button class="button">−</button>
+          <button class="button">＋</button>
+          <button class="button lock">LOCK</button>
+          <button class="button">VA 70%</button>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="price-axis" id="price-axis"></div>
+        <div class="bars" id="bars"></div>
+      </div>
+
+      <footer class="legend">
+        <span class="legend-title">COLOR KEY</span>
+        <span class="key"><i class="swatch bid"></i>BID / AGGRESSIVE SELL</span>
+        <span class="key"><i class="swatch ask"></i>ASK / AGGRESSIVE BUY</span>
+        <span class="key"><i class="swatch sell-imb"></i>SELL IMBALANCE</span>
+        <span class="key"><i class="swatch buy-imb"></i>BUY IMBALANCE</span>
+        <span class="key"><i class="swatch poc"></i>POC / VALUE AREA</span>
+        <span class="key"><i class="swatch now"></i>CURRENT PRICE</span>
+        <span class="legend-note">Heat intensity = volume only · Outline/arrow = imbalance only</span>
+      </footer>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    const prices=[
+      "118,458.0","118,457.0","118,456.0","118,455.0","118,454.0","118,453.0","118,452.0",
+      "118,451.0","118,450.0","118,449.0","118,448.0","118,447.0","118,446.0"
+    ];
+
+    const bars=[
+      {
+        time:"13:42",state:"CLOSED",kind:"up",candle:"b1",delta:"+42.6",volume:"318.4",cvd:"+128.7",
+        poc:6,vah:3,val:9,
+        bid:[2.1,4.8,7.2,12.4,18.7,21.6,32.8,28.4,16.1,8.3,3.6,1.2,0],
+        ask:[0,1.4,4.6,9.8,24.2,39.1,58.6,46.8,27.5,14.3,6.1,2.2,.4],
+        buyImb:[4,5,6],sellImb:[],stackBuy:[4,5,6],stackSell:[]
+      },
+      {
+        time:"13:43",state:"SELECTED",kind:"down",candle:"b2",delta:"−57.3",volume:"346.9",cvd:"+71.4",
+        poc:7,vah:4,val:10,selected:true,
+        bid:[.7,2.4,6.8,13.2,22.7,37.6,54.2,63.8,49.1,31.5,15.6,7.1,2.2],
+        ask:[1.1,3.8,9.4,18.1,27.6,31.2,24.8,17.4,10.2,5.1,2.4,.8,0],
+        buyImb:[],sellImb:[6,7,8],stackBuy:[],stackSell:[6,7,8]
+      },
+      {
+        time:"13:44",state:"FORMING",kind:"up",candle:"b3",delta:"+31.8",volume:"231.6",cvd:"+103.2",
+        poc:6,vah:4,val:10,live:true,
+        bid:[0,.5,2.1,5.8,11.7,18.4,29.2,26.1,15.3,7.8,3.2,1.1,.2],
+        ask:[.3,1.4,4.9,11.3,27.8,44.6,51.9,38.7,22.4,12.1,5.8,1.9,.5],
+        buyImb:[4,5,6],sellImb:[],stackBuy:[4,5,6],stackSell:[]
+      }
+    ];
+
+    function heat(value){
+      if(value<=0)return 0;
+      if(value<10)return .10;
+      if(value<20)return .20;
+      if(value<35)return .36;
+      if(value<50)return .54;
+      return .72;
+    }
+    function n(value){return value===0?"0":value.toFixed(1)}
+
+    const axis=document.getElementById("price-axis");
+    axis.innerHTML=
+      '<div class="axis-head">PRICE</div>'+
+      prices.map((price,index)=>`<div class="axis-price ${index===5?"current":""}">${price}</div>`).join("")+
+      '<div class="axis-summary">BAR TOTALS</div>';
+
+    const barsEl=document.getElementById("bars");
+    barsEl.innerHTML=bars.map((bar,barIndex)=>{
+      const levels=prices.map((price,index)=>{
+        const bid=bar.bid[index],ask=bar.ask[index];
+        const bidClasses=[
+          "cell","bid",bid===0?"zero":"",bid>=50?"hot":"",
+          bar.sellImb.includes(index)?"sell-imb":"",
+          bar.stackSell.includes(index)?"stack-sell":""
+        ].filter(Boolean).join(" ");
+        const askClasses=[
+          "cell","ask",ask===0?"zero":"",ask>=50?"hot":"",
+          bar.buyImb.includes(index)?"buy-imb":"",
+          bar.stackBuy.includes(index)?"stack-buy":""
+        ].filter(Boolean).join(" ");
+        const levelClasses=[
+          "level",
+          index>=bar.vah&&index<=bar.val?"va":"",
+          index===bar.vah?"vah":"",
+          index===bar.val?"val":"",
+          index===bar.poc?"poc":"",
+          index===5?"current":""
+        ].filter(Boolean).join(" ");
+        return `<div class="${levelClasses}">
+          <div class="${bidClasses}" style="--heat:${heat(bid)}">${n(bid)}</div>
+          <div class="center-slot"></div>
+          <div class="${askClasses}" style="--heat:${heat(ask)}">${n(ask)}</div>
+        </div>`;
+      }).join("");
+      const deltaClass=bar.delta.startsWith("+")?"positive":"negative";
+      return `<article class="bar ${bar.selected?"selected":""} ${bar.live?"live":""}">
+        <header class="bar-head">
+          <div class="bar-time">${bar.time}<small>BTCUSDT · 1M</small></div>
+          <div class="bar-state"><i></i>${bar.state}</div>
+          <div class="column-labels"><span>BID</span><span></span><span>ASK</span></div>
+        </header>
+        ${levels}
+        <div class="candle ${bar.kind} ${bar.candle}"><i></i></div>
+        <footer class="summary">
+          <div class="metric"><span>DELTA</span><b class="${deltaClass}">${bar.delta}</b></div>
+          <div class="metric"><span>VOLUME</span><b>${bar.volume}</b></div>
+          <div class="metric"><span>CVD</span><b class="${bar.cvd.startsWith("+")?"positive":"negative"}">${bar.cvd}</b></div>
+        </footer>
+      </article>`;
+    }).join("");
+  </script>
+</body>
+</html>
