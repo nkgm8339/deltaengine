@@ -109,6 +109,12 @@ def test_shipped_config_is_valid() -> None:
     assert config.normalizer.live_reorder_tolerance_ms == 0
     assert config.webapp.tick_push_interval_ms == 50
     assert config.webapp.bar_update_interval_sec == pytest.approx(0.2)
+    assert config.webapp.live_dom_depth_levels == 50
+    assert config.webapp.book_update_interval_ms == 100
+    assert config.webapp.book_stale_after_ms == 2000
+    assert config.webapp.tape_batch_interval_ms == 100
+    assert config.webapp.tape_max_trades_per_message == 250
+    assert config.webapp.tape_pending_capacity == 10000
     assert config.signal.weight.cvd == pytest.approx(1.0)
     assert config.calibration.cvd_slope_ref is None
     assert config.replay.speed == pytest.approx(1.0)

@@ -3,9 +3,9 @@
 version: 2.0
 作成日時: 2026-07-28 15:09:11 JST
 文書状態: **APPROVED — V2.1 AMENDMENT APPLIES**
-現在の承認範囲: **V2＋V2.1設計、OI A、Phase 0A remediation**
-source code実装状態: **未着手**
-実装開始条件: Phase 0C sizing後のschema／retention承認とPhase 1の明示GO
+現在の承認範囲: **V2＋V2.1設計、OI A、Phase 0A〜0C、GO-5〜GO-11（Phase 1〜6）**
+source code実装状態: **Phase 1〜Phase 6完了**
+次の運用開始条件: **disk／storage復旧と新image配備は別承認**
 
 本V2は、次のV1を監査記録として残したまま正本候補を更新する。
 
@@ -990,3 +990,250 @@ blockerの限定範囲:
 2. exact baseline commit対象を再提示
 3. Phase 0B明示承認後にcommit／branch
 4. Phase 0C read-only sizing
+
+---
+
+## 27. 2026-07-28 Phase 1 implementation status
+
+V2.1 GO-6により、§23 Phase 1を完了した。
+
+完了:
+
+- normalized `footprint_levels`
+- small `footprint_bar_manifest`
+- confirmed rollover barだけのBackgroundStorageWriter保存
+- bar単位atomic idempotency
+- UTC日次ZSTD Parquet archive
+- `GET /api/history/footprints`
+- `limit`／exclusive `before`／`timeframe`
+- oldest-first restart hydration
+- storage health metrics
+- targeted 36 passed
+- full pytest **622 passed, 1 skipped**
+
+Phase 1で未実施:
+
+- historical raw tradesからのbackfill
+- automatic purge
+- frontend hydrate接続
+- LIVE DOM／Time & Sales／Canvas
+- production process起動
+- git commit／push
+
+詳細は
+`FOOTPRINT_DOM_TIME_SALES_PHASE1_COMPLETION_REPORT_20260728.md`を正とする。
+次の承認境界はPhase 2 GO-7である。
+
+---
+
+## 28. 2026-07-28 Phase 2 implementation status
+
+V2.1 GO-7により、§23 Phase 2を完了した。
+
+完了:
+
+- additive WebSocket `BOOK_UPDATE`（payload v1.2、`v: 1`維持）
+- analysis全depth updateと独立したread-only latest Snapshot projection
+- 100ms sampling、状態変化時のみ送信、browser向けsnapshot queueなし
+- bid／ask各top 50
+- server算出Best Bid／Best Ask／Spread
+- initial sync／gap／resync／stale／empty／locked／crossed／invalidのfail closed
+- reconnect clientへ最新`BOOK_UPDATE` 1件を再送
+- replay modeではLIVE DOM projector非起動
+- Phase 2 targeted **112 passed**
+- full pytest **632 passed, 1 skipped**
+
+Phase 2で未実施:
+
+- LIVE DOM frontend描画・旧Order Book panel removal（Phase 5）
+- Time & Sales backend（Phase 3）
+- Canvas Footprint Chart（Phase 4）
+- production process起動
+- git commit／push
+
+詳細は
+`FOOTPRINT_DOM_TIME_SALES_PHASE2_COMPLETION_REPORT_20260728.md`を正とする。
+次の承認境界はPhase 3 GO-8である。
+
+---
+
+## 29. 2026-07-28 Phase 3 implementation status
+
+V2.1 GO-8により、§23 Phase 3を完了した。
+
+完了:
+
+- DataNormalizer正常受理直後のLive／Replay共通accepted-trade tap
+- thread-safe bounded Tape batcher
+- 100ms batch、1 message最大250件、pending上限10,000件
+- process／replay session scoped UUID `stream_id`
+- stream内1始まり単調増加`sequence`
+- overflow／send failureのdrop-oldest・sequence gap・`dropped_count`明示
+- `accepted = sent + pending + in_flight + dropped` accounting
+- additive WebSocket `TAPE_UPDATE`（payload v1.3、`v: 1`維持）
+- reconnect時Tape batch非cache、new stream時client gap state reset契約
+- `GET /api/history/time-sales`
+- 最大500件、oldest-first、exact notional、UTC、symbol、複合cursor
+- live／replay lifecycle、STATS／health observability
+- Phase 3 targeted **113 passed**
+- full pytest **644 passed, 1 skipped**
+
+Phase 3で未実施:
+
+- Canvas Footprint Chart（Phase 4）
+- Time & Sales／LIVE DOM frontend描画（Phase 5）
+- virtualized Tape rows／filter／large marker／selection sync
+- browser実機表示検証
+- production process起動
+- git commit／push
+
+詳細は
+`FOOTPRINT_DOM_TIME_SALES_PHASE3_COMPLETION_REPORT_20260728.md`を正とする。
+次の承認境界はPhase 4 GO-9である。
+
+---
+
+## 30. 2026-07-28 Phase 4 implementation status
+
+V2.1 GO-9により、§23 Phase 4を完了した。
+
+完了:
+
+- Canvasによる複数足Footprintと共通価格軸
+- 初期10本、3／10／20本、cursor anchor wheel zoom、drag history、LIVE LOCK
+- display-only `PRICE STEP` AUTO／1／2／5／10／20 ticks
+- 20〜40 virtual price rows、raw Footprint非変更
+- BID × ASK heat cell、candle／wick、POC、VAH／VAL／VA
+- display bucket後のdiagonal Imbalance／Stacked Imbalance再計算
+- current price／Session VWAP reference
+- 最新40本hydrate、exclusive cursorによるlazy history、`bar_time` dedup
+- DPR 1／1.25／1.5／2、rAF dirty layer、OffscreenCanvas static base
+- 共通geometryのpointer／keyboard hit testing
+- HTML selected detail／tooltipのexact BID／ASK／bucket範囲
+- Footprint足JST、selected detailのJST＋UTC ISO＋exchange `bar_time`
+- 3本詳細のDelta／Volume／CVD Δ／OI Δ／EVENTS
+- Phase 4対象 **5 passed**、WebApp対象回帰 **67 passed**
+- final full pytest **649 passed, 1 skipped**
+- 実Edge操作、DPR、lazy history、render performance検証
+
+Phase 4で未実施:
+
+- LIVE DOM／Time & Sales frontend融合（Phase 5）
+- old Order Book panel presentation removal
+- Time & Sales virtualization／filter／large marker／selection sync
+- production process起動
+- git commit／push
+
+完成済みFlow Price Responseと3段チャートの計算・構造・操作は変更していない。
+
+詳細は
+`FOOTPRINT_DOM_TIME_SALES_PHASE4_COMPLETION_REPORT_20260728.md`を正とする。
+次の承認境界はPhase 5 GO-10である。
+
+---
+
+## 31. 2026-07-28 Phase 5 implementation status
+
+V2.1 GO-10により、§23 Phase 5を完了した。
+
+完了:
+
+- Footprintと同一price row／同一geometryの固定LIVE DOM
+- passive Bid／Ask depth、Best Bid／Ask、Spread、visible wall candidate
+- stale／unsynced／disconnect時のfail-closed quantity非表示
+- `BOOK_UPDATE` frontend接続と`liveDom`部分再描画
+- 右端固定Time & Sales、recent 500 trade ring
+- 32個の再利用DOM row、実Edgeで23行表示
+- ALL／BUY／SELL、minimum quantity／notional、large-only filter
+- large trade黄色outlineと常設threshold
+- `TAPE_UPDATE` frontend接続、history hydrate、`(symbol, trade_id)` dedup
+- stream scoped sequence、same-stream gap／drop、new-stream restart、reconnect表示
+- Tape／Footprint／LIVE DOM selection同期
+- 旧Order Book panelのpresentation removal（source／detectorは維持）
+- target **12 passed**
+- final full pytest **656 passed, 1 skipped**
+- 実Edge page error 0、横overflowなし、Canvas warm p95 2.0ms、Tape p95 2.2ms
+
+Phase 5で未実施:
+
+- Phase 6 restart／reconnect／replay／live no-loss総合運転
+- backend BOOK／Tape契約変更
+- production process起動
+- git commit／push
+
+完成済みFlow Price Responseと3段チャートの計算・構造・操作は変更していない。
+
+詳細は
+`FOOTPRINT_DOM_TIME_SALES_PHASE5_COMPLETION_REPORT_20260728.md`を正とする。
+次の承認境界はPhase 6 GO-11である。
+
+---
+
+## 32. 2026-07-28 Phase 6 implementation／integration status
+
+V2.1 GO-11により、§23 Phase 6を完了した。
+
+完了:
+
+- restart後のFootprint／Time & Sales history hydrate
+- server／replay sessionごとのnew `stream_id`とsequence 1 restart
+- same-stream reconnect gap、history dedup、new-stream false-gap reset
+- replay `speed` 0=fast／正値=source market-time倍率
+- replay workerからCANDLE／ANALYSIS／FLOW_RESPONSE／TAPEをWebApp loopへ安全に転送
+- replay Tape batch／envelopeのmarket time化、live wall-clock batch time維持
+- replay時live shadow recorder非書込み
+- LivePipeline 6,000件no-loss accounting
+- 25,000件bounded overflowの15,000件drop／sequence gap完全説明
+- 実Edge layout／reconnect／restart／500 ring／DOM fail-closed
+- Phase 1〜6対象 **186 passed**
+- final full pytest **661 passed, 1 skipped**
+
+判定:
+
+- implementation／isolated integration: **PASS**
+- existing runtime deployment／operational activation: **NO-GO**
+
+既存Dockerはversion `v3.6.21`の旧imageでPhase 1〜6 Python変更が未配備である。
+read-only監査時、Parquet write `Errno 5`でpipeline dead、health RED、Cドライブ空きは
+768,671,744 bytes（約0.72 GiB）だった。既存processの停止／再起動、disk data削除、
+image rebuildはGO-11範囲外のため実施していない。
+
+完成済みFlow Price Responseと3段チャートの計算・構造・操作は変更していない。
+
+詳細は
+`FOOTPRINT_DOM_TIME_SALES_PHASE6_COMPLETION_REPORT_20260728.md`を正とする。
+次の承認境界はstorage／disk保全とdeployment remediationである。
+
+---
+
+## 33. 2026-07-28 operational remediation／production activation
+
+別承認のdisk／storage remediationとdeploymentを完了した。
+
+- 旧XMTrading terminalの再取得可能な`.hc`／`.hcc` market-history cacheだけを、
+  path／origin／extension／size guard後に97,337,847,530 bytes削除
+- DeltaEngine raw／research／DuckDB／Parquet／Hook journal、現HFM、共通quote fileを保持
+- Cドライブ空きを約0.97 GiBから削除直後91.67 GiBへ回復
+- Phase 1〜6 image `sha256:81b5ae72cb4ff2847a914e71863c4870ba2a1383bc6f47983c00d203f7ab5e01`をbuild
+- host／image主要13 file SHA-256一致、image内対象 **116 passed, 4 skipped**
+- production containerを同imageでrecreateし、bind-mounted data／config／staticを保持
+- Footprint persistence／history read-back、Tape no-loss accounting、LIVE DOM SYNCED、
+  Hook durable capture、production browserを確認
+- 23:18のBinance reconnect／book gapは自動復旧し、23:34:23 JSTの15分window満了後に
+  overall／pipeline／bar flow／latency／Tape／reconnect／gapが全GREEN
+- 23:37 JSTに新しいBinance ping timeout／book gapが発生し、overallはYELLOW。
+  pipeline／bar flow／latency／Tape／storage／Bookは正常で、upstream degradationとして分離
+- final Tape accepted＝sent＝151,002、pending／in-flight／dropped 0、balanced true
+- storage pending 0、Footprint failure 0、Hook drop／disk reject／writer error 0
+- deploy後logにStorageError／Traceback／Parquet I/O error再発なし
+
+最終判定はimplementation／production operational activationともに**PASS**、
+ただしBinance upstream feed degradationはACTIVE。
+API version labelはbumpしていないため`v3.6.21`のままで、上記image IDを配備identityとする。
+exact旧container imageは保全できず、内容確認済みpre-Footprint imageをfallback rollback tagとして保持する。
+
+完成済みFlow Price Responseと3段チャートの計算・構造・操作は変更していない。
+Strategy runtime／発注権限／LIVE注文も変更していない。
+
+詳細は
+`FOOTPRINT_DOM_TIME_SALES_OPERATIONAL_REMEDIATION_REPORT_20260728.md`を正とする。

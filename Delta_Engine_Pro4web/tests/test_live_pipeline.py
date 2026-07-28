@@ -105,6 +105,45 @@ def test_live_pipeline_filters_normalizes_and_stores(tmp_path: Path) -> None:
     assert pipeline._last_bar_close.module_scores["imbalance"] is None
 
 
+def test_live_accepted_trade_observer_receives_only_normalizer_output(
+    tmp_path: Path,
+) -> None:
+    observed = []
+    pipeline = _live(tmp_path, "accepted_trade_tap")
+    pipeline.on_accepted_trade = observed.append
+    messages = MESSAGES + [_agg(2, m=True, q="1", epoch_ms=_T1)]
+
+    stats = pipeline.run(
+        connect=FakeConnect(messages),
+        poll_interval=0.02,
+        fetch_snapshot=None,
+    )
+
+    assert [trade.trade_id for trade in observed] == [1, 2]
+    assert stats.normalized == 2
+    assert stats.duplicates == 1
+
+
+def test_live_accepted_trade_observer_failure_does_not_stop_analysis(
+    tmp_path: Path,
+) -> None:
+    pipeline = _live(tmp_path, "accepted_trade_tap_failure")
+
+    def fail(_trade) -> None:
+        raise RuntimeError("browser tape observer failed")
+
+    pipeline.on_accepted_trade = fail
+    stats = pipeline.run(
+        connect=FakeConnect(MESSAGES),
+        poll_interval=0.02,
+        fetch_snapshot=None,
+    )
+
+    assert stats.normalized == 2
+    assert stats.trades_stored == 2
+    assert stats.final_cvd == Decimal("1")
+
+
 def test_live_divergence_clears_on_non_fire_bar(tmp_path: Path) -> None:
     messages = MESSAGES + [_agg(3, m=False, q="1", epoch_ms=_T1 + 60000)]
     pipeline = _live(tmp_path, "divergence_clear")

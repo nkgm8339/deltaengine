@@ -1,5 +1,9 @@
 """Tests for FastAPI endpoints (pipeline mocked)."""
 import asyncio
+import threading
+import time
+from datetime import datetime, timezone
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -19,6 +23,12 @@ def _make_mock_config():
     cfg.webapp.oi_poll_interval_sec = 10
     cfg.webapp.tick_push_interval_ms = 50
     cfg.webapp.bar_update_interval_sec = 0.2
+    cfg.webapp.live_dom_depth_levels = 50
+    cfg.webapp.book_update_interval_ms = 100
+    cfg.webapp.book_stale_after_ms = 2000
+    cfg.webapp.tape_batch_interval_ms = 100
+    cfg.webapp.tape_max_trades_per_message = 250
+    cfg.webapp.tape_pending_capacity = 10000
     cfg.monitor.enabled = False
     cfg.monitor.interval_sec = 5
     cfg.monitor.log_dir = "data/monitor"
@@ -45,6 +55,7 @@ def _make_mock_config():
 def _make_mock_pipeline():
     p = MagicMock()
     p.run_async = AsyncMock(return_value=None)
+    p.on_accepted_trade = None
     p.on_trade = None
     p.on_candle = None
     p.on_analysis = None
@@ -95,7 +106,12 @@ def test_stats_ok():
             resp = client.get("/api/stats")
 
     assert resp.status_code == 200
-    assert isinstance(resp.json(), dict)
+    payload = resp.json()
+    assert isinstance(payload, dict)
+    assert "book_projection_state" in payload
+    assert "book_updates_sent" in payload
+    assert "tape_stream_id" in payload
+    assert payload["tape_accounting_balanced"] is True
 
 
 def test_config_ok():
@@ -140,6 +156,100 @@ def test_candle_history_returns_oldest_first():
     assert candles[0]["bar_time"] == "2026-07-21 00:00:00"
     assert candles[1]["bar_time"] == "2026-07-21 00:01:00"
     history_query.assert_called_once_with(":memory:", "BTCUSDT", 300, "1m")
+
+
+def test_footprint_history_keeps_oldest_first_and_passes_cursor():
+    mock_pipeline = _make_mock_pipeline()
+    mock_config = _make_mock_config()
+    oldest_first = [
+        {"bar_time": "2026-07-28T08:15:00+00:00", "levels": []},
+        {"bar_time": "2026-07-28T08:16:00+00:00", "levels": []},
+    ]
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.query_footprints", return_value=oldest_first) as history_query, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/history/footprints",
+                params={
+                    "limit": 999,
+                    "timeframe": "15m",
+                    "before": "2026-07-28T08:30:00+00:00",
+                },
+            )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["footprints"] == oldest_first
+    assert payload["next_before"] == "2026-07-28T08:15:00+00:00"
+    history_query.assert_called_once_with(
+        ":memory:",
+        "BTCUSDT",
+        "15m",
+        100,
+        "2026-07-28T08:30:00+00:00",
+    )
+
+
+def test_time_sales_history_passes_symbol_cursor_and_clamps_to_500():
+    mock_pipeline = _make_mock_pipeline()
+    mock_config = _make_mock_config()
+    oldest_first = [
+        {
+            "event_time": "2026-07-28T08:15:00+00:00",
+            "trade_id": 1,
+            "symbol": "ETHUSDT",
+            "price": "100.0",
+            "quantity": "2.0",
+            "notional": "200.00",
+            "side": "BUY",
+        },
+        {
+            "event_time": "2026-07-28T08:16:00+00:00",
+            "trade_id": 2,
+            "symbol": "ETHUSDT",
+            "price": "101.0",
+            "quantity": "3.0",
+            "notional": "303.00",
+            "side": "SELL",
+        },
+    ]
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.LivePipeline") as MockPipeline, \
+         patch("webapp.main.query_time_sales", return_value=oldest_first) as query, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/history/time-sales",
+                params={
+                    "limit": 999,
+                    "symbol": "ETHUSDT",
+                    "before": "2026-07-28T08:30:00+00:00",
+                    "before_trade_id": 99,
+                },
+            )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["trades"] == oldest_first
+    assert payload["next_before"] == "2026-07-28T08:15:00+00:00"
+    assert payload["next_before_trade_id"] == 1
+    query.assert_called_once_with(
+        ":memory:",
+        "ETHUSDT",
+        500,
+        "2026-07-28T08:30:00+00:00",
+        99,
+    )
 
 
 def test_flow_response_history_returns_oldest_first():
@@ -212,6 +322,29 @@ def test_replay_does_not_start_live_oi_poller():
     assert response.status_code == 200
     assert response.json() == {"samples": []}
     oi_poller.assert_not_called()
+
+
+def test_replay_does_not_start_live_book_projection():
+    mock_pipeline = _make_mock_pipeline()
+    mock_pipeline.run = MagicMock(return_value=None)
+    mock_config = _make_mock_config()
+    mock_config.replay.enabled = True
+    mock_config.replay.data_path = "recording.jsonl"
+    book_run = AsyncMock()
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.ReplayPipeline") as MockPipeline, \
+         patch("webapp.main.LatestBookProjectionPump.run", new=book_run), \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            response = client.get("/api/stats")
+
+    assert response.status_code == 200
+    assert response.json()["book_projection_state"] == "DISABLED_REPLAY"
+    book_run.assert_not_awaited()
 
 
 def test_combined_context_history_returns_oldest_first_and_filters_5m():
@@ -327,6 +460,74 @@ def test_replay_startup_uses_ensure_future_wiring_guard():
     src = inspect.getsource(m)
     assert "asyncio.ensure_future(" in src
     assert "asyncio.create_task(\n            loop.run_in_executor" not in src
+
+
+def test_replay_worker_callbacks_reach_websocket_with_market_time():
+    from src.orderflow.cvd import Candle, Trade
+
+    gate = threading.Event()
+    mock_pipeline = _make_mock_pipeline()
+    mock_pipeline._last_market_state = None
+    mock_pipeline._snapshot_producer = None
+    mock_config = _make_mock_config()
+    mock_config.replay.enabled = True
+    mock_config.replay.data_path = "isolated-replay.jsonl"
+    mock_config.replay.speed = 0.0
+    event_time = datetime(2026, 7, 28, 10, 0, 1, tzinfo=timezone.utc)
+
+    def run_replay(_path):
+        assert gate.wait(timeout=5)
+        mock_pipeline.on_accepted_trade(Trade(
+            trade_id=9001,
+            event_time=event_time,
+            symbol="BTCUSDT",
+            price=Decimal("100.1"),
+            quantity=Decimal("0.5"),
+            side="BUY",
+        ))
+        mock_pipeline.on_candle(Candle(
+            bar_time=event_time.replace(second=0),
+            symbol="BTCUSDT",
+            timeframe="1m",
+            open=Decimal("100"),
+            high=Decimal("101"),
+            low=Decimal("99"),
+            close=Decimal("100.1"),
+            volume=Decimal("0.5"),
+            delta=Decimal("0.5"),
+            cvd=Decimal("0.5"),
+        ))
+
+    mock_pipeline.run = run_replay
+
+    with patch("webapp.main.load_config", return_value=mock_config), \
+         patch("webapp.main.load_profile", return_value=MagicMock()), \
+         patch("webapp.main.ReplayPipeline") as MockPipeline, \
+         patch("webapp.main.oi_polling_loop", new=AsyncMock()):
+        MockPipeline.from_config.return_value = mock_pipeline
+        from webapp.main import app
+        with TestClient(app) as client:
+            with client.websocket_connect("/ws") as websocket:
+                assert websocket.receive_json()["type"] == "HELLO"
+                websocket.send_text("ready")
+                time.sleep(0.05)
+                gate.set()
+                received = {}
+                for _ in range(4):
+                    message = websocket.receive_json()
+                    received[message["type"]] = message
+                    if {"CANDLE", "TAPE_UPDATE"}.issubset(received):
+                        break
+
+    assert {"CANDLE", "TAPE_UPDATE"}.issubset(received)
+    tape = received["TAPE_UPDATE"]
+    assert tape["time"] == event_time.isoformat()
+    assert tape["payload"]["batch_time"] == event_time.isoformat()
+    assert tape["payload"]["first_sequence"] == 1
+    assert tape["payload"]["trades"][0]["trade_id"] == 9001
+    assert received["CANDLE"]["payload"]["bar_time"] == (
+        event_time.replace(second=0).isoformat()
+    )
 
 
 def test_stats_includes_book_resync_counters():

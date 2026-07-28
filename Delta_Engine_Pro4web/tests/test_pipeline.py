@@ -108,6 +108,73 @@ def test_replay_is_deterministic_and_correct(tmp_path: Path) -> None:
     assert row["cvd"] == Decimal("-2")
 
 
+def test_replay_accepted_trade_observer_has_replay_only_deduplicated_order(
+    tmp_path: Path,
+) -> None:
+    data = tmp_path / "recorded.jsonl"
+    _write_jsonl(data)
+    pipeline = _pipeline(
+        tmp_path / "tap" / "parquet",
+        tmp_path / "tap" / "of.duckdb",
+    )
+    observed = []
+    pipeline.on_accepted_trade = observed.append
+
+    stats = pipeline.run(data)
+
+    assert [trade.trade_id for trade in observed] == [1, 2, 3, 4]
+    assert stats.duplicates == 1
+
+
+def test_replay_paces_callbacks_by_market_time_and_emits_final_ui_bar(
+    tmp_path: Path,
+) -> None:
+    class Clock:
+        def __init__(self) -> None:
+            self.now = 100.0
+            self.sleeps: list[float] = []
+
+        def monotonic(self) -> float:
+            return self.now
+
+        def sleep(self, delay: float) -> None:
+            self.sleeps.append(delay)
+            self.now += delay
+
+    data = tmp_path / "paced.jsonl"
+    _write_jsonl_events(data, RAW_TWO_BARS)
+    pipeline = _pipeline(
+        tmp_path / "paced" / "parquet",
+        tmp_path / "paced" / "orderflow.duckdb",
+    )
+    clock = Clock()
+    pipeline.replay_speed = 2.0
+    pipeline._replay_monotonic = clock.monotonic
+    pipeline._replay_sleep = clock.sleep
+    accepted: list[int] = []
+    trades: list[int] = []
+    candles: list[datetime] = []
+    analyses: list[object] = []
+    pipeline.on_accepted_trade = lambda trade: accepted.append(trade.trade_id)
+    pipeline.on_trade = lambda trade: trades.append(trade.trade_id)
+    pipeline.on_candle = lambda candle: candles.append(candle.bar_time)
+    pipeline.on_analysis = analyses.append
+
+    stats = pipeline.run(data)
+
+    assert accepted == trades == [10, 11]
+    assert clock.sleeps == [30.0]
+    assert candles == [
+        datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
+        datetime(2026, 1, 1, 0, 1, tzinfo=UTC),
+    ]
+    assert len(analyses) == 2
+    assert pipeline._last_fp_bar is not None
+    assert pipeline._last_bar_close is not None
+    assert pipeline._last_event_time == datetime(2026, 1, 1, 0, 1, 1, tzinfo=UTC)
+    assert stats.trades_stored == 2
+
+
 # Two-bar fixture: trades in bar-00:00 and bar-00:01 → 2 candles → 2 signals.
 RAW_TWO_BARS = [
     {"e": "aggTrade", "E": 1767225601000, "T": 1767225601000, "a": 10, "s": "BTCUSDT", "p": 100, "q": 5, "m": False},
@@ -164,6 +231,34 @@ def test_pipeline_emits_signal_on_bar_close(tmp_path: Path) -> None:
     # confidence must be in [0, 1]
     for _, conf in rows:
         assert 0.0 <= conf <= 1.0
+
+
+def test_replay_persists_only_rollover_confirmed_footprint(tmp_path: Path) -> None:
+    """The final/forming bar is analyzed but excluded from Footprint history."""
+    data = tmp_path / "two_bars.jsonl"
+    _write_jsonl_events(data, RAW_TWO_BARS)
+    config = load_config(PROJECT_ROOT / "config" / "config.yaml")
+    profile = load_profile(PROJECT_ROOT / "config" / "profiles" / "binance.yaml")
+    db_path = tmp_path / "of.duckdb"
+
+    stats = ReplayPipeline.from_config(
+        config, profile, tmp_path / "parquet", db_path
+    ).run(data)
+
+    # Both candles are finalized for the existing analysis path, but only the
+    # first Footprint has proof of closure from the second minute's trade.
+    assert stats.candles_stored == 2
+    assert stats.footprint_bars_stored == 1
+    assert stats.footprint_levels_stored == 1
+    with duckdb.connect(str(db_path), read_only=True) as con:
+        manifests = con.execute(
+            "SELECT bar_time, level_count FROM footprint_bar_manifest"
+        ).fetchall()
+        levels = con.execute(
+            "SELECT price, buy_volume, sell_volume FROM footprint_levels"
+        ).fetchall()
+    assert manifests == [(datetime(2026, 1, 1, 0, 0, 0), 1)]
+    assert levels == [(Decimal("100.00000000"), Decimal("5.00000000"), Decimal("0E-8"))]
 
 
 def test_pipeline_signal_deterministic_replay(tmp_path: Path) -> None:

@@ -21,7 +21,9 @@ from .session_vwap import SessionVwapAccumulator, SessionVwapSeed
 _ZERO = Decimal("0")
 _ONE = Decimal("1")
 _NS_PER_SECOND = 1_000_000_000
-_PRICE_HISTORY_NS = 300 * _NS_PER_SECOND
+# Retention for the trade-price history. Decided at 600s (2026-07-27):
+# covers the current 5m consumers with margin for longer windows.
+_PRICE_HISTORY_NS = 600 * _NS_PER_SECOND
 _BOOK_HISTORY_NS = 5 * _NS_PER_SECOND
 _BOOK_TOP_N = 10
 _BOOK_NEAR_BEST_N = 3

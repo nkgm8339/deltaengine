@@ -10,6 +10,7 @@ services:
     volumes:
       - ./data_05M:/app/data_05M
       - ./config:/app/config
+      - ./webapp/static:/app/webapp/static
       - type: bind
         source: ${APPDATA}/MetaQuotes/Terminal/Common/Files/DeltaEngine_HFM_quotes_utf8.jsonl
         target: /app/data_05M/hfm/DeltaEngine_HFM_quotes_utf8.jsonl

@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Optional
 
+from webapp.book_projection import BookProjection, FAIL_CLOSED_STATES, SYNCED
+from webapp.tape import TapeBatch
+
 PAYLOAD_VERSION = 1
 
 
@@ -141,22 +144,32 @@ class PushBroker:
         self,
         symbol: str,
         depth_levels: int = 15,
+        live_dom_depth_levels: int = 50,
     ) -> None:
         self.symbol = symbol
         self.depth_levels = depth_levels
+        self.live_dom_depth_levels = live_dom_depth_levels
         self._clients: set[Any] = set()
         self._lock = asyncio.Lock()
         self._latest_hfm_message: dict | None = None
+        self._latest_book_message: dict | None = None
+        self.book_updates_broadcast = 0
+        self.tape_batches_broadcast = 0
+        self.tape_trades_broadcast = 0
 
     async def register(self, ws: Any) -> None:
         async with self._lock:
             self._clients.add(ws)
             latest_hfm = self._latest_hfm_message
-        if latest_hfm is not None:
+            latest_book = self._latest_book_message
+        for latest in (latest_hfm, latest_book):
+            if latest is None:
+                continue
             try:
-                await ws.send_text(json.dumps(latest_hfm, separators=(",", ":")))
+                await ws.send_text(json.dumps(latest, separators=(",", ":")))
             except Exception:
                 await self.unregister(ws)
+                break
 
     async def unregister(self, ws: Any) -> None:
         async with self._lock:
@@ -187,6 +200,92 @@ class PushBroker:
             "tick_delta": d2s(getattr(trade, "tick_delta", None)),
             "tick_cvd": d2s(getattr(trade, "tick_cvd", None)),
         }))
+
+    async def on_tape_update(self, batch: TapeBatch) -> None:
+        """Broadcast one ordered, bounded Time & Sales batch without caching it."""
+        if batch.accepted_count != len(batch.trades) or not batch.trades:
+            raise ValueError("TAPE_UPDATE accepted_count must match non-empty trades")
+        if batch.dropped_count < 0:
+            raise ValueError("TAPE_UPDATE dropped_count must be >= 0")
+        sequences = tuple(trade.sequence for trade in batch.trades)
+        if sequences != tuple(range(batch.first_sequence, batch.last_sequence + 1)):
+            raise ValueError("TAPE_UPDATE batch sequences must be contiguous")
+        message = envelope(
+            "TAPE_UPDATE",
+            batch.batch_time,
+            self.symbol,
+            {
+                "batch_time": batch.batch_time.astimezone(timezone.utc).isoformat(),
+                "stream_id": batch.stream_id,
+                "first_sequence": batch.first_sequence,
+                "last_sequence": batch.last_sequence,
+                "accepted_count": batch.accepted_count,
+                "dropped_count": batch.dropped_count,
+                "trades": [
+                    {
+                        "sequence": trade.sequence,
+                        "trade_id": trade.trade_id,
+                        "event_time": trade.event_time.astimezone(
+                            timezone.utc
+                        ).isoformat(),
+                        "price": d2s(trade.price),
+                        "quantity": d2s(trade.quantity),
+                        "notional": d2s(trade.notional),
+                        "side": trade.side,
+                    }
+                    for trade in batch.trades
+                ],
+            },
+        )
+        await self._broadcast(message)
+        self.tape_batches_broadcast += 1
+        self.tape_trades_broadcast += batch.accepted_count
+
+    async def on_book_update(self, projection: BookProjection) -> None:
+        """Broadcast one bounded LIVE DOM projection and cache it for reconnect."""
+        if projection.sync_state != SYNCED and projection.sync_state not in FAIL_CLOSED_STATES:
+            raise ValueError(f"unknown book sync_state: {projection.sync_state}")
+        synced = projection.sync_state == SYNCED
+        if synced and (
+            projection.best_bid is None
+            or projection.best_ask is None
+            or projection.spread is None
+        ):
+            raise ValueError("SYNCED BOOK_UPDATE requires best bid, best ask, and spread")
+        bids = projection.bids if synced else ()
+        asks = projection.asks if synced else ()
+        message = envelope(
+            "BOOK_UPDATE",
+            projection.projection_time,
+            self.symbol,
+            {
+                "event_time": (
+                    projection.event_time.astimezone(timezone.utc).isoformat()
+                    if projection.event_time is not None else None
+                ),
+                "projection_time": projection.projection_time.astimezone(
+                    timezone.utc
+                ).isoformat(),
+                "last_update_id": projection.last_update_id,
+                "sync_state": projection.sync_state,
+                "bids": [
+                    {"price": d2s(price), "qty": d2s(quantity)}
+                    for price, quantity in bids
+                ],
+                "asks": [
+                    {"price": d2s(price), "qty": d2s(quantity)}
+                    for price, quantity in asks
+                ],
+                "depth_levels": projection.depth_levels,
+                "best_bid": d2s(projection.best_bid) if synced else None,
+                "best_ask": d2s(projection.best_ask) if synced else None,
+                "spread": d2s(projection.spread) if synced else None,
+                "age_ms": projection.age_ms,
+            },
+        )
+        self._latest_book_message = message
+        self.book_updates_broadcast += 1
+        await self._broadcast(message)
 
     async def on_candle(
         self,

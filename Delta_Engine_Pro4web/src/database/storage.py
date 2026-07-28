@@ -14,8 +14,11 @@ analytical mirror. No silent loss: duplicate-primary-key rows are counted/logged
 from __future__ import annotations
 
 import logging
+import statistics
 import time
+from collections import deque
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from queue import Empty, Full, Queue
 from threading import Event, Thread
@@ -34,6 +37,11 @@ from .schema import (
     FLOW_RESPONSE_EVENTS_SCHEMA,
     FLOW_RESPONSE_OUTCOMES_DDL,
     FLOW_RESPONSE_OUTCOMES_SCHEMA,
+    FOOTPRINT_BAR_MANIFEST_DDL,
+    FOOTPRINT_BAR_MANIFEST_SCHEMA,
+    FOOTPRINT_LEVELS_DDL,
+    FOOTPRINT_LEVELS_SCHEMA,
+    FootprintStorageBatch,
     HFM_CONTEXT_OUTCOMES_DDL,
     HFM_CONTEXT_OUTCOMES_SCHEMA,
     OPEN_INTEREST_SAMPLES_DDL,
@@ -46,6 +54,7 @@ from .schema import (
     SIGNALS_SCHEMA,
     TRADES_DDL,
     TRADES_SCHEMA,
+    footprint_bar_to_storage,
 )
 
 logger = logging.getLogger("database.storage")
@@ -54,11 +63,50 @@ ERROR_PARQUET_WRITE = "E4001"
 ERROR_DUCKDB_WRITE = "E4002"
 ERROR_STORAGE_UNAVAILABLE = "E4003"
 
+_TRANSIENT_PARQUET_ERRNOS = {5, 9}  # EIO / EBADF from Docker Desktop bind mounts
+_OI_PARQUET_RETRY_DELAYS_SEC = (0.1, 0.5, 1.0)
+
 
 class StorageError(Exception):
     def __init__(self, code: str, message: str) -> None:
         self.code = code
         super().__init__(f"[{code}] {message}")
+
+
+def _is_transient_parquet_io_error(exc: BaseException) -> bool:
+    """Return true only for retryable file-handle/I/O failures.
+
+    PyArrow can replace the original ``OSError(errno)`` with a final
+    ``OSError('error closing file')``. Walk both exception chains so the
+    underlying EIO/EBADF is not lost, while schema/content failures remain
+    fail-closed and are never retried.
+    """
+
+    pending: list[BaseException] = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, OSError):
+            if current.errno in _TRANSIENT_PARQUET_ERRNOS:
+                return True
+            detail = str(current).lower()
+            if any(
+                marker in detail
+                for marker in (
+                    "bad file descriptor",
+                    "input/output error",
+                    "error closing file",
+                )
+            ):
+                return True
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+    return False
 
 
 def _partition_dir(base: Path, symbol: str, when: datetime, timeframe: str | None = None) -> Path:
@@ -94,7 +142,10 @@ class DuckDbWriter:
         self._con.execute(NATIVE_FLOW_OUTCOMES_DDL)
         self._con.execute(COMBINED_CONTEXT_EVENTS_DDL)
         self._con.execute(HFM_CONTEXT_OUTCOMES_DDL)
+        self._con.execute(FOOTPRINT_BAR_MANIFEST_DDL)
+        self._con.execute(FOOTPRINT_LEVELS_DDL)
         self.duplicates = 0
+        self.footprint_duplicates = 0
 
     def _insert(self, table: str, arrow_table: pa.Table) -> int:
         before = self._con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
@@ -153,6 +204,92 @@ class DuckDbWriter:
     def insert_hfm_context_outcomes(self, arrow_table: pa.Table) -> int:
         return self._insert("hfm_context_outcomes", arrow_table)
 
+    def insert_footprint_bar(
+        self,
+        manifest_table: pa.Table,
+        levels_table: pa.Table,
+    ) -> int:
+        """Atomically insert one manifest and all normalized price levels.
+
+        The manifest primary key is the physical idempotency guard. The large
+        level table intentionally has no four-column ART; strict incoming
+        price validation plus this single-writer transaction preserves its
+        logical key without the measured index amplification.
+        """
+
+        manifest = manifest_table.to_pylist()[0]
+        key = [manifest["bar_time"], manifest["symbol"], manifest["timeframe"]]
+        self._con.register("_footprint_manifest_batch", manifest_table)
+        self._con.register("_footprint_levels_batch", levels_table)
+        try:
+            self._con.execute("BEGIN")
+            existing = self._con.execute(
+                "SELECT level_count, content_hash FROM footprint_bar_manifest "
+                "WHERE bar_time = ? AND symbol = ? AND timeframe = ?",
+                key,
+            ).fetchone()
+            if existing is not None:
+                stored_levels = self._con.execute(
+                    "SELECT count(*) FROM footprint_levels "
+                    "WHERE bar_time = ? AND symbol = ? AND timeframe = ?",
+                    key,
+                ).fetchone()[0]
+                if (
+                    int(existing[0]) != int(manifest["level_count"])
+                    or str(existing[1]) != str(manifest["content_hash"])
+                    or int(stored_levels) != int(manifest["level_count"])
+                ):
+                    raise StorageError(
+                        ERROR_DUCKDB_WRITE,
+                        "footprint duplicate key has conflicting or incomplete content",
+                    )
+                self._con.execute("COMMIT")
+                self.duplicates += 1
+                self.footprint_duplicates += 1
+                logger.warning(
+                    "duplicate confirmed footprint bar skipped: %s %s %s",
+                    manifest["bar_time"], manifest["symbol"], manifest["timeframe"],
+                )
+                return 0
+
+            orphan_levels = self._con.execute(
+                "SELECT count(*) FROM footprint_levels "
+                "WHERE bar_time = ? AND symbol = ? AND timeframe = ?",
+                key,
+            ).fetchone()[0]
+            if orphan_levels:
+                raise StorageError(
+                    ERROR_DUCKDB_WRITE,
+                    "footprint levels exist without a manifest",
+                )
+
+            self._con.execute(
+                "INSERT INTO footprint_bar_manifest "
+                "SELECT * FROM _footprint_manifest_batch"
+            )
+            self._con.execute(
+                "INSERT INTO footprint_levels SELECT * FROM _footprint_levels_batch"
+            )
+            self._con.execute("COMMIT")
+            return levels_table.num_rows
+        except StorageError:
+            try:
+                self._con.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+        except Exception as exc:  # noqa: BLE001
+            try:
+                self._con.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise StorageError(
+                ERROR_DUCKDB_WRITE, f"footprint bar insert failed: {exc}"
+            ) from exc
+        finally:
+            self._con.unregister("_footprint_levels_batch")
+            self._con.unregister("_footprint_manifest_batch")
+
     def count(self, table: str) -> int:
         return self._con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
 
@@ -196,6 +333,7 @@ class StorageWriter:
         self._native_flow_outcomes: list[dict] = []
         self._combined_context_events: list[dict] = []
         self._hfm_context_outcomes: list[dict] = []
+        self._footprint_bars: list[FootprintStorageBatch] = []
         self._last_flush = clock()
         self._seq = 0
         # counters
@@ -209,6 +347,10 @@ class StorageWriter:
         self.native_flow_outcomes_written = 0
         self.combined_context_events_written = 0
         self.hfm_context_outcomes_written = 0
+        self.footprint_bars_written = 0
+        self.footprint_levels_written = 0
+        self.footprint_write_failures = 0
+        self._footprint_flush_latencies_ms: deque[float] = deque(maxlen=512)
         self.flushes = 0
 
     @classmethod
@@ -275,6 +417,11 @@ class StorageWriter:
         if len(self._open_interest_samples) >= self.batch_size:
             self.flush()
 
+    def add_footprint_bar(self, bar: Any) -> None:
+        self._footprint_bars.append(footprint_bar_to_storage(bar))
+        if len(self._footprint_bars) >= self.batch_size:
+            self.flush()
+
     def tick(self) -> None:
         """Time-based flush: call periodically; flushes if the interval elapsed."""
         if (self._clock() - self._last_flush) >= self.flush_interval_sec and (
@@ -283,6 +430,7 @@ class StorageWriter:
             or self._open_interest_samples
             or self._native_flow_events or self._native_flow_outcomes
             or self._combined_context_events or self._hfm_context_outcomes
+            or self._footprint_bars
         ):
             self.flush()
 
@@ -341,14 +489,113 @@ class StorageWriter:
             ordered = sorted(merged.values(), key=lambda row: row["source_time"])
             table = pa.Table.from_pylist(ordered, schema=OPEN_INTEREST_SAMPLES_SCHEMA)
             temporary = directory / f".hour-{hour:02d}-{self._seq:06d}.tmp.parquet"
+            attempts = len(_OI_PARQUET_RETRY_DELAYS_SEC) + 1
+            for attempt in range(attempts):
+                try:
+                    pq.write_table(table, temporary, compression="snappy")
+                    temporary.replace(target)
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    temporary.unlink(missing_ok=True)
+                    if (
+                        attempt >= len(_OI_PARQUET_RETRY_DELAYS_SEC)
+                        or not _is_transient_parquet_io_error(exc)
+                    ):
+                        raise StorageError(
+                            ERROR_PARQUET_WRITE, f"OI parquet write failed: {exc}"
+                        ) from exc
+                    delay = _OI_PARQUET_RETRY_DELAYS_SEC[attempt]
+                    logger.warning(
+                        "transient OI parquet I/O failure; retrying "
+                        "attempt=%d/%d delay_sec=%.1f target=%s error=%r",
+                        attempt + 1,
+                        attempts,
+                        delay,
+                        target,
+                        exc,
+                    )
+                    time.sleep(delay)
+
+    def _write_footprint_parquet(
+        self, batches: list[FootprintStorageBatch]
+    ) -> None:
+        """Merge normalized levels into one atomic ZSTD file per UTC day."""
+
+        groups: dict[Path, list[dict]] = {}
+        for batch in batches:
+            for row in batch.levels:
+                directory = _partition_dir(
+                    self._pq_base / "footprint_levels",
+                    row["symbol"],
+                    row["bar_time"],
+                    row["timeframe"],
+                )
+                groups.setdefault(directory, []).append(row)
+
+        for directory, new_rows in groups.items():
+            directory.mkdir(parents=True, exist_ok=True)
+            target = directory / "levels.parquet"
+            merged: dict[tuple[datetime, Decimal], dict] = {}
             try:
-                pq.write_table(table, temporary, compression="snappy")
+                if target.exists():
+                    existing_table = pq.ParquetFile(str(target)).read()
+                    if not existing_table.schema.equals(
+                        FOOTPRINT_LEVELS_SCHEMA, check_metadata=False
+                    ):
+                        raise StorageError(
+                            ERROR_PARQUET_WRITE,
+                            f"footprint archive schema mismatch: {target}",
+                        )
+                    for row in existing_table.to_pylist():
+                        key = (row["bar_time"], row["price"])
+                        if key in merged and merged[key] != row:
+                            raise StorageError(
+                                ERROR_PARQUET_WRITE,
+                                "conflicting duplicate in existing footprint archive",
+                            )
+                        merged[key] = row
+                for row in new_rows:
+                    key = (row["bar_time"], row["price"])
+                    existing = merged.get(key)
+                    if existing is not None and existing != row:
+                        raise StorageError(
+                            ERROR_PARQUET_WRITE,
+                            "footprint archive key has conflicting content",
+                        )
+                    merged[key] = row
+
+                ordered = sorted(
+                    merged.values(), key=lambda row: (row["bar_time"], row["price"])
+                )
+                table = pa.Table.from_pylist(ordered, schema=FOOTPRINT_LEVELS_SCHEMA)
+                temporary = directory / f".levels-{self._seq:06d}.tmp.parquet"
+                pq.write_table(
+                    table,
+                    temporary,
+                    compression="zstd",
+                    row_group_size=100_000,
+                )
                 temporary.replace(target)
+                readback = pq.ParquetFile(str(target))
+                if (
+                    readback.metadata.num_rows != len(ordered)
+                    or not readback.schema_arrow.equals(
+                        FOOTPRINT_LEVELS_SCHEMA, check_metadata=False
+                    )
+                ):
+                    raise StorageError(
+                        ERROR_PARQUET_WRITE,
+                        f"footprint archive read-back failed: {target}",
+                    )
+            except StorageError:
+                raise
             except Exception as exc:  # noqa: BLE001
-                temporary.unlink(missing_ok=True)
                 raise StorageError(
-                    ERROR_PARQUET_WRITE, f"OI parquet write failed: {exc}"
+                    ERROR_PARQUET_WRITE, f"footprint parquet write failed: {exc}"
                 ) from exc
+            finally:
+                temporary = directory / f".levels-{self._seq:06d}.tmp.parquet"
+                temporary.unlink(missing_ok=True)
 
     def flush(self) -> None:
         if self._trades:
@@ -429,6 +676,29 @@ class StorageWriter:
             inserted = self._duck.insert_open_interest_samples(arrow)
             self.open_interest_samples_written += inserted
             self._open_interest_samples = []
+        if self._footprint_bars:
+            started = time.perf_counter()
+            try:
+                self._write_footprint_parquet(self._footprint_bars)
+                for batch in self._footprint_bars:
+                    manifest = pa.Table.from_pylist(
+                        [batch.manifest], schema=FOOTPRINT_BAR_MANIFEST_SCHEMA
+                    )
+                    levels = pa.Table.from_pylist(
+                        list(batch.levels), schema=FOOTPRINT_LEVELS_SCHEMA
+                    )
+                    inserted = self._duck.insert_footprint_bar(manifest, levels)
+                    if inserted:
+                        self.footprint_bars_written += 1
+                        self.footprint_levels_written += inserted
+                self._footprint_bars = []
+            except Exception:
+                self.footprint_write_failures += 1
+                raise
+            finally:
+                self._footprint_flush_latencies_ms.append(
+                    (time.perf_counter() - started) * 1000.0
+                )
         self._seq += 1
         self._last_flush = self._clock()
         self.flushes += 1
@@ -436,6 +706,22 @@ class StorageWriter:
     @property
     def duplicates(self) -> int:
         return self._duck.duplicates
+
+    @property
+    def footprint_duplicates(self) -> int:
+        return self._duck.footprint_duplicates
+
+    @property
+    def footprint_flush_median_ms(self) -> float:
+        values = tuple(self._footprint_flush_latencies_ms)
+        return float(statistics.median(values)) if values else 0.0
+
+    @property
+    def footprint_flush_p95_ms(self) -> float:
+        values = sorted(self._footprint_flush_latencies_ms)
+        if not values:
+            return 0.0
+        return float(values[max(0, min(len(values) - 1, int(len(values) * 0.95)))])
 
     @property
     def duckdb(self) -> DuckDbWriter:
@@ -480,6 +766,7 @@ class BackgroundStorageWriter:
         "open_interest_sample": "add_open_interest_sample",
         "combined_context_event": "add_combined_context_event",
         "hfm_context_outcome": "add_hfm_context_outcome",
+        "footprint_bar": "add_footprint_bar",
     }
 
     def __init__(
@@ -554,7 +841,7 @@ class BackgroundStorageWriter:
                 f"background storage worker failed: {self._error}",
             ) from self._error
 
-    def _enqueue(self, kind: str, row: dict) -> None:
+    def _enqueue(self, kind: str, row: Any) -> None:
         self._raise_if_failed()
         if self._closed:
             raise StorageError(ERROR_STORAGE_UNAVAILABLE, "background storage writer is closed")
@@ -596,6 +883,9 @@ class BackgroundStorageWriter:
 
     def add_hfm_context_outcome(self, row: dict) -> None:
         self._enqueue("hfm_context_outcome", row)
+
+    def add_footprint_bar(self, bar: Any) -> None:
+        self._enqueue("footprint_bar", bar)
 
     def tick(self) -> None:
         """Compatibility hook: only surface worker failure on the live path."""
@@ -640,6 +930,34 @@ class BackgroundStorageWriter:
     @property
     def hfm_context_outcomes_written(self) -> int:
         return self._counter("hfm_context_outcomes_written")
+
+    @property
+    def footprint_bars_written(self) -> int:
+        return self._counter("footprint_bars_written")
+
+    @property
+    def footprint_levels_written(self) -> int:
+        return self._counter("footprint_levels_written")
+
+    @property
+    def footprint_duplicates(self) -> int:
+        return self._counter("footprint_duplicates")
+
+    @property
+    def footprint_write_failures(self) -> int:
+        return self._counter("footprint_write_failures")
+
+    def _metric(self, name: str) -> float:
+        writer = self._writer
+        return float(getattr(writer, name, 0.0)) if writer is not None else 0.0
+
+    @property
+    def footprint_flush_median_ms(self) -> float:
+        return self._metric("footprint_flush_median_ms")
+
+    @property
+    def footprint_flush_p95_ms(self) -> float:
+        return self._metric("footprint_flush_p95_ms")
 
     @property
     def flushes(self) -> int:

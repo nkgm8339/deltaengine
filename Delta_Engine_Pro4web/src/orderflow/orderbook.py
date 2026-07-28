@@ -19,10 +19,11 @@ failures. Log messages distinguish the two cases.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger("orderflow.orderbook")
 
@@ -73,6 +74,7 @@ class OrderBookSnapshot:
     last_update_id: int
     bids: dict[Decimal, Decimal]        # price → quantity (quantity > 0 only)
     asks: dict[Decimal, Decimal]
+    event_time: Optional[datetime] = None
 
     def bid_quantity_at(self, price: Decimal) -> Decimal:
         return self.bids.get(_to_decimal(price), _ZERO)
@@ -100,11 +102,19 @@ class OrderBookStateManager:
     Gap detection rejects out-of-sequence DIFFs and resets state.
     """
 
-    def __init__(self, symbol: str) -> None:
+    def __init__(
+        self,
+        symbol: str,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.symbol = symbol
+        self._clock = clock
         self._bids: dict[Decimal, Decimal] = {}
         self._asks: dict[Decimal, Decimal] = {}
         self._last_update_id: Optional[int] = None
+        self._last_event_time: Optional[datetime] = None
+        self._last_applied_monotonic: Optional[float] = None
         self._initialized: bool = False
         self._sync_id: Optional[int] = None   # set during initial Binance sync phase
         # counters (no silent loss)
@@ -143,8 +153,26 @@ class OrderBookStateManager:
 
     @property
     def is_initialized(self) -> bool:
-        """True when the book currently holds a valid synced state."""
+        """True when Snapshot state exists, including initial alignment wait."""
         return self._initialized
+
+    @property
+    def is_synchronized(self) -> bool:
+        """True only after initial/resync Snapshot alignment has completed."""
+        return self._initialized and self._sync_id is None
+
+    @property
+    def last_event_time(self) -> Optional[datetime]:
+        """Source time of the latest accepted state transition or detected gap."""
+        return self._last_event_time
+
+    def age_ms(self, now_monotonic: Optional[float] = None) -> Optional[int]:
+        """Monotonic age of the latest applied Snapshot/DIFF."""
+        if self._last_applied_monotonic is None:
+            return None
+        now = self._clock() if now_monotonic is None else now_monotonic
+        return max(0, int((now - self._last_applied_monotonic) * 1000))
+
     def snapshot(self) -> Optional[OrderBookSnapshot]:
         """Return immutable snapshot of current state, or None if not initialized."""
         if not self._initialized:
@@ -154,6 +182,7 @@ class OrderBookStateManager:
             last_update_id=self._last_update_id,  # type: ignore[arg-type]
             bids=dict(self._bids),
             asks=dict(self._asks),
+            event_time=self._last_event_time,
         )
 
     def bid_quantity_at(self, price: Decimal) -> Decimal:
@@ -175,6 +204,8 @@ class OrderBookStateManager:
             if level.quantity > _ZERO:
                 self._asks[level.price] = level.quantity
         self._last_update_id = update.final_update_id
+        self._sync_id = None
+        self._mark_applied(update)
         self._initialized = True
         self.snapshots_applied += 1
         return ApplyResult(applied=True, reinitialized=reinitialized, gap_detected=False)
@@ -206,6 +237,7 @@ class OrderBookStateManager:
             self._apply_levels(self._bids, update.bids)
             self._apply_levels(self._asks, update.asks)
             self._last_update_id = update.final_update_id
+            self._mark_applied(update)
             self.diffs_applied += 1
             return ApplyResult(applied=True, reinitialized=False, gap_detected=False)
 
@@ -223,6 +255,9 @@ class OrderBookStateManager:
             self._bids = {}
             self._asks = {}
             self._last_update_id = None
+            self._sync_id = None
+            self._last_event_time = update.event_time
+            self._last_applied_monotonic = None
             self._initialized = False
             self.gaps_detected += 1
             logger.warning(
@@ -236,8 +271,13 @@ class OrderBookStateManager:
         self._apply_levels(self._bids, update.bids)
         self._apply_levels(self._asks, update.asks)
         self._last_update_id = update.final_update_id
+        self._mark_applied(update)
         self.diffs_applied += 1
         return ApplyResult(applied=True, reinitialized=False, gap_detected=False)
+
+    def _mark_applied(self, update: OrderBookUpdate) -> None:
+        self._last_event_time = update.event_time
+        self._last_applied_monotonic = self._clock()
 
     @staticmethod
     def _apply_levels(

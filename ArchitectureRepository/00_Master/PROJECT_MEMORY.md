@@ -1,6 +1,6 @@
 # DeltaEngine プロジェクト記憶
 
-最終更新: 2026-07-26
+最終更新: 2026-07-29
 
 ## 最重要の記憶
 
@@ -998,3 +998,195 @@ runtime有効化、発注権限、G16 composite、CalibrationBook thresholdは�
 ユーザー明示依頼により、既存の3段チャート構造を維持したまま価格ペインへSession VWAPを追加した。CANDLE/BAR_UPDATE payloadの`vwap`を橙色破線で描画し、価格スケールにもVWAPを含める。CVD・出来高・Flow Price Responseの計算や表示領域は変更していない。既存履歴candlesにはVWAP永続列がないため、履歴再読込ではVWAPは未提供、ライブ配信で表示される。webapp回帰36 passed。
 
 Phase 0A baseline監査の限定remediationでは、Strategy Engineのfail-closed契約を維持したまま、表示値へ`vwap_status=EXACT/PARTIAL`を追加した。UTC 00:00からのcoverageを確認できない累積値は表示だけに使用し、`~`付きPARTIALとして明示する。履歴OHLCVから実約定VWAPを推定せず、履歴APIは`vwap=null`／`vwap_status=null`を返す。server／browser debug traceを除去し、WebSocket正本をv1.1 additive extensionへ更新した。対象回帰72 passed、全体 **606 passed, 1 skipped**。完成済みFlow Price Response、3段チャート構造、8パターン、OI計算は変更していない。
+
+## Footprint × LIVE DOM × Time & Sales Phase 1〜6完成（2026-07-28）
+
+ユーザー承認GO-6〜GO-11により、複数足Footprint、固定LIVE DOM、固定Time & Sales、
+restart／reconnect／replay／no-loss統合検証まで完了した。
+
+- normalized Footprint levels＋manifest、UTC日次ZSTD archive、履歴API
+- Canvas共通価格軸、3／10／20本、display-only price step、POC／VA／Imbalance
+- Footprintと同じprice geometryのpassive LIVE DOM、Best／Spread／wall、fail closed
+- accepted trade由来TAPE_UPDATE、500件ring、32行pool、filter、large marker
+- Tape／Footprint／DOM selection sync、JST＋UTC exact detail
+- server／replay session scoped stream ID、gap／drop／restart／reconnect表示
+- replay speedとmarket-time callbackを接続し、live sourceを過去replayへ混ぜない
+- 6,000件LIVE no-loss、25,000件overflow accounting、実Edge統合を確認
+- final full regression **661 passed, 1 skipped**
+
+完成済みFlow Price Response、3段チャート、8パターン、OIの計算・構造・操作は変更していない。
+
+重要な運用境界:
+
+- source implementation／isolated integrationはPASS。
+- 2026-07-28 22:27 JST時点の稼働コンテナは旧version `v3.6.21`で新Python code未配備。
+- 既存pipelineはParquet write `Errno 5`でdead、health RED。
+- Cドライブ空きは768,671,744 bytes（約0.72 GiB）。
+- disk／storage復旧、新image build／restart／deploymentは未承認・未実施。
+- 現runtimeへのoperational activationはNO-GO。実装完成と配備済みを混同しない。
+
+正本:
+
+- `ArchitectureRepository/00_Master/FOOTPRINT_DOM_TIME_SALES_FUSION_IMPLEMENTATION_INSTRUCTION_V2_20260728.md`
+- `ArchitectureRepository/00_Master/FOOTPRINT_DOM_TIME_SALES_FUSION_PREIMPLEMENTATION_AMENDMENT_V2_1_20260728.md`
+- `ArchitectureRepository/00_Master/FOOTPRINT_DOM_TIME_SALES_PHASE6_COMPLETION_REPORT_20260728.md`
+
+## Footprint × LIVE DOM × Time & Sales operational activation（2026-07-28）
+
+直前節のNO-GOは22:27 JST時点の履歴である。その後、ユーザー承認のdisk／storage remediationと
+production deploymentを完了し、Phase 1〜6のoperational activationをPASSとした。
+
+- Cドライブ逼迫の主因は、存在しない`D:\MT5XM`をoriginとする旧XMTrading terminalの
+  再取得可能な`.hc`／`.hcc` history cache 97,337,847,530 bytesだった。
+- absolute path、origin、Dドライブ不存在、extension、90 GB以上をguardして当該cacheだけを削除。
+  現HFM、共通quote、旧terminal MQL5／ticks、DeltaEngine raw／archive／research／DuckDB／Parquet／
+  Hook journalは保持した。cacheはローカル復元不能だがMT5から再取得できる。
+- C空きは開始時約0.97 GiBから削除直後91.67 GiB、最終82.82 GiBへ回復した。
+- 配備image:
+  `sha256:81b5ae72cb4ff2847a914e71863c4870ba2a1383bc6f47983c00d203f7ab5e01`
+- production container:
+  `7cee921a82182c3d2fb40ecc170b93b2b26837c1b26e2ec79f8b9fc70ce8e782`
+- host／image主要13 file SHA-256全件一致。image内Phase 1〜6対象 **116 passed, 4 skipped**。
+  Phase 6直前host full regression **661 passed, 1 skipped**は有効。
+- productionでFootprint persistence／history read-back、LIVE DOM SYNCED、Tape no-loss、
+  Hook durable capture、実browser表示を確認した。
+- 23:34:23 JST最終sample: overall／pipeline／bar flow／latency／Tape／reconnect／gapが全GREEN、
+  storage pending 0、Footprint 35 bars／19,110 levels／failure 0、Book send failure 0。
+- Tape accepted＝sent＝151,002、pending／in-flight／dropped 0、balanced true。
+- Hook accepted 170,480／durable 170,435／pending 6、drop／disk reject 0、writer errorなし。
+- deploy後37分のlogにStorageError／Traceback／Parquet I/O error再発なし。
+  観測中のBinance ping timeout 2件／book gap 2件は自動復旧し、15分windowからexpireした。
+- 23:37:27／23:37:33 JSTに新しいBinance ping timeout／book gapが発生し、23:37:55 JSTの
+  overall healthはYELLOW。pipeline／bar flow／latency／TapeはGREEN、storage pending 0、
+  Footprint failure 0、Book SYNCED、Tape drop 0／balanced true、Hook disk reject 0／writer errorなし。
+  production activationはPASSを維持し、限定状態をBinance upstream feed degradation ACTIVEとする。
+- API version labelはbumpしていないため`v3.6.21`のまま。配備identityはimage IDを正とする。
+- exact旧container imageはtag保全できず、内容確認済みpre-Footprint image
+  `sha256:2a8c6d243e6caacc2c1ab29de58062616d098db21bf0e6e9c022c03894d61bcb`を
+  fallback rollback tagとして保持した。
+- Strategy runtime、発注権限、LIVE注文、MT5 algorithmic tradingは変更していない。
+- 完成済みFlow Price Response、3段チャート、8パターン、OIの計算・構造・操作は変更していない。
+
+運用正本:
+
+- `ArchitectureRepository/00_Master/FOOTPRINT_DOM_TIME_SALES_OPERATIONAL_REMEDIATION_REPORT_20260728.md`
+- `ArchitectureRepository/00_Master/FOOTPRINT_DOM_TIME_SALES_OPERATIONAL_REMEDIATION_CHECKPOINT_20260728.md`
+
+## Footprint／Time & Sales可読性修正（2026-07-29）
+
+ユーザーが実画面画像を提示し、Footprint ChartとTime & Salesの文字が小さすぎて読めないと
+明示したため、データ契約や計算を変えず表示だけを修正した。
+
+- Time & Sales約定行を7px／15px高から14px／28px高へ変更
+- 見出し、filter、列名、detail、statusも9〜12pxへ拡大
+- 右列最小幅232px、1280px画面で約定10行、横overflow 0
+- Footprint通常AUTO表示は20価格行、BID／ASK主要値を基本14px太字
+- 10本表示の長い数量は14pxの高さを維持し、各半セル幅へ横方向だけfit
+- 手動STEPで価格行が密な場合だけ12px／11pxへ縮退
+- 1280px実Edge相当で10本bar幅52.1px、価格行18.95px、page error／page overflow 0
+- source contract 12件、関連26件、WebApp全体 **121 passed**
+- 既存static bind mountによりcontainer restartなしで現runtimeのHTTP配信へ反映済み
+
+Footprint、LIVE DOM、Tapeの計算、保持件数、filter、selection sync、gap／restart、fail closedは
+変更していない。完成済みFlow Price Response、3段チャート、8パターン、OIの計算・構造・操作も
+変更していない。
+
+詳細checkpoint:
+
+- `ArchitectureRepository/00_Master/FOOTPRINT_DOM_TIME_SALES_READABILITY_CHECKPOINT_20260729.md`
+
+## FLOW／Absorption／Imbalance／Alerts下段展開（2026-07-29）
+
+ユーザーの明示指示により、Footprint横列の左端へ圧縮されていたFLOW EVENTS、ABSORPTION、
+IMBALANCE、ALERTSを、Footprint＋Time & Salesの下へ移して全幅展開した。
+
+- 変更前はABSORPTION／IMBALANCE／ALERTSが各74pxまで圧縮され、Footprintとも横で重なっていた
+- `main`はFootprint＋LIVE DOMとTime & Salesの2列だけに整理
+- FLOW EVENTSはその下で全幅1260px／高さ198px
+- ABSORPTION／IMBALANCE／ALERTSは次段で各412px／高さ178px
+- Footprint幅770px、Time & Sales幅232pxを確保
+- main終了y=1200、indicator下段開始y=1212で上下を分離
+- 1280px実Edge相当でpanel重なり0、page横overflow 0、browser error 0
+- frontend contract 12件、WebApp全体 **121 passed**
+- 既存static bind mountによりcontainer restartなしで現runtimeのHTTP配信へ反映済み
+
+3段チャートの高さ、PRICE／CVD+Delta／VOLUME比率、Flow Response固定行、計算、選択、zoom、panは
+変更していない。Footprint、LIVE DOM、Tape、各indicatorのデータ契約、計算、filter、alert判定も
+変更していない。
+
+詳細checkpoint:
+
+- `ArchitectureRepository/00_Master/FOOTPRINT_DOM_TIME_SALES_LOWER_INDICATOR_LAYOUT_CHECKPOINT_20260729.md`
+
+## 中央アラート通知の右下退避（2026-07-29）
+
+ユーザーが、画面中央に出る一時アラート通知が売買画面を塞いで非常に困ると明示したため、
+ALERTS履歴や判定を変えず、一時通知の表示位置だけを修正した。
+
+- `#toasts`の`top:56px; left:50%`中央固定を除去
+- 右端14px／下端14pxへ固定し、最大幅340pxで右揃え
+- `pointer-events:none`を維持し、通知が画面操作を遮らない
+- 下段へ展開済みのALERTS履歴パネルは変更なし
+- 1280×900実ブラウザで右端14px、中央回避、横overflow 0、browser error 0
+- 稼働中runtimeが新配置markerをHTTP 200で返すことを確認
+- frontend contract **8 passed**、WebApp全体 **122 passed**
+
+完成済みFlow Price Response、3段チャート、Footprint、LIVE DOM、Time & Sales、各indicatorの
+データ契約、計算、alert判定には触れていない。
+
+詳細checkpoint:
+
+- `ArchitectureRepository/00_Master/ALERT_TOAST_POSITION_CHECKPOINT_20260729.md`
+
+## Order Book Heatmap実装指示書V1（2026-07-29）
+
+ユーザーの明示指示により、Bookmap系の時間×価格Order Book Heatmapについて、現repositoryへ
+適合する実装指示書V1を作成した。本時点の承認は文書作成のみで、source実装・配備は未承認である。
+
+主要決定:
+
+- 中央を`FOOTPRINT | HEATMAP`切替とし、既存Footprintを置換しない
+- 右端Time & Sales、下段FLOW／Absorption／Imbalance／Alerts、完成済み3段チャートを維持
+- V1はbrowser session内の直近15分、最大9,000 book frame／100,000 trade
+- 板履歴の永続化は容量測定を伴う別Instruction／別GO
+- Heatは`BOOK_UPDATE`のresting liquidity、bubbleは`TAPE_UPDATE`のaggressive tradeだけを使用
+- delivery gap検出用にadditive `book_stream_id`／`book_sequence`契約を規定
+- fail-closed、disconnect、restart、sequence gapはblank／hatched bandで明示し、古い板を延長しない
+- duration-weighted time raster、visible Q95 logarithmic intensity、trade notional bubbleを規定
+- price／time軸とtooltipは基本14px、Canvas＋bounded typed-array store
+- 独立feature flag、performance budget、test matrix、GO-H0〜H6、rollbackを規定
+
+文書構造checkはsection 0〜30連番、code fence balanced、必須contract 9件、禁止承認表現0でPASS。
+source codeは変更していない。次はユーザーのV1確認と、実装する場合の明示GO-H0である。
+
+正本候補／checkpoint:
+
+- `ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_IMPLEMENTATION_INSTRUCTION_V1_20260729.md`
+- `ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_INSTRUCTION_CHECKPOINT_20260729.md`
+
+## Order Book Heatmap GO-H0 baseline audit（2026-07-29）
+
+ユーザーの`GO`を、直前に提示したGO-H0（baseline／restore point準備）の承認として受領した。
+Heatmap sourceを変更せず、current dirty worktree、test、実Edge geometryを監査した。
+
+- branch `feature/footprint-dom-tape`、開始HEAD `92ee4eff823ba31e84f7fc0af197d39b877ec236`
+- dirty entryは監査報告追加後73件
+- primary baseline commit候補57 file
+- runtime／measurement artifact 13 fileは除外
+- 別topicのトリガー文書3 fileはprimary commitへ混ぜず保留
+- access denied directoryはcount外／stage対象外、broad stage禁止
+- WebApp **122 passed**
+- repository全体 **664 passed, 1 skipped**
+- 1280×900実Edgeで3段chart→main→lower indicatorのgap各12px、panel overlap 0
+- Footprint 14px、Tape 14px／28px、horizontal overflow 0、page／console error 0
+- Heatmap elementはまだ存在しない
+- 検証用pytest temporary directoryは対象pathを検証して削除済み
+
+GO-H0監査はPASS。restore point commitは未実施で、57 fileのexact stageと
+`snapshot: preserve Footprint DOM Tape baseline before heatmap` commitの明示承認待ちである。
+GO-H1以降のsource実装、runtime再起動、deploymentは未承認。
+
+監査報告／checkpoint:
+
+- `ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_BASELINE_AUDIT_20260729.md`
+- `ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_CHECKPOINT_20260729.md`

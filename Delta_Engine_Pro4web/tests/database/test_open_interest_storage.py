@@ -6,9 +6,11 @@ from decimal import Decimal
 
 import duckdb
 import pyarrow.parquet as pq
+import pytest
 
 from src.database.schema import OPEN_INTEREST_SAMPLES_SCHEMA
-from src.database.storage import StorageWriter
+from src.database import storage as storage_module
+from src.database.storage import StorageError, StorageWriter
 from webapp.history import query_open_interest_samples
 
 UTC = timezone.utc
@@ -77,6 +79,63 @@ def test_open_interest_parquet_reuses_one_file_per_utc_hour(tmp_path) -> None:
     assert len(files) == 1
     table = pq.ParquetFile(str(files[0])).read()
     assert table.num_rows == 2
+
+
+def test_open_interest_parquet_retries_transient_bad_file_descriptor(
+    tmp_path, monkeypatch,
+) -> None:
+    parquet_path = tmp_path / "parquet"
+    db_path = tmp_path / "duck" / "orderflow.duckdb"
+    sample_time = datetime(2026, 7, 22, 8, 13, 20, tzinfo=UTC)
+    real_write_table = storage_module.pq.write_table
+    calls = 0
+
+    def flaky_write_table(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OSError(9, "Bad file descriptor")
+        return real_write_table(*args, **kwargs)
+
+    monkeypatch.setattr(storage_module.pq, "write_table", flaky_write_table)
+    monkeypatch.setattr(storage_module.time, "sleep", lambda _delay: None)
+
+    writer = StorageWriter(parquet_path, db_path, batch_size=1)
+    writer.add_open_interest_sample(_row(sample_time, "100"))
+    writer.close()
+
+    files = list((parquet_path / "open_interest_samples").rglob("hour-*.parquet"))
+    assert calls == 2
+    assert len(files) == 1
+    assert pq.ParquetFile(str(files[0])).read().num_rows == 1
+    assert not list((parquet_path / "open_interest_samples").rglob("*.tmp.parquet"))
+
+
+def test_open_interest_parquet_exhausts_bounded_transient_retries(
+    tmp_path, monkeypatch,
+) -> None:
+    parquet_path = tmp_path / "parquet"
+    db_path = tmp_path / "duck" / "orderflow.duckdb"
+    sample_time = datetime(2026, 7, 22, 8, 13, 20, tzinfo=UTC)
+    calls = 0
+
+    def broken_write_table(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        raise OSError(9, "Bad file descriptor")
+
+    monkeypatch.setattr(storage_module.pq, "write_table", broken_write_table)
+    monkeypatch.setattr(storage_module.time, "sleep", lambda _delay: None)
+
+    writer = StorageWriter(parquet_path, db_path, batch_size=10)
+    try:
+        with pytest.raises(StorageError, match="OI parquet write failed"):
+            writer._write_open_interest_parquet([_row(sample_time, "100")])
+    finally:
+        writer.close()
+
+    assert calls == 4
+    assert not list((parquet_path / "open_interest_samples").rglob("*.parquet"))
 
 
 def test_open_interest_history_is_empty_before_table_exists(tmp_path) -> None:

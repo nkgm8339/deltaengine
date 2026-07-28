@@ -271,6 +271,8 @@ class ReplayStats:
     native_candles_stored: int = 0
     native_flow_events_stored: int = 0
     native_flow_outcomes_stored: int = 0
+    footprint_bars_stored: int = 0
+    footprint_levels_stored: int = 0
 
 
 class ReplayPipeline:
@@ -314,6 +316,9 @@ class ReplayPipeline:
         batch_size: int = 1000,
         flush_interval_sec: int = 5,
         tick_size: Decimal = Decimal("0.1"),
+        replay_speed: float = 0.0,
+        replay_monotonic: Callable[[], float] = time.monotonic,
+        replay_sleep: Callable[[float], None] = time.sleep,
         cvd_slope_ref: Optional[Decimal] = None,
         imbalance_ratio_threshold: Decimal = Decimal("3.0"),
         imbalance_min_volume: Decimal = Decimal("50"),
@@ -353,6 +358,11 @@ class ReplayPipeline:
         self.batch_size = batch_size
         self.flush_interval_sec = flush_interval_sec
         self.tick_size = tick_size
+        if replay_speed < 0:
+            raise ValueError("replay_speed must be >= 0")
+        self.replay_speed = float(replay_speed)
+        self._replay_monotonic = replay_monotonic
+        self._replay_sleep = replay_sleep
         self.cvd_slope_ref = cvd_slope_ref
         self.imbalance_ratio_threshold = imbalance_ratio_threshold
         self.imbalance_min_volume = imbalance_min_volume
@@ -385,6 +395,14 @@ class ReplayPipeline:
         self.higher_timeframe_candles: dict = {}
         self.trend_state = None
         self.divergence = None
+        self.on_accepted_trade: Optional[Callable] = None
+        self.on_trade: Optional[Callable] = None
+        self.on_candle: Optional[Callable] = None
+        self.on_analysis: Optional[Callable] = None
+        self.on_flow_response: Optional[Callable] = None
+        self._last_bar_close = None
+        self._last_fp_bar = None
+        self._last_event_time = None
 
     @classmethod
     def from_config(
@@ -399,6 +417,7 @@ class ReplayPipeline:
         abs_ = config.absorption
         div = config.divergence
         fr = config.flow_response
+        replay = getattr(config, "replay", None)
         cvd_ref = sig.cvd_slope_ref  # decision 11: use signal.cvd_slope_ref
         return cls(
             symbol=config.market.symbol,
@@ -411,6 +430,11 @@ class ReplayPipeline:
             batch_size=config.database.batch_size,
             flush_interval_sec=config.database.flush_interval_sec,
             tick_size=Decimal(str(config.market.tick_size)),
+            replay_speed=(
+                float(getattr(replay, "speed", 0.0))
+                if bool(getattr(replay, "enabled", False))
+                else 0.0
+            ),
             cvd_slope_ref=Decimal(str(cvd_ref)) if cvd_ref is not None else None,
             imbalance_ratio_threshold=Decimal(str(imb.ratio_threshold)),
             imbalance_min_volume=_resolve_imbalance_min_volume(imb.min_volume),
@@ -509,13 +533,45 @@ class ReplayPipeline:
         invalid = 0
         analysis_count = 0
         analysis_engine = AnalysisEngine()
+        pacing_origin_source_ns: int | None = None
+        pacing_origin_monotonic: float | None = None
+        self._last_bar_close = None
+        self._last_fp_bar = None
+        self._last_event_time = None
+
+        def pace(event_time: datetime) -> None:
+            """Map replay source time to wall time; speed=0 remains deterministic fast."""
+            nonlocal pacing_origin_source_ns, pacing_origin_monotonic
+            if self.replay_speed == 0:
+                return
+            source_ns = _to_source_ns(event_time)
+            if pacing_origin_source_ns is None:
+                pacing_origin_source_ns = source_ns
+                pacing_origin_monotonic = self._replay_monotonic()
+                return
+            assert pacing_origin_monotonic is not None
+            source_elapsed = max(0.0, (source_ns - pacing_origin_source_ns) / 1e9)
+            target_elapsed = source_elapsed / self.replay_speed
+            wall_elapsed = self._replay_monotonic() - pacing_origin_monotonic
+            delay = target_elapsed - wall_elapsed
+            if delay > 0:
+                self._replay_sleep(delay)
 
         def handle(normalized) -> None:
             nonlocal analysis_count, replay_origin_source_ns, replay_last_source_ns
+            pace(normalized.event_time)
             event_source_ns = _to_source_ns(normalized.event_time)
             if replay_origin_source_ns is None:
                 replay_origin_source_ns = event_source_ns
             replay_last_source_ns = event_source_ns
+            self._last_event_time = normalized.event_time
+            if self.on_accepted_trade is not None:
+                try:
+                    self.on_accepted_trade(normalized)
+                except Exception:
+                    logger.exception(
+                        "accepted-trade observer failed; replay analysis continues"
+                    )
             producer.observe_trade(normalized)
             storage.add_trade(trade_to_row(normalized))
             native_coordinator.process(normalized, storage)
@@ -529,10 +585,14 @@ class ReplayPipeline:
                     self.flow_response_events.extend(events)
                     for event in events:
                         storage.add_flow_response_event(flow_response_event_to_row(event))
+                    if self.on_flow_response is not None:
+                        self.on_flow_response(snapshots)
                 outcomes = flow_response_tracker.observe_trade(normalized)
                 self.flow_response_outcomes.extend(outcomes)
                 for outcome in outcomes:
                     storage.add_flow_response_outcome(flow_response_outcome_to_row(outcome))
+            if self.on_trade is not None:
+                self.on_trade(normalized)
             cvd_result = cvd.process(normalized)
             if cvd_result.update is not None:
                 producer.observe_cvd(cvd_result.update)
@@ -552,7 +612,13 @@ class ReplayPipeline:
                         "E9001 footprint bar did not close with candle bar_time=%s",
                         cvd_result.closed_candle.bar_time,
                     )
+                    self._last_fp_bar = None
+                    if self.on_candle is not None:
+                        self.on_candle(cvd_result.closed_candle)
                 else:
+                    # Persist only bars closed by a real timeframe rollover.  The
+                    # final/forming bar emitted by ``finalize`` remains transient.
+                    storage.add_footprint_bar(fp_closed)
                     _bar_result = _evaluate_and_store(
                         cvd_result.closed_candle, fp_closed,
                         imbalance_detector, signal_engine, storage,
@@ -566,6 +632,15 @@ class ReplayPipeline:
                         source_time_ns=event_source_ns,
                         tick_size=self.tick_size,
                     )
+                    self._last_bar_close = _bar_result
+                    self._last_fp_bar = fp_closed
+                    if self.on_candle is not None:
+                        self.on_candle(cvd_result.closed_candle)
+                    if (
+                        _bar_result.analysis_result is not None
+                        and self.on_analysis is not None
+                    ):
+                        self.on_analysis(_bar_result.analysis_result)
                     analysis_count += 1
 
         for raw in raws:
@@ -600,6 +675,8 @@ class ReplayPipeline:
                 self.flow_response_events.extend(events)
                 for event in events:
                     storage.add_flow_response_event(flow_response_event_to_row(event))
+                if self.on_flow_response is not None:
+                    self.on_flow_response(snapshots)
 
         native_coordinator.finalize(storage)
         final_candle = cvd.finalize()
@@ -631,6 +708,15 @@ class ReplayPipeline:
                     source_time_ns=final_source_ns,
                     tick_size=self.tick_size,
                 )
+                self._last_bar_close = _bar_result
+                self._last_fp_bar = final_fp
+                if self.on_candle is not None:
+                    self.on_candle(final_candle)
+                if (
+                    _bar_result.analysis_result is not None
+                    and self.on_analysis is not None
+                ):
+                    self.on_analysis(_bar_result.analysis_result)
                 analysis_count += 1
         storage.close()
 
@@ -649,6 +735,8 @@ class ReplayPipeline:
             native_candles_stored=native_coordinator.candles_written,
             native_flow_events_stored=len(native_coordinator.events),
             native_flow_outcomes_stored=len(native_coordinator.outcomes),
+            footprint_bars_stored=storage.footprint_bars_written,
+            footprint_levels_stored=storage.footprint_levels_written,
         )
 
 
@@ -795,6 +883,8 @@ class LiveStats:
     native_candles_stored: int = 0
     native_flow_events_stored: int = 0
     native_flow_outcomes_stored: int = 0
+    footprint_bars_stored: int = 0
+    footprint_levels_stored: int = 0
 
 
 class LivePipeline:
@@ -856,6 +946,7 @@ class LivePipeline:
         mt5_heartbeat_interval: float = 5.0,
         mt5_max_buffer_messages: int = 1000,
         on_trade: Optional[Callable] = None,
+        on_accepted_trade: Optional[Callable] = None,
         on_candle: Optional[Callable] = None,
         on_analysis: Optional[Callable] = None,
         on_liquidation: Optional[Callable] = None,
@@ -933,6 +1024,7 @@ class LivePipeline:
         self.mt5_heartbeat_interval = mt5_heartbeat_interval
         self.mt5_max_buffer_messages = mt5_max_buffer_messages
         self.on_trade = on_trade
+        self.on_accepted_trade = on_accepted_trade
         self.on_candle = on_candle
         self.on_analysis = on_analysis
         self.on_liquidation = on_liquidation
@@ -1274,6 +1366,13 @@ class LivePipeline:
             await mt5_server.start()
 
         def handle(normalized) -> None:
+            if self.on_accepted_trade is not None:
+                try:
+                    self.on_accepted_trade(normalized)
+                except Exception:
+                    logger.exception(
+                        "accepted-trade observer failed; live analysis continues"
+                    )
             storage.add_trade(trade_to_row(normalized))
             native_coordinator.process(normalized, storage)
             self._last_event_time = normalized.event_time
@@ -1342,6 +1441,9 @@ class LivePipeline:
                     if self.on_candle is not None:
                         self.on_candle(cvd_result.closed_candle)
                 else:
+                    # History contains closed bars only; do not persist the
+                    # forming bar returned by ``finalize`` during shutdown.
+                    storage.add_footprint_bar(fp_closed)
                     # flow detectors: bar-close path (before signal so they're included)
                     _ex = _exhaustion_det.process(fp_closed)
                     if _ex is not None:
@@ -1582,6 +1684,8 @@ class LivePipeline:
             native_candles_stored=native_coordinator.candles_written,
             native_flow_events_stored=len(native_coordinator.events),
             native_flow_outcomes_stored=len(native_coordinator.outcomes),
+            footprint_bars_stored=storage.footprint_bars_written,
+            footprint_levels_stored=storage.footprint_levels_written,
         )
 
     def run(self, **kwargs: Any) -> LiveStats:

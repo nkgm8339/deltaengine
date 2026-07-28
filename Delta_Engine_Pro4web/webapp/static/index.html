@@ -117,10 +117,11 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 #chartwrap{flex:1;padding:2px 6px}
 #chart{width:100%;height:100%}
 /* overlays */
-#toasts{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:60;
-  display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+#toasts{position:fixed;top:auto;right:14px;bottom:14px;left:auto;transform:none;z-index:60;
+  display:flex;flex-direction:column;gap:6px;align-items:flex-end;
+  width:min(340px,calc(100vw - 28px));pointer-events:none}
 .toast{display:flex;align-items:center;gap:9px;padding:8px 16px;border-radius:8px;
-  font-size:13px;font-weight:700;letter-spacing:.06em;background:rgba(17,22,31,.96);
+  box-sizing:border-box;max-width:100%;font-size:13px;font-weight:700;letter-spacing:.06em;background:rgba(17,22,31,.96);
   backdrop-filter:blur(8px);animation:drop .2s ease-out}
 @keyframes drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 /* ALERTS history: normal-flow panel; never position:fixed. */
@@ -526,6 +527,83 @@ body{
   #appgrid{min-width:1280px}
 }
 </style>
+<style id="footprint-canvas-v1">
+/* Phase 4: multi-bar Footprint stays isolated from the completed three-stage chart. */
+#main{grid-template-columns:minmax(0,300fr) minmax(0,660fr) minmax(232px,246fr)!important}
+#center>.panel:first-child{display:flex!important;flex-direction:column!important}
+#center .phead{gap:6px;overflow:hidden}
+#center .phead .ctl{margin-left:auto;min-width:0;gap:2px;white-space:nowrap}
+.fp-control-label{color:#AAB7CD;font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.04em}
+#fpstep{height:25px;max-width:88px;border:1px solid #344562;border-radius:4px;background:#09111F;color:#F1F5FF;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.fp-bars-btn{min-width:28px;height:25px!important;padding:0 6px!important;border:1px solid #344562!important;border-radius:4px;background:#09111F!important;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace!important}
+.fp-bars-btn.on{border-color:#25B7E8!important;color:#25B7E8!important;background:#0B2130!important}
+#plock{height:25px!important;padding:0 7px!important;border:1px solid #25B7E8!important;border-radius:4px;color:#25B7E8!important;background:#0B2130!important;font-size:10px!important;font-weight:900!important}
+#plock.off{border-color:#465470!important;color:#9AA8C3!important;background:#09111F!important}
+#fpstage{position:relative;flex:1;min-height:0;overflow:hidden;background:#070D18;touch-action:none}
+#fpcanvas{display:block;width:100%;height:100%;outline:none;cursor:crosshair;touch-action:none}
+#fpcanvas:focus-visible{box-shadow:inset 0 0 0 1px #25B7E8}
+#fptooltip{position:absolute;z-index:4;width:250px;padding:6px 8px;border:1px solid #526482;border-radius:4px;background:#091120F2;color:#F1F5FF;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;line-height:1.35;pointer-events:none;white-space:nowrap}
+#fptooltip[hidden]{display:none}
+#fpselection{height:27px;min-height:27px;padding:6px 8px;border-top:1px solid #1D2A43;background:#09111F;color:#F1F5FF;font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fpstatus{height:22px;min-height:22px;padding:5px 8px;border-top:1px solid #1D2A43;background:#070D18;color:#AAB7CD;font:800 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fpgearpop{right:8px;top:34px}
+</style>
+<style id="dom-tape-fusion-v1">
+/* Phase 5: fused LIVE DOM in Canvas and fixed virtualized Time & Sales. */
+body.phase5-fusion #appgrid{grid-template-rows:62px 552px 552px 388px;min-height:1598px}
+body.phase5-fusion #main{grid-template-columns:minmax(0,1fr) 232px!important;grid-template-rows:552px!important;height:552px!important;min-height:552px!important}
+body.phase5-fusion #main>#center{grid-column:1!important;display:block!important;width:auto!important;height:552px!important;min-height:552px!important;min-width:0!important;overflow:hidden!important}
+body.phase5-fusion #center>.panel:first-child{height:552px!important;min-height:552px!important}
+body.phase5-fusion #main>#right{grid-column:2!important;display:block!important;width:auto!important;height:552px!important;min-height:552px!important;min-width:0!important;overflow:hidden!important}
+body.phase5-fusion #right>#left{display:none!important}
+body.phase5-fusion #flowtop{grid-column:1 / -1;grid-row:4;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:198px 178px;gap:12px!important;width:auto!important;height:388px!important;min-width:0!important;margin:0!important}
+body.phase5-fusion #flowtop>#flowrow{grid-column:1 / -1;grid-row:1;width:auto!important;height:198px!important;margin:0!important}
+body.phase5-fusion #flowtop>#flowrow>#flowpanel{width:100%!important;height:198px!important;margin:0!important}
+body.phase5-fusion #flowtop>#abspanel,body.phase5-fusion #flowtop>#imbpanel,body.phase5-fusion #flowtop>#alerthist{grid-row:2;width:auto!important;height:178px!important;margin:0!important;min-width:0!important;overflow:hidden!important}
+body.phase5-fusion #flowtop>#abspanel{grid-column:1}
+body.phase5-fusion #flowtop>#imbpanel{grid-column:2}
+body.phase5-fusion #flowtop>#alerthist{grid-column:3;display:flex!important;flex-direction:column}
+body.phase5-fusion #flowbody{padding:5px 14px!important}
+body.phase5-fusion .frow{min-height:30px!important;padding:4px 0!important;gap:9px!important;font-size:11px!important}
+body.phase5-fusion .fcat{width:104px!important}
+body.phase5-fusion .fdet{font-size:10px!important}
+body.phase5-fusion .fblocks{font-size:11px!important}
+body.phase5-fusion #absbody,body.phase5-fusion #imbbody{padding:10px 14px!important;overflow:auto!important}
+body.phase5-fusion #alerthist .ah-head{height:38px!important;min-height:38px!important;padding:0 12px!important;font-size:10px!important}
+body.phase5-fusion #alertrows{max-height:none!important;flex:1!important;padding:5px 12px!important}
+body.phase5-fusion .arow{gap:7px!important;padding:4px 0!important;font-size:10px!important}
+body:not(.phase5-fusion) #tape{display:none!important}
+#fpdomstatus{max-width:245px;overflow:hidden;text-overflow:ellipsis;color:#25B7E8}
+#fpdomstatus.warning{color:#F4C542}
+#tape{display:flex;flex-direction:column;width:100%;height:552px;min-height:552px;overflow:hidden}
+#tape .tape-head{height:36px;min-height:36px;padding:0 8px!important}
+#tape .tape-head .ptitle{font-size:12px}
+#tapestate{color:#25B7E8;font:900 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.04em}
+#tapestate[data-state="RECONNECTING"]{color:#6E7B96}
+#tapestate[data-state="TAPE_GAP"]{color:#F4C542}
+.tape-direction{color:#AAB7CD;font:800 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.tape-controls{display:grid;grid-template-columns:1fr 1fr;gap:5px 6px;padding:7px;border-bottom:1px solid #1D2A43;background:#09111F}
+.tape-controls label{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:5px;color:#AAB7CD;font:800 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:nowrap}
+.tape-controls select,.tape-controls input[type="number"]{min-width:0;width:100%;height:24px;padding:2px 4px;border:1px solid #526482;border-radius:3px;background:#070D18;color:#F1F5FF;font:800 11px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.tape-controls .tape-check{grid-column:1 / -1;display:flex;justify-content:flex-start}
+#tapefilterstate,#tapegap,#tapecount,#tapedetail{padding:4px 6px;border-bottom:1px solid #1D2A43;background:#070D18;color:#AAB7CD;font:800 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tapefilterstate{height:21px;min-height:21px}
+#tapefilterstate.active{color:#F4C542}
+#tapegap{height:21px;min-height:21px}
+#tapegap.warning{color:#F4C542;background:#2A210B}
+#tapecols{display:grid;grid-template-columns:102px minmax(42px,1fr) 47px 15px;gap:3px;height:25px;min-height:25px;padding:7px 5px 3px;border-bottom:1px solid #273654;color:#DCE5F7;font:900 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right}
+#tapecols span:first-child{text-align:left}
+#tapeviewport{position:relative;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;background:#060C16;outline:none;scrollbar-width:thin}
+#tapeviewport:focus-visible{box-shadow:inset 0 0 0 1px #25B7E8}
+#tapespacer{width:1px;pointer-events:none}
+#taperows{position:absolute;inset:0 0 auto 0;height:0}
+.tape-row{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:102px minmax(42px,1fr) 47px 15px;align-items:center;gap:3px;width:100%;height:28px;padding:0 5px;border:0;border-bottom:1px solid #1D2A43;background:#07101C;color:#F1F5FF;font:800 14px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right;cursor:pointer}
+.tape-row:hover{background:#101B2D}.tape-row.buy{color:#65E8AC}.tape-row.sell{color:#FF7183}
+.tape-row.large{box-shadow:inset 0 0 0 1px #F4C542}.tape-row.selected{box-shadow:inset 0 0 0 2px #F1F5FF}.tape-row.linked{background:#24304A}
+.tape-row .tape-time{text-align:left;color:#DCE5F7}.tape-row .tape-side{font-weight:950}.tape-row[hidden]{display:none}
+#tapedetail{height:46px;min-height:46px;font-size:10px;white-space:normal;line-height:1.35;overflow:auto;color:#DCE5F7}
+#tapecount{height:22px;min-height:22px;border-bottom:0;border-top:1px solid #1D2A43}
+</style>
 </head>
 <body class="notranslate">
 <div id="banner"></div>
@@ -651,30 +729,25 @@ body{
     <div id="center">
       <div class="panel" style="flex:1;position:relative">
         <div class="phead">
-          <span class="ptitle" id="fptitle">FOOTPRINT</span>
+          <span class="ptitle" id="fptitle">FOOTPRINT CHART</span>
           <span class="ctl">
-            <span id="fpva" style="font-size:11px;font-weight:800;color:var(--warn);letter-spacing:.03em">VA 70%</span>
+            <span class="fp-control-label">JST</span>
+            <span id="fpdomstatus" class="fp-control-label">DOM NO_SNAPSHOT · BID — · ASK — · SPREAD —</span>
+            <span id="fpva" class="fp-control-label">VA 70%</span>
             <button id="fpgear" title="Value Area %" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button>
-            <button id="prevbar">◀</button><span class="idx" id="baridx">—/—</span><button id="nextbar">▶</button>
-            <span style="width:1px;height:14px;background:var(--line);margin:0 4px"></span>
-            <button id="zin">＋</button><button id="zout">－</button>
-            <button id="plock" class="lock">🔒</button>
+            <label class="fp-control-label" for="fpstep">STEP</label>
+            <select id="fpstep" title="Display-only price aggregation step"><option value="AUTO">AUTO</option><option value="1">1 TICK</option><option value="2">2 TICKS</option><option value="5">5 TICKS</option><option value="10">10 TICKS</option><option value="20">20 TICKS</option></select>
+            <button id="prevbar" title="Move one bar into history">◀</button><button id="nextbar" title="Move one bar toward live">▶</button>
+            <button id="fp3" class="fp-bars-btn" title="Detailed 3-bar view">3</button><button id="fp10" class="fp-bars-btn on" title="Standard 10-bar view">10</button><button id="fp20" class="fp-bars-btn" title="Overview 20-bar view">20</button>
+            <button id="plock" class="lock" title="Return to forming bar">LIVE LOCK</button>
           </span>
         </div>
         <div id="fpgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
           <div>VA% <input id="fpvapct" type="number" min="30" max="95" value="70" style="width:56px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
         </div>
-        <div id="fptotals">
-          <span><span class="k">Σ BID</span><b id="fpbidtotal" style="color:var(--sell)">—</b></span>
-          <span><span class="k">Σ ASK</span><b id="fpasktotal" style="color:var(--buy)">—</b></span>
-          <span><span class="k">DELTA</span><b id="fpdeltatotal">—</b></span>
-        </div>
-        <div id="fpcols">
-          <span style="width:110px">PRICE</span><span style="flex:1;text-align:right;padding-right:8px">BID</span>
-          <span style="width:26px"></span><span style="flex:1;padding-left:8px">ASK</span>
-          <span style="width:60px;text-align:right">DELTA</span><span style="width:44px;text-align:center">SIG</span>
-        </div>
-        <div id="fpbody"><div class="dash" style="text-align:center">—</div></div>
+        <div id="fpstage"><canvas id="fpcanvas" tabindex="0" role="img" aria-label="Multi-bar Footprint Chart. BID is aggressive sell volume and ASK is aggressive buy volume."></canvas><div id="fptooltip" hidden></div></div>
+        <div id="fpselection" role="status" aria-live="polite">SELECT A PRICE CELL · ARROW KEYS MOVE · ESC CLEAR</div>
+        <div id="fpstatus">DISPLAY STEP AUTO · 20–40 PRICE ROWS · DPR — · RENDER P95 —</div>
       </div>
 
       <div id="flowrow" style="display:block;width:100%;flex-shrink:0">
@@ -719,6 +792,22 @@ body{
         <div id="absbody" style="padding:8px 12px"><div class="dash" style="text-align:center">—</div></div>
       </div>
       <div id="alerthist" style="position:relative"><div class="ah-head" style="display:flex;align-items:center;justify-content:space-between">🕘 ALERTS <button id="alertgear" title="Live alert settings" style="background:none;border:1px solid var(--line);color:var(--sub);border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 6px">⚙</button></div><div id="alertsetpop" style="display:none;position:absolute;right:8px;top:30px;z-index:50;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)"><div style="margin-bottom:6px">Strength threshold <input id="alertthrin" type="number" min="0" max="1" step="0.05" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div style="margin-bottom:6px">History size <input id="alerthistin" type="number" min="1" max="50" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div><div>Display seconds <input id="alertsecsin" type="number" min="1" max="30" step="1" style="width:60px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div></div><div id="alertrows"></div></div>
+      <aside id="tape" class="panel" aria-label="Time and Sales. Newest accepted trade is first.">
+        <div class="phead tape-head"><span class="ptitle">TIME &amp; SALES</span><span class="tape-direction">NEWEST ↑ · JST</span><span id="tapestate">RECONNECTING</span></div>
+        <div class="tape-controls" aria-label="Time and Sales display filters">
+          <label>SIDE <select id="tapeside"><option>ALL</option><option>BUY</option><option>SELL</option></select></label>
+          <label>MIN QTY <input id="tapeminqty" type="number" min="0" step="0.001" value="0"></label>
+          <label>MIN NOTIONAL <input id="tapeminnotional" type="number" min="0" step="100" value="0"></label>
+          <label>LARGE ≥ <input id="tapelarge" type="number" min="0" step="1000" value="10000"></label>
+          <label class="tape-check"><input id="tapelargeonly" type="checkbox"> LARGE ONLY</label>
+        </div>
+        <div id="tapefilterstate">FILTER ALL · QTY ≥ 0 · NOTIONAL ≥ 0 · LARGE ONLY OFF · LARGE ≥ 10000</div>
+        <div id="tapegap">TAPE GAP · — · DROP 0 · STREAM RESTART —</div>
+        <div id="tapecols" role="row"><span>TIME</span><span>PRICE</span><span>QTY</span><span>S</span></div>
+        <div id="tapeviewport" tabindex="0" role="grid" aria-label="Virtualized Time and Sales rows"><div id="tapespacer"></div><div id="taperows"></div></div>
+        <div id="tapedetail" role="status" aria-live="polite">SELECT A TRADE · ARROW KEYS MOVE · ENTER SYNC · ESC CLEAR</div>
+        <div id="tapecount">HIST 0 · LIVE 0 · KEPT 0/500 · SHOWN 0 · DOM 0/32 · GAPS 0 · RENDER P95 —</div>
+      </aside>
     </div>
   </div>
 
@@ -834,12 +923,17 @@ body{
 
 <div id="devov"><div class="dh">🐛 DEVELOPER OVERLAY</div><div id="devgrid"></div><div id="wdlog" style="margin-top:4px;font-size:9px;color:#FFC400;min-height:12px"></div></div>
 
+<script src="/static/footprint_canvas.js"></script>
+<script src="/static/time_sales.js"></script>
 <script>
 "use strict";
 // ============================================================
 // UIは Payload のみを参照する。判定ロジック禁止（表示整形のみ）。
 // 対応 Payload version:
 const UI_PAYLOAD_VERSION = 1;
+// Phase 5 presentation rollback boundary. Backend collection/storage stays active.
+const PHASE5_FUSION_ENABLED = true;
+document.body.classList.toggle("phase5-fusion",PHASE5_FUSION_ENABLED);
 // FLOWカテゴリ色（イベント一覧とチャートマーカーで共有）
 const CAT={LARGE_TRADE:"#FF4FA3",SWEEP:"#23DFFF",EXHAUSTION:"#FFE35D",
   UNFINISHED_AUCTION:"#A66BFF",TAPE:"#F6F7FF",ABSORPTION:"#39F89D"};
@@ -864,15 +958,16 @@ const S={
   oiSamples:[],oiPollIntervalSec:10,hfmQuote:null,
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
   liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,
-  vwapHistory:new Map(),
+  vwapHistory:new Map(),liveBook:{sync_state:"NO_SNAPSHOT",bids:[],asks:[]},
   };
 const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],currentEventBuckets:new Map(),totalBars:0,selectedTime:null,priceScale:null};
+let TAPE_UI=null,tapeHistoryLoading=false;
 
 // ---------------- WebSocket ----------------
 let ws=null, backoff=1000;
 function connect(){
   ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
-  ws.onopen=()=>{backoff=1000;setLive(true);};
+  ws.onopen=()=>{backoff=1000;setLive(true);if(PHASE5_FUSION_ENABLED)loadTimeSalesHistory();};
   ws.onclose=()=>{setLive(false);setTimeout(connect,backoff);backoff=Math.min(backoff*2,10000);};
   ws.onerror=()=>ws.close();
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(_){return;}handle(m);};
@@ -883,6 +978,8 @@ function setLive(on){
   el.style.color=on?BUY:DIS;
   el.style.background=on?"rgba(0,230,118,.08)":"transparent";
   el.style.borderColor=on?"rgba(0,230,118,.25)":LINE;
+  if(TAPE_UI)TAPE_UI.setConnected(on);
+  if(!on&&PHASE5_FUSION_ENABLED){S.liveBook={sync_state:"NO_CONNECTION",bids:[],asks:[]};renderFootprint("liveDom");}
 }
 
 function versionWarn(serverV){
@@ -920,6 +1017,8 @@ function handle(m){
       case "STATS": S.stats=p; renderDev(); break;
       case "HEALTH": S.health=p; renderHealth(); break;
       case "BAR_UPDATE": onBarUpdate(p); break;
+      case "BOOK_UPDATE": if(PHASE5_FUSION_ENABLED)onBookUpdate(p); break;
+      case "TAPE_UPDATE": if(PHASE5_FUSION_ENABLED)onTapeUpdate(m,p); break;
       default: break; // 未知typeは破棄（前方互換）
     }
   }catch(_){/* 必須フィールド欠落等はメッセージ単位でスキップ。画面は落とさない */}
@@ -934,9 +1033,15 @@ function onTick(m,p){
   S.latency=isNaN(sv)?null:Math.max(0,Date.now()-sv);
   renderTop();
   renderLiveObservation();
-  // refresh the "+Ns" elapsed annotation on the latest closed bar per TICK
-  if(S.bars.length&&(S.lock||S.barView<0)&&!S.liveBar)fpTitle(S.bars[S.bars.length-1],true);
   updateFootprintCurrentPrice();
+}
+function onBookUpdate(p){
+  S.liveBook=p&&typeof p==="object"?p:{sync_state:"INVALID",bids:[],asks:[]};
+  renderFootprint("liveDom");
+}
+function onTapeUpdate(m,p){
+  if(!TAPE_UI)return;
+  TAPE_UI.ingestBatch(p,m.symbol||S.symbol);
 }
 function rememberVwap(p){
   const time=Date.parse(p.bar_time),value=N(p.vwap);
@@ -946,6 +1051,7 @@ function rememberVwap(p){
 }
 function onCandle(p){
   rememberVwap(p);
+  rememberFootprintBar(p);
   if(S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
   if(S.liveBar&&Date.parse(S.liveBar.bar_time)<=Date.parse(p.bar_time))S.liveBar=null;
   const pTime=Date.parse(p.bar_time);
@@ -957,7 +1063,7 @@ function onCandle(p){
   pushSeries("CVD+Δ",{cvd:N(p.cvd),delta:N(p.delta)});
   pushSeries("VOLUME",N(p.volume));
   renderCvdSlope();
-  renderBook(p.orderbook); renderFootprint(); renderChart(); renderLiveObservation();
+  renderBook(p.orderbook); renderFootprint("staticHistory"); renderChart(); renderLiveObservation();
 }
 function onFlowResponse(m,p){
   S.flowResponse=p.windows||[];
@@ -1132,7 +1238,7 @@ function onBarUpdate(p){
   if(S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
   // 形成中バー: 価格チャートと、追従モード時の FOOTPRINT に反映。
   S.liveBar=p;
-  if(S.lock&&S.barView<0)renderFootprint();
+  renderFootprint("liveFootprint");
   renderChart();
   renderLiveObservation();
 }
@@ -1192,120 +1298,114 @@ function renderBook(book){
   el.innerHTML=rows.join("");
 }
 
-function fpTitle(bar,isLatest,forming){
-  // forming=true: BAR_UPDATE 由来の形成中バー。それ以外は確定バー。
-  let t=`FOOTPRINT — BAR ${bar.bar_time.slice(11,16)} (${bar.timeframe}) [${forming?"FORMING":"CLOSED"}]`;
-  if(forming){$("fptitle").textContent=t;return;}
-  if(isLatest&&S.lastTickServerMs!=null){
-    const closeMs=Date.parse(bar.bar_time)+fpTfSeconds(bar.timeframe)*1000;
-    const el=Math.max(0,Math.floor((S.lastTickServerMs-closeMs)/1000));
-    t+=` +${el}s`;   // seconds elapsed since this bar closed (updated per TICK)
-  }
-  $("fptitle").textContent=t;
+// ---- Phase 4 Canvas Footprint Chart ---------------------------------------
+// Raw levels remain untouched. Bucket/POC/VA/Imbalance below are display-only.
+const FP={vaPct:70,priceStep:"AUTO",history:new Map(),cursor:null,loading:false,exhausted:false,chart:null};
+function normalizedFootprintBar(raw){
+  if(!raw)return null;
+  const time=Date.parse(raw.bar_time);
+  const levels=raw.footprint&&Array.isArray(raw.footprint.levels)?raw.footprint.levels:Array.isArray(raw.levels)?raw.levels:null;
+  if(!Number.isFinite(time)||!levels)return null;
+  return {...raw,footprint:{...(raw.footprint||{}),levels}};
 }
-function fpRow(l,fp,max,currentPrice){
-  const bid=N(l.bid),ask=N(l.ask),d=ask-bid;
-  const isPoc=l.price===fp.poc_price, isVah=l.price===fp.vah_price, isVal=l.price===fp.val_price;
-  const inVa=fp.vah_price!=null&&fp.val_price!=null&&N(l.price)<=N(fp.vah_price)&&N(l.price)>=N(fp.val_price);
-  // SIG列は「表示強調」のみ（判定はFLOW/ANALYSISが正）
-  const imb=ask>bid*3?"buy":bid>ask*3?"sell":null;
-  const abs=(bid+ask)>max*1.4&&Math.abs(d)<max*0.1;
-  return `<div data-price="${l.price}" class="fprow${isPoc?" poc":inVa?" va":""}${inVa?" in-va":""}${isVah?" vah":""}${isVal?" val":""}${l.price===currentPrice?" current-price":""}" style="font-size:${13*S.zoom}px;height:${(FP_ROW_H*S.zoom).toFixed(1)}px">
-    <span class="fp-price" style="color:${isPoc?WARN:SUB}">${fmt(l.price,1)}
-      ${isPoc?'<span class="badge poc">POC</span>':""}${isVah&&!isPoc?'<span class="badge va">VAH</span>':""}${isVal&&!isPoc?'<span class="badge va">VAL</span>':""}</span>
-    <span class="fp-side bid"><span style="color:${SELL}">${fmt(l.bid)}</span>
-      <span class="fp-bar" style="width:${(bid/max*100).toFixed(1)}%;background:rgba(255,77,77,.55)"></span></span>
-    <span class="fp-x">×</span>
-    <span class="fp-side ask"><span class="fp-bar" style="width:${(ask/max*100).toFixed(1)}%;background:rgba(0,230,118,.5)"></span>
-      <span style="color:${BUY}">${fmt(l.ask)}</span></span>
-    <span class="fp-delta" style="color:${d>=0?BUY:SELL}">${Math.abs(d)<0.05?"0.0":(d>0?"+":"")+d.toFixed(1)}</span>
-    <span class="fp-sig">${imb==="buy"?'<span class="fp-dir buy">BUY</span>':imb==="sell"?'<span class="fp-dir sell">SELL</span>':""}${abs?`<span style="color:${WARN}"> ●</span>`:""}</span>
-  </div>`;
+function rememberFootprintBar(raw){
+  const bar=normalizedFootprintBar(raw);if(!bar)return false;
+  FP.history.set(Date.parse(bar.bar_time),bar);return true;
 }
-// ---- Footprint independent indicator: client-side native Value Area ----
-// Mirrors server compute_value_area (push_broker.py:37-59) so numbers match at
-// VA%=70. levels arrive price-descending (main.py:99-113). Prices are returned
-// as the level's original string to preserve badge string-equality.
-const FP={vaPct:70};
-function computeValueArea(levels,vaPct){
-  if(!levels||!levels.length)return {poc:null,vah:null,val:null};
-  const tot=levels.map(l=>N(l.bid)+N(l.ask));
-  let poc=0; for(let i=1;i<tot.length;i++)if(tot[i]>tot[poc])poc=i;
-  const grand=tot.reduce((a,b)=>a+b,0);
-  const target=grand*(vaPct/100);
-  let lo=poc,hi=poc,acc=tot[poc];
-  while(acc<target&&(hi>0||lo<tot.length-1)){
-    const up=hi>0?tot[hi-1]:-1;
-    const dn=lo<tot.length-1?tot[lo+1]:-1;
-    if(up>=dn){hi--;acc+=up;}else{lo++;acc+=dn;}
-  }
-  return {poc:levels[poc].price,vah:levels[hi].price,val:levels[lo].price};
+function decorateFootprintFacts(merged,liveTime=null){
+  const normalized=merged.map(bar=>normalizeMarketBar(bar,liveTime!=null&&Date.parse(bar.bar_time)===liveTime));
+  const eventBuckets=flowEventBuckets(normalized.filter(Boolean));
+  return merged.map((bar,index)=>{
+    const market=normalized[index],previous=index>0?normalized[index-1]:null;
+    const cvdChange=market&&previous&&Number.isFinite(market.cvd)&&Number.isFinite(previous.cvd)?market.cvd-previous.cvd:null;
+    const oi=market?oiContextForBar(market):null;
+    return {...bar,cvd_change:cvdChange,oi_change:oi&&oi.change!=null?oi.change:null,events_count:market?(eventBuckets.get(market.time)||[]).length:0};
+  });
+}
+function footprintClosedBars(){
+  const facts=new Map(S.bars.filter(b=>Number.isFinite(Date.parse(b.bar_time))).map(b=>[Date.parse(b.bar_time),b]));
+  const merged=[...FP.history.entries()].sort((a,b)=>a[0]-b[0]).map(([time,stored])=>{
+    const candle=facts.get(time)||{};
+    return {...stored,...candle,footprint:stored.footprint};
+  });
+  return decorateFootprintFacts(merged);
+}
+function footprintLiveBar(closedBars=null){
+  const live=normalizedFootprintBar(S.liveBar);if(!live)return null;
+  const closed=FP.history.get(Date.parse(live.bar_time));if(closed)return null;
+  const previous=(closedBars||footprintClosedBars()).slice(-1);
+  return decorateFootprintFacts([...previous,live],Date.parse(live.bar_time)).slice(-1)[0];
+}
+function latestFootprintVwap(rows,live){
+  if(live&&Number.isFinite(N(live.vwap)))return N(live.vwap);
+  const last=rows[rows.length-1];return last&&Number.isFinite(N(last.vwap))?N(last.vwap):null;
 }
 function computeFootprintTotals(levels){
   let bid=0,ask=0;
   for(const l of levels||[]){bid+=N(l.bid);ask+=N(l.ask);}
   return {bid,ask,delta:ask-bid};
 }
-function exactFootprintPrice(levels,price){
-  if(price==null||!levels||!levels.length)return null;
-  const match=levels.find(l=>N(l.price)===N(price));
-  return match?match.price:null;
-}
 function updateFootprintCurrentPrice(){
-  if(!S.lock||S.barView>=0||S.price==null)return;
-  const bar=S.liveBar||S.bars[S.bars.length-1];
-  if(!bar||!bar.footprint||!bar.footprint.levels.length)return;
-  const currentPrice=exactFootprintPrice(bar.footprint.levels,S.price);
-  const rows=$("fpbody").querySelectorAll(".fprow");
-  rows.forEach(row=>{
-    const on=currentPrice!=null&&row.dataset.price===String(currentPrice);
-    row.classList.toggle("current-price",on);
-  });
+  if(FP.chart)FP.chart.setData({currentPrice:S.price},"reference");
 }
-function renderFootprint(){
-  const useLive=S.lock&&S.barView<0&&S.liveBar;
-  if(!S.bars.length&&!useLive)return;
-  const idx=S.lock||S.barView<0?S.bars.length-1:Math.min(S.barView,S.bars.length-1);
-  const bar=useLive?S.liveBar:S.bars[idx]; const fp=bar.footprint;
-  // Recompute POC/VA client-side at the gear-selected VA% and overlay onto a
-  // shallow copy so fpRow (which reads poc_price/vah_price/val_price) stays
-  // unchanged. Server values remain the fallback shape but are not used here.
-  const _va=computeValueArea(fp.levels,FP.vaPct);
-  const fpv={...fp,poc_price:_va.poc,vah_price:_va.vah,val_price:_va.val};
-  const isLatest=idx===S.bars.length-1;
-  fpTitle(bar,isLatest,!!useLive);
-  $("baridx").textContent=useLive?`LIVE/${S.bars.length}`:`${idx+1}/${S.bars.length}`;
-  const lv=fp.levels;
-  const currentPrice=S.lock&&S.barView<0?exactFootprintPrice(lv,S.price):null;
-  const totals=computeFootprintTotals(lv);
-  $("fpbidtotal").textContent=fmt(totals.bid);
-  $("fpasktotal").textContent=fmt(totals.ask);
-  const deltaTotalEl=$("fpdeltatotal");
-  deltaTotalEl.textContent=(totals.delta>0?"+":"")+fmt(totals.delta);
-  deltaTotalEl.style.color=totals.delta>0?BUY:totals.delta<0?SELL:DIS;
-  if(!lv.length){$("fpbody").innerHTML='<div class="dash" style="text-align:center">—</div>';return;}
-  const max=Math.max(...lv.map(l=>Math.max(N(l.bid),N(l.ask))),0.0001);
-  // --- viewport slicing (Task-D): fit rows to fpbody, center on POC ---
-  const bodyH=$("fpbody").clientHeight||0;
-  const rowH=FP_ROW_H*S.zoom;
-  let visible=Math.max(1,Math.floor(bodyH/rowH));
-  let start,end;
-  if(lv.length<=visible){ start=0; end=lv.length; }
-  else{
-    let center=lv.findIndex(l=>l.price===fpv.poc_price);
-    if(center<0)center=Math.floor(lv.length/2);         // fallback: price-center
-    // reserve one slot for each overflow indicator that will appear
-    let cap=visible; if(cap>2)cap-=2;                    // reserve slots for the ▲/▼ overflow indicators
-    start=center-Math.floor(cap/2);
-    if(start<0)start=0;
-    end=start+cap;
-    if(end>lv.length){ end=lv.length; start=Math.max(0,end-cap); }
+function renderFootprint(layer="liveFootprint"){
+  if(!FP.chart)return;
+  const bars=footprintClosedBars(),live=footprintLiveBar(bars);
+  FP.chart.setData({
+    bars,liveBar:live,currentPrice:S.price,vwap:latestFootprintVwap(bars,live),
+    book:PHASE5_FUSION_ENABLED?S.liveBook:null,
+    vaPct:FP.vaPct,priceStep:FP.priceStep,ratio:IMB.ratio,minVolume:IMB.minVol,stack:IMB.stack,
+  },layer);
+}
+async function loadFootprintHistory(before=null){
+  if(FP.loading||FP.exhausted)return 0;
+  FP.loading=true;
+  let loaded=0;
+  try{
+    const cursor=before||FP.cursor;
+    const latest=S.liveBar||S.bars[S.bars.length-1];
+    const query=new URLSearchParams({limit:"40",timeframe:String(latest&&latest.timeframe||"1m")});
+    if(cursor)query.set("before",cursor);
+    const response=await fetch(`/api/history/footprints?${query.toString()}`);
+    if(!response.ok)return 0;
+    const payload=await response.json();
+    const rows=Array.isArray(payload.footprints)?payload.footprints:[];
+    loaded=rows.length;
+    for(const row of rows)rememberFootprintBar(row);
+    const next=payload.next_before||null;
+    if(!rows.length||!next||next===cursor)FP.exhausted=true;
+    else FP.cursor=next;
+    renderFootprint("staticHistory");
+  }catch(_){/* live Footprint continues when persisted history is unavailable */}
+  finally{FP.loading=false;}
+  return loaded;
+}
+
+async function loadTimeSalesHistory(){
+  if(!TAPE_UI||tapeHistoryLoading)return 0;
+  tapeHistoryLoading=true;
+  try{
+    const query=new URLSearchParams({limit:"500"});
+    if(S.symbol&&S.symbol!=="—")query.set("symbol",S.symbol);
+    const response=await fetch(`/api/history/time-sales?${query.toString()}`);
+    if(!response.ok)return 0;
+    const payload=await response.json();
+    const rows=Array.isArray(payload.trades)?payload.trades:[];
+    return TAPE_UI.mergeHistory(rows,S.symbol);
+  }catch(_){return 0;}
+  finally{tapeHistoryLoading=false;}
+}
+
+async function selectTapeTrade(trade){
+  if(!FP.chart||!trade)return;
+  if(FP.chart.selectTrade(trade))return;
+  for(let page=0;page<12&&!FP.exhausted;page+=1){
+    const cursor=FP.cursor;
+    const loaded=await loadFootprintHistory(cursor);
+    if(FP.chart.selectTrade(trade))return;
+    if(!loaded||FP.cursor===cursor)break;
   }
-  const hiddenAbove=start, hiddenBelow=lv.length-end;
-  const rows=lv.slice(start,end).map(l=>fpRow(l,fpv,max,currentPrice)).join("");
-  const above=hiddenAbove>0?`<div class="fp-more">▲ +${hiddenAbove} levels</div>`:"";
-  const below=hiddenBelow>0?`<div class="fp-more">▼ +${hiddenBelow} levels</div>`:"";
-  $("fpbody").innerHTML=above+rows+below;
+  if(TAPE_UI)TAPE_UI.markSelectionError("BAR NOT LOADED");
 }
 
 // ---- Imbalance independent indicator: client-side wall detection (案3) ----
@@ -1384,7 +1484,7 @@ function renderImbalance(){
     if(r>=1)IMB.ratio=r; if(s>=2)IMB.stack=s; if(m>=0)IMB.minVol=m;
     IMB.custom=true;
     $("imbratio").textContent=`ratio ≥ ${IMB.ratio}`;
-    renderImbalance();
+    renderImbalance();renderFootprint("staticHistory");
   };
   ri.onchange=apply;si.onchange=apply;mi.onchange=apply;
 })();
@@ -1446,12 +1546,12 @@ const flowRow=$("flowrow"),alertPanel=$("alerthist");
 const bottomPanel=$("bottom"),appgrid=$("appgrid");if(bottomPanel&&appgrid)appgrid.insertBefore(bottomPanel,appgrid.children[1]);
 const flowTop=$("flowtop");
 const mainCol=$("main"),centerCol=$("center"),leftCol=$("left"),rightCol=$("right");
-if(flowTop&&mainCol&&centerCol){mainCol.insertBefore(flowTop,centerCol);flowTop.style.width="100%";}
+if(flowTop&&appgrid){appgrid.appendChild(flowTop);flowTop.style.width="100%";}
 if(flowTop&&flowRow){flowTop.appendChild(flowRow);flowRow.style.width="100%";}
 const absPanel=$("abspanel");
-if(flowTop&&absPanel){flowTop.appendChild(absPanel);absPanel.style.flex="0 0 auto";if(flowRow)absPanel.style.width=flowRow.offsetWidth+"px";}
+if(flowTop&&absPanel){flowTop.appendChild(absPanel);absPanel.style.flex="0 0 auto";}
 const imbPanel=$("imbpanel");
-if(flowTop&&imbPanel){flowTop.appendChild(imbPanel);imbPanel.style.flex="0 0 auto";if(flowRow)imbPanel.style.width=flowRow.offsetWidth+"px";}
+if(flowTop&&imbPanel){flowTop.appendChild(imbPanel);imbPanel.style.flex="0 0 auto";}
 if(rightCol&&leftCol){rightCol.appendChild(leftCol);leftCol.style.width="100%";leftCol.style.flex="0 0 auto";}
 if(flowTop&&alertPanel){flowTop.appendChild(alertPanel);alertPanel.style.display="none";alertPanel.style.flex="0 0 auto";alertPanel.style.width="100%";alertPanel.style.minWidth="0";}
 function renderAnalysis(){
@@ -1467,7 +1567,7 @@ function renderAnalysis(){
       const ir=$('imbratio'); if(ir)ir.textContent=`ratio ≥ ${IMB.ratio}`;
     }
   }
-  renderImbalance();
+  renderImbalance();renderFootprint("staticHistory");
   ABS=a.absorption||null;
   renderAbsorption();
   renderLiveObservation();
@@ -1970,7 +2070,7 @@ async function loadChartHistory(){
     S.series["CVD+Δ"].cvd=S.bars.map(b=>N(b.cvd)).filter(Number.isFinite).slice(-140);
     S.series["CVD+Δ"].delta=S.bars.map(b=>N(b.delta)).filter(Number.isFinite).slice(-140);
     S.series.VOLUME=S.bars.map(b=>N(b.volume)).filter(Number.isFinite).slice(-140);
-    renderCvdSlope();renderChart();renderLiveObservation();
+    renderCvdSlope();renderFootprint("staticHistory");renderChart();renderLiveObservation();
   }catch(_){/* live stream continues even when history is unavailable */}
 }
 async function loadOiHistory(){
@@ -2162,25 +2262,50 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
 })();
 
 // footprint controls
-// --- Footprint VA% gear (immediate, no reload; spec §7) ---
+function updateFootprintControls(view){
+  for(const count of [3,10,20])$("fp"+count).classList.toggle("on",view.visibleBars===count);
+  $("plock").classList.toggle("off",!view.lock);
+  $("plock").textContent=view.lock?"LIVE LOCK":"RETURN LIVE";
+  $("fptitle").textContent=`FOOTPRINT CHART · ${view.visibleBars} BARS · ${view.lock?"LIVE":"HISTORY +"+view.offset}`;
+}
+if(PHASE5_FUSION_ENABLED){
+  TAPE_UI=new DeltaTimeSales.TimeSalesView({
+    viewport:$("tapeviewport"),rowsElement:$("taperows"),spacer:$("tapespacer"),detail:$("tapedetail"),
+    stateElement:$("tapestate"),gapElement:$("tapegap"),countElement:$("tapecount"),filterElement:$("tapefilterstate"),
+    capacity:500,poolSize:32,rowHeight:28,onSelect:selectTapeTrade,onStreamRestart:()=>loadTimeSalesHistory(),
+  });
+  const applyTapeFilters=()=>{
+    const minimumQuantity=Math.max(0,N($("tapeminqty").value)||0);
+    const minimumNotional=Math.max(0,N($("tapeminnotional").value)||0);
+    const largeThreshold=Math.max(0,N($("tapelarge").value)||0);
+    TAPE_UI.setFilters({side:$("tapeside").value,minimumQuantity,minimumNotional,largeOnly:$("tapelargeonly").checked,largeThreshold});
+  };
+  for(const id of ["tapeside","tapeminqty","tapeminnotional","tapelarge","tapelargeonly"])$(id).onchange=applyTapeFilters;
+}
+FP.chart=new DeltaFootprint.CanvasChart({
+  canvas:$("fpcanvas"),tooltip:$("fptooltip"),detail:$("fpselection"),status:$("fpstatus"),domStatus:$("fpdomstatus"),
+  showDom:PHASE5_FUSION_ENABLED,onNeedHistory:()=>loadFootprintHistory(FP.cursor),onViewport:updateFootprintControls,
+  onSelection:selection=>{if(TAPE_UI)TAPE_UI.highlightBucket(selection);},
+});
+updateFootprintControls({visibleBars:10,offset:0,lock:true});
+// --- Footprint VA% gear (immediate, no reload; display-only) ---
 (function(){
   const gear=$("fpgear"),pop=$("fpgearpop"),input=$("fpvapct"),label=$("fpva");
   gear.onclick=()=>{pop.style.display=pop.style.display==="none"?"block":"none";};
   input.onchange=()=>{
     const v=parseInt(input.value,10);
-    if(v>=30&&v<=95){FP.vaPct=v;label.textContent=`VA ${v}%`;renderFootprint();}
+    if(v>=30&&v<=95){FP.vaPct=v;label.textContent=`VA ${v}%`;renderFootprint("staticHistory");}
     else{input.value=String(FP.vaPct);}
   };
 })();
-$("prevbar").onclick=()=>{S.lock=false;$("plock").textContent="🔓";
-  S.barView=(S.barView<0?S.bars.length-1:S.barView)-1;if(S.barView<0)S.barView=0;renderFootprint();};
-$("nextbar").onclick=()=>{if(S.barView<0)return;S.barView=Math.min(S.barView+1,S.bars.length-1);renderFootprint();};
-$("zin").onclick=()=>{S.zoom=Math.min(1.5,S.zoom+0.25);renderFootprint();};
-$("zout").onclick=()=>{S.zoom=Math.max(0.75,S.zoom-0.25);renderFootprint();};
-$("plock").onclick=()=>{S.lock=!S.lock;$("plock").textContent=S.lock?"🔒":"🔓";
-  if(S.lock)S.barView=-1;renderFootprint();};
+$("fpstep").onchange=event=>{FP.priceStep=event.target.value;FP.chart.selection=null;$("fpselection").textContent="SELECT A PRICE CELL · ARROW KEYS MOVE · ESC CLEAR";renderFootprint("viewport");};
+$("prevbar").onclick=()=>FP.chart.setOffset(FP.chart.offset+1);
+$("nextbar").onclick=()=>FP.chart.setOffset(Math.max(0,FP.chart.offset-1));
+for(const count of [3,10,20])$("fp"+count).onclick=()=>FP.chart.setVisibleBars(count,.5);
+$("plock").onclick=()=>FP.chart.returnLive();
+renderFootprint("viewport");
 
-initMarketChart(); renderLiveObservation(); loadChartHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
+initMarketChart(); renderLiveObservation(); loadChartHistory(); loadFootprintHistory(); loadTimeSalesHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
 /* App version — /api/version(正は CHANGELOG.md)。失敗しても UI は阻害しない */
 fetch("/api/version").then(r=>r.json())
   .then(j=>{ $("appver").textContent = j.version || "v?.?.?"; })
@@ -2200,7 +2325,7 @@ fetch("/api/version").then(r=>r.json())
 
   function sample(){
     const panels = {};
-    for (const id of ["appgrid","main","bookbody","fpbody","flowbody","alertrows"]){
+    for (const id of ["appgrid","main","bookbody","fpstage","flowbody","alertrows"]){
       const el = document.getElementById(id);
       if (el) panels[id] = el.clientHeight + "x" + el.clientWidth;
     }

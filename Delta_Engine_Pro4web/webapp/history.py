@@ -46,6 +46,102 @@ def query_candles(
         con.close()
 
 
+def _parse_utc_before(value: str | datetime | None) -> datetime | None:
+    """Parse an API cursor and return a naive UTC value for DuckDB TIMESTAMP."""
+    if value is None:
+        return None
+    parsed = value if isinstance(value, datetime) else datetime.fromisoformat(
+        value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
+    )
+    if parsed.tzinfo is None:
+        raise ValueError("before must be a timezone-aware ISO 8601 timestamp")
+    return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def query_footprints(
+    db_path: str,
+    symbol: str,
+    timeframe: str = "1m",
+    limit: int = 40,
+    before: str | datetime | None = None,
+) -> list[dict]:
+    """Return closed Footprint bars oldest-first with price levels high-to-low.
+
+    ``before`` is an exclusive UTC cursor.  A CTE first limits manifests so a
+    single outlier bar cannot turn the endpoint into an unbounded level scan.
+    """
+    safe_limit = max(1, min(int(limit), 100))
+    before_utc = _parse_utc_before(before)
+    con = duckdb.connect(db_path)
+    try:
+        available = {
+            row[0]
+            for row in con.execute(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_name IN ('footprint_bar_manifest', 'footprint_levels')"
+            ).fetchall()
+        }
+        if available != {"footprint_bar_manifest", "footprint_levels"}:
+            return []
+
+        cursor_clause = ""
+        params: list = [symbol, timeframe]
+        if before_utc is not None:
+            cursor_clause = " AND bar_time < ?"
+            params.append(before_utc)
+        params.append(safe_limit)
+        rows = con.execute(
+            "WITH selected AS ("
+            " SELECT bar_time, symbol, timeframe, level_count, buy_volume, "
+            " sell_volume, content_hash FROM footprint_bar_manifest "
+            " WHERE symbol = ? AND timeframe = ?" + cursor_clause +
+            " ORDER BY bar_time DESC LIMIT ?"
+            ") "
+            "SELECT s.bar_time, s.symbol, s.timeframe, s.level_count, "
+            "s.buy_volume, s.sell_volume, s.content_hash, "
+            "l.price, l.buy_volume, l.sell_volume "
+            "FROM selected s JOIN footprint_levels l "
+            "ON l.bar_time = s.bar_time AND l.symbol = s.symbol "
+            "AND l.timeframe = s.timeframe "
+            "ORDER BY s.bar_time ASC, l.price DESC",
+            params,
+        ).fetchall()
+
+        bars: list[dict] = []
+        by_time: dict[datetime, dict] = {}
+        for row in rows:
+            bar_time = row[0]
+            bar = by_time.get(bar_time)
+            if bar is None:
+                bar = {
+                    "bar_time": _utc_iso(bar_time),
+                    "symbol": row[1],
+                    "timeframe": row[2],
+                    "level_count": int(row[3]),
+                    "buy_volume": str(row[4]),
+                    "sell_volume": str(row[5]),
+                    "content_hash": row[6],
+                    "levels": [],
+                }
+                by_time[bar_time] = bar
+                bars.append(bar)
+            bar["levels"].append({
+                "price": str(row[7]),
+                # WebSocket contract: bid=aggressive sell, ask=aggressive buy.
+                "bid": str(row[9]),
+                "ask": str(row[8]),
+            })
+        for bar in bars:
+            if len(bar["levels"]) != bar["level_count"]:
+                raise RuntimeError(
+                    "footprint history manifest/level count mismatch "
+                    f"for {bar['symbol']} {bar['timeframe']} {bar['bar_time']}"
+                )
+        return bars
+    finally:
+        con.close()
+
+
 def query_flow_response_events(
     db_path: str,
     symbol: str,
@@ -222,3 +318,49 @@ def query_trades(db_path: str, symbol: str, limit: int = 500) -> list[dict]:
         return [{k: str(v) if v is not None else None for k, v in zip(cols, row)} for row in rows]
     finally:
         con.close()
+
+
+def query_time_sales(
+    db_path: str,
+    symbol: str,
+    limit: int = 500,
+    before: str | datetime | None = None,
+    before_trade_id: int | None = None,
+) -> list[dict]:
+    """Return recent accepted trades oldest-first for Time & Sales hydration."""
+    safe_limit = max(1, min(int(limit), 500))
+    before_utc = _parse_utc_before(before)
+    where = "WHERE symbol = ?"
+    params: list = [symbol]
+    if before_utc is not None:
+        if before_trade_id is None:
+            where += " AND event_time < ?"
+            params.append(before_utc)
+        else:
+            where += " AND (event_time < ? OR (event_time = ? AND trade_id < ?))"
+            params.extend([before_utc, before_utc, int(before_trade_id)])
+    params.append(safe_limit)
+
+    con = duckdb.connect(db_path)
+    try:
+        rows = con.execute(
+            "SELECT event_time, trade_id, symbol, price, quantity, side "
+            f"FROM trades {where} "
+            "ORDER BY event_time DESC, trade_id DESC LIMIT ?",
+            params,
+        ).fetchall()
+    finally:
+        con.close()
+
+    trades = []
+    for event_time, trade_id, row_symbol, price, quantity, side in reversed(rows):
+        trades.append({
+            "event_time": _utc_iso(event_time),
+            "trade_id": int(trade_id),
+            "symbol": row_symbol,
+            "price": str(price),
+            "quantity": str(quantity),
+            "notional": str(price * quantity),
+            "side": side,
+        })
+    return trades

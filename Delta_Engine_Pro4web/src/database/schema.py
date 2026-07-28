@@ -11,7 +11,9 @@ M11:    signals table added (SignalEngine output per confirmed bar).
 
 from __future__ import annotations
 
-from datetime import datetime
+import hashlib
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -80,6 +82,60 @@ CREATE TABLE IF NOT EXISTS candles (
 TRADES_COLUMNS = [f.name for f in TRADES_SCHEMA]
 CANDLES_COLUMNS = [f.name for f in CANDLES_SCHEMA]
 
+# --- confirmed Footprint bars -----------------------------------------------
+# Price levels deliberately have no physical four-column ART/unique index.
+# A small bar manifest owns idempotency; the writer inserts one validated bar
+# and all of its levels in the same DuckDB transaction.
+FOOTPRINT_BAR_MANIFEST_SCHEMA = pa.schema(
+    [
+        ("bar_time", TIMESTAMP),
+        ("symbol", pa.string()),
+        ("timeframe", pa.string()),
+        ("level_count", pa.int32()),
+        ("buy_volume", DECIMAL),
+        ("sell_volume", DECIMAL),
+        ("content_hash", pa.string()),
+    ]
+)
+
+FOOTPRINT_LEVELS_SCHEMA = pa.schema(
+    [
+        ("bar_time", TIMESTAMP),
+        ("symbol", pa.string()),
+        ("timeframe", pa.string()),
+        ("price", DECIMAL),
+        ("buy_volume", DECIMAL),
+        ("sell_volume", DECIMAL),
+    ]
+)
+
+FOOTPRINT_BAR_MANIFEST_DDL = """
+CREATE TABLE IF NOT EXISTS footprint_bar_manifest (
+    bar_time TIMESTAMP,
+    symbol VARCHAR,
+    timeframe VARCHAR,
+    level_count INTEGER,
+    buy_volume DECIMAL(20,8),
+    sell_volume DECIMAL(20,8),
+    content_hash VARCHAR,
+    PRIMARY KEY (bar_time, symbol, timeframe)
+);
+"""
+
+FOOTPRINT_LEVELS_DDL = """
+CREATE TABLE IF NOT EXISTS footprint_levels (
+    bar_time TIMESTAMP,
+    symbol VARCHAR,
+    timeframe VARCHAR,
+    price DECIMAL(20,8),
+    buy_volume DECIMAL(20,8),
+    sell_volume DECIMAL(20,8)
+);
+"""
+
+FOOTPRINT_BAR_MANIFEST_COLUMNS = [f.name for f in FOOTPRINT_BAR_MANIFEST_SCHEMA]
+FOOTPRINT_LEVELS_COLUMNS = [f.name for f in FOOTPRINT_LEVELS_SCHEMA]
+
 # --- open-interest raw observations -----------------------------------------
 # Binance USD-M Futures snapshots are stored independently from candles so the
 # original exchange observation remains available for later as-of joins and
@@ -141,6 +197,104 @@ def _q8(value: Any):
         return None
     parsed = value if isinstance(value, Decimal) else Decimal(str(value))
     return parsed.quantize(_SCALE_8)
+
+
+@dataclass(frozen=True)
+class FootprintStorageBatch:
+    """One validated confirmed bar ready for atomic persistence."""
+
+    manifest: dict[str, Any]
+    levels: tuple[dict[str, Any], ...]
+
+
+def _footprint_decimal(value: Any, field: str) -> Decimal:
+    try:
+        parsed = value if isinstance(value, Decimal) else Decimal(str(value))
+    except Exception as exc:  # noqa: BLE001 - normalize to the storage contract
+        raise ValueError(f"footprint {field} is not decimal: {value!r}") from exc
+    if not parsed.is_finite():
+        raise ValueError(f"footprint {field} must be finite: {value!r}")
+    try:
+        quantized = parsed.quantize(_SCALE_8)
+    except Exception as exc:  # noqa: BLE001 - precision overflow is invalid input
+        raise ValueError(f"footprint {field} exceeds DECIMAL(20,8): {value!r}") from exc
+    # DECIMAL(20,8) has room for at most 12 digits to the left of the point.
+    if quantized and quantized.copy_abs().adjusted() >= 12:
+        raise ValueError(f"footprint {field} exceeds DECIMAL(20,8): {value!r}")
+    return quantized
+
+
+def footprint_bar_to_storage(bar: Any) -> FootprintStorageBatch:
+    """Validate and flatten one confirmed FootprintBar.
+
+    The calculator contract is price-ascending and duplicate-free. Rechecking
+    that invariant here prevents a malformed internal bar from bypassing the
+    no-index logical uniqueness contract.
+    """
+
+    bar_time = getattr(bar, "bar_time", None)
+    if not isinstance(bar_time, datetime) or bar_time.tzinfo is None:
+        raise ValueError("footprint bar_time must be timezone-aware UTC")
+    bar_time = bar_time.astimezone(timezone.utc)
+
+    symbol = getattr(bar, "symbol", None)
+    timeframe = getattr(bar, "timeframe", None)
+    if not isinstance(symbol, str) or not symbol or symbol != symbol.strip():
+        raise ValueError("footprint symbol must be a non-empty canonical string")
+    if not isinstance(timeframe, str) or not timeframe or timeframe != timeframe.strip():
+        raise ValueError("footprint timeframe must be a non-empty canonical string")
+
+    source_levels = tuple(getattr(bar, "levels", ()))
+    if not source_levels:
+        raise ValueError("confirmed footprint bar must contain at least one level")
+
+    rows: list[dict[str, Any]] = []
+    digest_lines = [
+        f"{bar_time.isoformat(timespec='microseconds')}|{symbol}|{timeframe}"
+    ]
+    previous_price: Decimal | None = None
+    buy_total = Decimal(0)
+    sell_total = Decimal(0)
+    for index, level in enumerate(source_levels):
+        price = _footprint_decimal(getattr(level, "price", None), f"levels[{index}].price")
+        buy = _footprint_decimal(
+            getattr(level, "buy_volume", None), f"levels[{index}].buy_volume"
+        )
+        sell = _footprint_decimal(
+            getattr(level, "sell_volume", None), f"levels[{index}].sell_volume"
+        )
+        if price <= 0:
+            raise ValueError(f"footprint price must be positive: {price}")
+        if buy < 0 or sell < 0:
+            raise ValueError("footprint volume must be non-negative")
+        if buy == 0 and sell == 0:
+            raise ValueError(f"footprint level has zero total volume: {price}")
+        if previous_price is not None and price <= previous_price:
+            raise ValueError("footprint prices must be strictly ascending and unique")
+        previous_price = price
+        buy_total += buy
+        sell_total += sell
+        rows.append({
+            "bar_time": bar_time,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "price": price,
+            "buy_volume": buy,
+            "sell_volume": sell,
+        })
+        digest_lines.append(f"{price:f}|{buy:f}|{sell:f}")
+
+    content_hash = hashlib.sha256("\n".join(digest_lines).encode("utf-8")).hexdigest()
+    manifest = {
+        "bar_time": bar_time,
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "level_count": len(rows),
+        "buy_volume": _footprint_decimal(buy_total, "total buy_volume"),
+        "sell_volume": _footprint_decimal(sell_total, "total sell_volume"),
+        "content_hash": content_hash,
+    }
+    return FootprintStorageBatch(manifest=manifest, levels=tuple(rows))
 
 
 # --- flow/price response research records ------------------------------------

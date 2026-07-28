@@ -526,6 +526,12 @@ def test_ws_hello_payload_version():
     mock_config.webapp.oi_poll_interval_sec = 10
     mock_config.webapp.tick_push_interval_ms = 50
     mock_config.webapp.bar_update_interval_sec = 0.2
+    mock_config.webapp.live_dom_depth_levels = 50
+    mock_config.webapp.book_update_interval_ms = 100
+    mock_config.webapp.book_stale_after_ms = 2000
+    mock_config.webapp.tape_batch_interval_ms = 100
+    mock_config.webapp.tape_max_trades_per_message = 250
+    mock_config.webapp.tape_pending_capacity = 10000
     mock_config.monitor.enabled = False
     mock_config.monitor.interval_sec = 5
     mock_config.monitor.log_dir = "data/monitor"

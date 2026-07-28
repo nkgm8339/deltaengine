@@ -1,7 +1,7 @@
 # WebSocketPayload仕様_v1
 
 **Document ID**: REF-WSP-001
-**Version**: v1.1（payload `"v": 1`、additive extension）
+**Version**: v1.3（payload `"v": 1`、additive extension）
 **Status**: Fixed（追加fieldは§6.1に従いpayload v1を維持する）
 
 ---
@@ -48,6 +48,8 @@
 | TICK | 約定毎 | 価格・tick CVD |
 | CANDLE | バー確定毎 | Footprint / OrderBook / POC / VAH / VAL |
 | BAR_UPDATE | 設定間隔毎 | 形成中バー / Footprint / Session VWAP |
+| BOOK_UPDATE | 100ms sampling・状態変化時 | LIVE DOM最新同期Snapshot / Best Bid・Ask / Spread |
+| TAPE_UPDATE | 100ms batch | DataNormalizerが受理した約定のTime & Sales |
 | ANALYSIS | バー確定毎 | シグナル・スコア内訳・confluence・market_state |
 | FLOW | 検出毎 | Detector発火イベント（リアルタイム） |
 | LIQUIDATION | 発生毎 | 強制決済 |
@@ -143,6 +145,65 @@ UIは `payload_version` 不一致の場合、Warningバナーを表示したう�
 - `CANDLE`と同じSession VWAP品質契約を使う
 - 軽量化のため`orderbook`を含めない
 - `source_trade_id`／`source_event_time`は当該形成中snapshotのsource境界
+
+### 4.3.2 BOOK_UPDATE（v1.2 additive）
+
+```json
+{
+  "event_time": "2026-07-28T10:00:00.100000+00:00",
+  "projection_time": "2026-07-28T10:00:00.200000+00:00",
+  "last_update_id": 123456789,
+  "sync_state": "SYNCED",
+  "bids": [
+    { "price": "63988.0", "qty": "4.120" }
+  ],
+  "asks": [
+    { "price": "63989.0", "qty": "2.010" }
+  ],
+  "depth_levels": 50,
+  "best_bid": "63988.0",
+  "best_ask": "63989.0",
+  "spread": "1.0",
+  "age_ms": 100
+}
+```
+
+| field | 型 | 契約 |
+|---|---|---|
+| event_time | string \| null | 最新受理Snapshot／DIFFのsource time。ISO8601 UTC |
+| projection_time | string | server投影時刻。ISO8601 UTC |
+| last_update_id | int \| null | 投影元Order Bookの最終update ID |
+| sync_state | string | 下記の列挙値 |
+| bids | array | best bidから価格降順。`SYNCED`時のみ最大`depth_levels`件 |
+| asks | array | best askから価格昇順。`SYNCED`時のみ最大`depth_levels`件 |
+| depth_levels | int | 片側最大段数。既定50 |
+| best_bid | string \| null | `SYNCED`時だけ存在するserver算出値 |
+| best_ask | string \| null | `SYNCED`時だけ存在するserver算出値 |
+| spread | string \| null | `best_ask - best_bid`。`SYNCED`時だけ存在 |
+| age_ms | int \| null | 最新受理updateから投影までのmonotonic age |
+
+`sync_state`:
+
+- `SYNCED`: 初期／再同期Snapshot後の最初のDIFFまで整列済みで、両側板が正常
+- `NO_SNAPSHOT`: Snapshot未取得、または初期SnapshotのDIFF整列待ち
+- `RESYNCING`: gap検出後、Snapshot取得または最初のDIFF整列待ち
+- `STALE`: 最終受理updateのageが設定閾値（既定2000ms）を超過
+- `EMPTY`: bid／askの片側または両側が空
+- `LOCKED`: best bidとbest askが同値
+- `CROSSED`: best bidがbest askより高い
+- `INVALID`: source時刻または価格／数量が不正
+
+Fail-closed契約:
+
+- `SYNCED`以外では`bids`／`asks`を必ず空配列にする。
+- `SYNCED`以外では`best_bid`／`best_ask`／`spread`を必ずnullにする。
+- 直前の正常数量を保持表示してはならない。
+- analysis／detector／Hook／storageは全depth updateを従来どおり受理する。
+  `BOOK_UPDATE`は同一stateをread-onlyで投影し、analysis updateを間引かない。
+- serverは100msごとに最新状態だけをsampleし、状態fingerprintが変わった場合だけ送る。
+  全Snapshotをbrowser向けqueueへ積まない。
+- serverは接続ごとに最新の`BOOK_UPDATE` 1件だけを再送する。
+- replay modeではlive `BOOK_UPDATE` projectorを起動しない。
 
 ## 4.4 ANALYSIS
 
@@ -241,6 +302,88 @@ UIは `payload_version` 不一致の場合、Warningバナーを表示したう�
 ```
 
 FPSはクライアント計測（描画性能のため。判定に不使用）。LATENCYは `TICK.time` と受信時刻の差をUIが表示用に計算してよい。
+
+## 4.9 TAPE_UPDATE（v1.3 additive）
+
+```json
+{
+  "batch_time": "2026-07-28T10:00:00.200000+00:00",
+  "stream_id": "3fd6b05b-51bb-43ca-bab1-6760433dd905",
+  "first_sequence": 1201,
+  "last_sequence": 1202,
+  "accepted_count": 2,
+  "dropped_count": 0,
+  "trades": [
+    {
+      "sequence": 1201,
+      "trade_id": 987654321,
+      "event_time": "2026-07-28T10:00:00.123000+00:00",
+      "price": "63988.0",
+      "quantity": "0.125",
+      "notional": "7998.5000",
+      "side": "BUY"
+    },
+    {
+      "sequence": 1202,
+      "trade_id": 987654322,
+      "event_time": "2026-07-28T10:00:00.180000+00:00",
+      "price": "63987.5",
+      "quantity": "0.080",
+      "notional": "5119.0000",
+      "side": "SELL"
+    }
+  ]
+}
+```
+
+| field | 型 | 契約 |
+|---|---|---|
+| batch_time | string | serverがbatchを送信対象として確定した時刻。ISO8601 UTC |
+| stream_id | string | process／replay session単位のUUID |
+| first_sequence | int | batch先頭のstream-local sequence |
+| last_sequence | int | batch末尾のstream-local sequence |
+| accepted_count | int | 当該messageの`trades`件数。`accepted_count == trades.length` |
+| dropped_count | int | 前回の正常送信以降にoverflow／送信失敗で欠落した件数 |
+| trades | array | sequence昇順。1 message最大250件 |
+
+`trades`要素:
+
+| field | 型 | 契約 |
+|---|---|---|
+| sequence | int | `stream_id`内で1から単調増加する配信順序 |
+| trade_id | int | source trade ID。履歴との重複排除keyは`(symbol, trade_id)` |
+| event_time | string | source約定時刻。ISO8601 UTC |
+| price | string | 約定価格。Decimal文字列 |
+| quantity | string | 約定数量。Decimal文字列 |
+| notional | string | `price × quantity`のDecimal文字列。float再計算禁止 |
+| side | string | `BUY`または`SELL` |
+
+生成・batch契約:
+
+- sourceはDataNormalizerが正常受理した約定だけとする。duplicate／invalidはsequenceを消費しない。
+- `TICK`、latest-value pump、Flow/CVDの後段出力からTapeを再構成してはならない。
+- 既定100ms間隔、1 message最大250件、pending上限10,000件とする。
+- message内のsequenceは連続し、`first_sequence`／`last_sequence`と一致する。
+- overflow時は古いpending約定からdropする。割り当て済みsequenceを詰め直さず、
+  次の正常送信の`dropped_count`とsequence gapで欠落を明示する。
+- `accepted = sent + pending + in_flight + dropped`を常時成立させ、
+  overflow、送信失敗、accounting不一致はSTATS／healthへ公開する。
+- `stream_id`はprocess／replay sessionごとに新規生成し、sequenceは1から開始する。
+  同一processへのWebSocket再接続では同じstreamを継続し、新しいstreamではclientも
+  gap判定状態をリセットする。
+- Tape batchは再接続用cacheへ保存しない。clientは履歴APIで初期化後、
+  `(symbol, trade_id)`でliveとの重複を排除する。
+- replay modeではreplay accepted tradeだけを流し、現在時刻のlive tapeを混在させない。
+
+履歴API:
+
+- `GET /api/history/time-sales`
+- queryは`symbol`、`limit`（1〜500）、`before`（ISO8601 UTC）、
+  `before_trade_id`（同時刻を安全に辿る複合cursor）を受ける。
+- responseの`trades`は古い順で、`next_before`と`next_before_trade_id`を返す。
+- price／quantity／notionalはDecimal文字列、sideは`BUY`／`SELL`、
+  event timeはUTCとする。
+- liveとの接続境界では`(symbol, trade_id)`を重複排除keyとする。
 
 ---
 

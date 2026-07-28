@@ -4,7 +4,7 @@ setlocal
 
 set "ROOT=%~dp0"
 set "PROJ=%ROOT%Delta_Engine_Pro4web"
-set "COMPOSE_PROJECT_NAME=deltaengine_05m"
+set "COMPOSE_PROJECT_NAME=delta_engine_pro4web"
 set "URL=http://localhost:18080"
 
 if /i "%1"=="stop" goto :stop
@@ -27,7 +27,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-docker compose up --build -d
+docker rm -f deltaengine_05m-deltaengine_clone-1 > nul 2>&1
+docker compose -p delta_engine_pro4web up --build -d
 if errorlevel 1 (
     echo docker compose up failed.
     pause
@@ -50,7 +51,7 @@ goto :eof
 :stop
 echo Stopping DeltaEngine...
 cd /d "%PROJ%"
-docker compose down
+docker compose -p delta_engine_pro4web down
 echo Stopped.
 pause
 goto :eof

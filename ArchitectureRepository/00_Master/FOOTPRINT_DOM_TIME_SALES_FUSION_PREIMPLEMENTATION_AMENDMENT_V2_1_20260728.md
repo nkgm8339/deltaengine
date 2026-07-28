@@ -3,8 +3,8 @@
 version: 2.1 amendment
 作成日時: 2026-07-28 15:23:50 JST
 状態: **APPROVED**
-現在の承認範囲: V2.1採用、OI A、Phase 0A remediation
-source code実装: 未着手
+現在の承認範囲: V2.1採用、OI A、Phase 0A〜0C、GO-5〜GO-11（Phase 1〜6）
+source code実装: Phase 1〜Phase 6完了
 
 対象正本候補:
 
@@ -685,3 +685,233 @@ blockerの限定範囲:
 1. Phase 0A remediationを完了
 2. exact baseline commit対象を再提示
 3. ユーザーのPhase 0B承認後にcommit／branch作成
+
+---
+
+## 14. 2026-07-28 GO-5 Decision Record
+
+Phase 0C sizing report提出後のユーザー「GO」を、§11のGO-5として受領した。
+
+承認済みstorage decision:
+
+- A. normalized row tableを採用する。
+- `footprint_levels`とsmall `footprint_bar_manifest`を分離する。
+- `(bar_time, symbol, timeframe, price)`は論理一意keyとして維持する。
+- 4列level ART／unique indexは初期作成しない。
+- bar manifestの小さいphysical primary key、bar内price重複検証、single writer
+  transactionで冪等性を保証する。
+- Hot DuckDBは直近30日をtargetとする。
+- Archive ParquetはUTC日次、ZSTD、期間制限なしとする。
+- Phase 1ではautomatic purgeをOFFにする。
+- raw trades、candles、Flow、Hook journalのretentionは変更しない。
+
+30日はHot targetであり、automatic purge OFFの間は30日を超えたrowsを自動削除しない。
+将来のpurgeはarchive verificationと別の明示承認を必要とする。
+
+GO-5で承認されていないもの:
+
+- Phase 1 source implementation
+- production schema mutation
+- archive／purge jobの有効化
+- git commit／push
+
+本節は§13の作成時点statusのうち、Phase 0C GO、storage schema、retention日数、
+automatic purgeの未確定状態を更新する。次の承認境界はGO-6である。
+
+---
+
+## 15. 2026-07-28 GO-6／Phase 1 Completion Record
+
+ユーザーの「GO」をGO-6として受領し、Phase 1を実装した。
+
+- normalized levels＋small manifest: 実装完了
+- level 4列ART／unique index: 作成なし
+- confirmed rollover bar only: 実装・回帰試験完了
+- forming／shutdown finalize bar: Footprint履歴保存なし
+- UTC日次ZSTD archive: 実装完了
+- automatic purge: OFF／未実装
+- restart history API: 実装完了
+- targeted: 36 passed
+- full regression: **622 passed, 1 skipped**
+- production data mutation: なし
+- commit／push: なし
+
+完了報告:
+
+`FOOTPRINT_DOM_TIME_SALES_PHASE1_COMPLETION_REPORT_20260728.md`
+
+§14の「Phase 1 source implementation未承認」はGO-6により解消した。
+次はGO-7（Phase 2 LIVE DOM）である。
+
+---
+
+## 16. 2026-07-28 GO-7／Phase 2 Completion Record
+
+ユーザーの「GO」をGO-7として受領し、Phase 2を実装した。
+
+- `BOOK_UPDATE`: additive payload v1.2として実装完了（envelope `v: 1`維持）
+- LIVE DOM sampling: 100ms
+- depth: bid／ask各top 50
+- projection: read-only latest state、analysis全depth経路のcount不変
+- fail closed: no snapshot／resync／stale／empty／locked／crossed／invalid
+- reconnect: latest 1件再送
+- replay: projector非起動
+- targeted: **112 passed**
+- full regression: **632 passed, 1 skipped**
+- production data mutation: なし
+- commit／push: なし
+
+完了報告:
+
+`FOOTPRINT_DOM_TIME_SALES_PHASE2_COMPLETION_REPORT_20260728.md`
+
+次はGO-8（Phase 3 TAPE backend）である。
+
+---
+
+## 17. 2026-07-28 GO-8／Phase 3 Completion Record
+
+ユーザーの「GO」をGO-8として受領し、Phase 3を実装した。
+
+- accepted-trade source: DataNormalizer正常受理直後。`TICK`からの再構成なし
+- Live／Replay: 共通observer、duplicate／invalid除外、例外隔離
+- batch: 100ms、最大250件、pending capacity 10,000、drop oldest
+- stream: process／replay session scoped UUID、sequenceはstream内1始まり
+- gap: overflow／send failureをsequence gapと`dropped_count`で明示
+- accounting: `accepted = sent + pending + in_flight + dropped`
+- reconnect: 同一stream継続、Tape batch非cache、新streamでclient gap state reset
+- WebSocket: additive `TAPE_UPDATE` payload v1.3（envelope `v: 1`維持）
+- history: 最大500件、oldest-first、exact notional、UTC、symbol、複合cursor
+- replay: replay accepted tradeだけを配信し、live tape非混在
+- targeted: **113 passed**
+- full regression: **644 passed, 1 skipped**
+- production data mutation: なし
+- commit／push: なし
+
+完了報告:
+
+`FOOTPRINT_DOM_TIME_SALES_PHASE3_COMPLETION_REPORT_20260728.md`
+
+次はGO-9（Phase 4 Canvas Footprint Chart）である。
+
+---
+
+## 18. 2026-07-28 GO-9／Phase 4 Completion Record
+
+ユーザーの「GO」をGO-9として受領し、Phase 4を実装した。
+
+- renderer: Canvas。Footprint price cellのDOM nodeは作成しない
+- bars: 初期10、control 3／10／20、wheel 3〜20、drag history、LIVE LOCK
+- axis: 全表示足の共通価格軸、20〜40 virtual rows
+- display step: AUTO／1／2／5／10／20 ticks、raw levels非変更
+- statistics: display bucket後にPOC／VA／diagonal Imbalance／Stackedを再計算
+- layers: static history、live Footprint、reference、selectionのdirty redraw
+- scale: CSS pixel hit testing＋DPR backing store 1／1.25／1.5／2
+- history: latest40 hydrate、exclusive cursor lazy load、`bar_time` dedup
+- accessibility: pointer／keyboard、HTML exact detail、screen-readable selection
+- timezone: 足はJST、detailはJST＋UTC ISO＋exchange `bar_time`
+- 3-bar detail: Delta／Volume／CVD Δ／OI Δ／EVENTS
+- actual Edge warm full render p95: **7.3ms**
+- actual Edge reference partial render p95: **0.4ms**
+- Phase 4対象: **5 passed**
+- WebApp対象回帰: **67 passed**
+- full regression: **649 passed, 1 skipped**
+- production data mutation: なし
+- commit／push: なし
+
+完了報告:
+
+`FOOTPRINT_DOM_TIME_SALES_PHASE4_COMPLETION_REPORT_20260728.md`
+
+次はGO-10（Phase 5 DOM／Tape frontend融合）である。
+
+---
+
+## 19. 2026-07-28 GO-10／Phase 5 Completion Record
+
+ユーザーの「GO」をGO-10として受領し、Phase 5を実装した。
+
+- LIVE DOM: Footprintと同じCanvas price geometryへ固定列として融合
+- passive depth: Bid green／Ask red、Best cyan、visible wall yellow
+- fail closed: stale／unsynced／disconnect時は古い数量を表示しない
+- partial render: `BOOK_UPDATE`は`liveDom` dirty layerだけを更新
+- Time & Sales: 右端固定、recent 500件ring、32 row再利用virtual list
+- actual viewport: 15px row、実Edgeで23行表示
+- filter: side、minimum quantity、minimum notional、large-only
+- large trade: 常設threshold、黄色outline
+- stream: same-stream sequence gap／drop表示、new-stream reset／restart表示
+- history: 最大500件hydrate、`(symbol, trade_id)` dedup
+- selection: Tape／Footprint／LIVE DOMをbar time＋display bucketで同期
+- timezone: 一覧JST、detailでJST millisecond＋UTC ISO＋exchange event time
+- old Order Book: presentationから除外、source／detectorは維持
+- target: **12 passed**
+- full regression: **656 passed, 1 skipped**
+- actual Edge: page error 0、横overflowなし
+- production data mutation: なし
+- commit／push: なし
+
+完了報告:
+
+`FOOTPRINT_DOM_TIME_SALES_PHASE5_COMPLETION_REPORT_20260728.md`
+
+次はGO-11（Phase 6 restart／reconnect／replay／live no-loss統合検証）である。
+
+---
+
+## 20. 2026-07-28 GO-11／Phase 6 Completion Record
+
+ユーザーの「Go」をGO-11として受領し、Phase 6を完了した。
+
+- replay speed: 0=fast、正値=source event time倍率としてruntime接続
+- replay callbacks: worker threadからWebApp loopへthread-safeに転送
+- replay Tape time: batch末尾accepted tradeのmarket time
+- replay isolation: live OI／LIVE DOM projector／live shadow writeなし
+- restart: new stream UUID、sequence 1、履歴を新connectionから復元
+- reconnect: same stream継続、Tape batch非cache、Book latest 1件、history dedup
+- accounting: 6,000 accepted = 6,000 sent、drop 0、balance true
+- overflow: 25,000 accepted = 10,000 sent + 15,000 dropped、gap明示
+- browser: 500 ring、23 visible rows、32 pool、page error 0、横overflowなし
+- target: **186 passed**
+- full regression: **661 passed, 1 skipped**
+- production data mutation: なし
+- commit／push: なし
+
+実装／隔離統合はPASS。ただし現稼働環境は旧v3.6.21、Parquet I/O errorでRED、
+Cドライブ空き約0.72 GiBのためdeployment／operational activationはNO-GOとした。
+
+完了報告:
+
+`FOOTPRINT_DOM_TIME_SALES_PHASE6_COMPLETION_REPORT_20260728.md`
+
+次はdisk／storage保全、旧dead container対応、新image配備の別承認境界である。
+
+---
+
+## 21. 2026-07-28 Operational Remediation Completion Record
+
+追加承認により、Phase 6後のdisk／storage remediationとproduction activationを完了した。
+
+- 削除: 存在しない`D:\MT5XM`由来の旧XMTrading `.hc`／`.hcc` history cacheのみ、
+  21,260 files／97,337,847,530 bytes
+- 保持: DeltaEngine data、現HFM、共通quote、旧terminal MQL5／ticks、raw／archive／research
+- C空き: 約0.97 GiB → 削除直後91.67 GiB、最終82.82 GiB
+- deploy image: `sha256:81b5ae72cb4ff2847a914e71863c4870ba2a1383bc6f47983c00d203f7ab5e01`
+- image内Phase 1〜6対象: **116 passed, 4 skipped**
+- production: storage pending 0、Footprint failure 0、Book SYNCED、Tape drop 0／balanced true、
+  Hook drop／disk reject／writer error 0
+- browser: Tape LIVE、DOM SYNCED、Footprint LIVE、3段チャート表示、page／console error 0
+- reconnect最終eventから15分後の23:34:23 JST: 全health check GREEN
+- 23:37 JST: 新しいBinance ping timeout／book gapでoverall YELLOW。ただし
+  pipeline／bar／latency／Tape／storage／Bookは正常
+- deploy後log: StorageError／Traceback／Parquet I/O error再発なし
+
+production operational activationは**PASS**、Binance upstream feed degradationはACTIVE。
+API versionはbumpしておらず`v3.6.21`表示のままなので、image IDをdeployment identityとする。
+exact旧imageでなくpre-Footprint fallback rollback imageを保持した。
+
+完成済みFlow Price Response、3段チャート、8パターン、OIを変更せず、
+Strategy runtime／注文authorityも拡張していない。
+
+完了報告:
+
+`FOOTPRINT_DOM_TIME_SALES_OPERATIONAL_REMEDIATION_REPORT_20260728.md`
