@@ -23,11 +23,15 @@ def query_candles(
             params.append(timeframe)
         params.append(limit)
         rows = con.execute(
-            "SELECT bar_time, timeframe, open, high, low, close, volume, delta, cvd "
+            "SELECT bar_time, timeframe, open, high, low, close, volume, delta, cvd, "
+            "NULL AS vwap, NULL AS vwap_status "
             f"FROM candles {where} ORDER BY bar_time DESC LIMIT ?",
             params,
         ).fetchall()
-        cols = ["bar_time", "timeframe", "open", "high", "low", "close", "volume", "delta", "cvd"]
+        cols = [
+            "bar_time", "timeframe", "open", "high", "low", "close",
+            "volume", "delta", "cvd", "vwap", "vwap_status",
+        ]
         result = []
         for row in rows:
             item = {k: str(v) if v is not None else None for k, v in zip(cols, row)}

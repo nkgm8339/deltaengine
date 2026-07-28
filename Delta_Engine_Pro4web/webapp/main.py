@@ -83,6 +83,23 @@ def _build_broker(config) -> PushBroker:
     )
 
 
+def _chart_session_vwap(pipeline: Any) -> tuple[Decimal | None, str | None]:
+    """Project Strategy VWAP into an explicitly qualified display value."""
+
+    state = getattr(pipeline, "_last_market_state", None)
+    exact = getattr(state, "session_vwap", None)
+    if exact is not None:
+        return exact, "EXACT"
+
+    producer = getattr(pipeline, "_snapshot_producer", None)
+    accumulator = getattr(producer, "_session_vwap", None)
+    current = getattr(accumulator, "current_value", None)
+    if current is None:
+        return None, None
+    status = "EXACT" if getattr(accumulator, "session_complete", False) else "PARTIAL"
+    return current, status
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.version = resolve_version()
@@ -160,11 +177,14 @@ async def lifespan(app: FastAPI):
                         {"price": lv.price, "bid": lv.sell_volume, "ask": lv.buy_volume}
                         for lv in reversed(fp_calc.current_tick_snapshot())
                     ]
+                session_vwap, vwap_status = _chart_session_vwap(pipeline)
                 await broker.on_bar_update(
                     snap,
                     fp_levels,
                     source_trade_id=int(trade.trade_id),
                     source_event_time=trade.event_time,
+                    session_vwap=session_vwap,
+                    vwap_status=vwap_status,
                 )
 
     market_push_pump = LatestValuePump(
@@ -189,7 +209,12 @@ async def lifespan(app: FastAPI):
             ]
         bm = getattr(pipeline, "book_manager", None)
         snap = bm.snapshot() if bm else None
-        asyncio.create_task(broker.on_candle(candle, fp_levels, snap))
+        session_vwap, vwap_status = _chart_session_vwap(pipeline)
+        asyncio.create_task(broker.on_candle(
+            candle, fp_levels, snap,
+            session_vwap=session_vwap,
+            vwap_status=vwap_status,
+        ))
 
     def on_analysis_cb(analysis_result):
         bc = getattr(pipeline, "_last_bar_close", None)

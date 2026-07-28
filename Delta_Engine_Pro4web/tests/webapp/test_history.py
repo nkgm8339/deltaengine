@@ -78,6 +78,8 @@ def test_query_candles_returns_list(tmp_path):
     assert result[0]["timeframe"] == "1m"
     assert "cvd" in result[0]
     assert isinstance(result[0]["cvd"], str)
+    assert result[0]["vwap"] is None
+    assert result[0]["vwap_status"] is None
 
 
 def test_query_candles_filters_timeframe(tmp_path):

@@ -864,7 +864,8 @@ const S={
   oiSamples:[],oiPollIntervalSec:10,hfmQuote:null,
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
   liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,
-};
+  vwapHistory:new Map(),
+  };
 const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],currentEventBuckets:new Map(),totalBars:0,selectedTime:null,priceScale:null};
 
 // ---------------- WebSocket ----------------
@@ -937,7 +938,15 @@ function onTick(m,p){
   if(S.bars.length&&(S.lock||S.barView<0)&&!S.liveBar)fpTitle(S.bars[S.bars.length-1],true);
   updateFootprintCurrentPrice();
 }
+function rememberVwap(p){
+  const time=Date.parse(p.bar_time),value=N(p.vwap);
+  if(!Number.isFinite(time)||!Number.isFinite(value))return;
+  const status=p.vwap_status==="PARTIAL"?"PARTIAL":"EXACT";
+  S.vwapHistory.set(time,{value,status});
+}
 function onCandle(p){
+  rememberVwap(p);
+  if(S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
   if(S.liveBar&&Date.parse(S.liveBar.bar_time)<=Date.parse(p.bar_time))S.liveBar=null;
   const pTime=Date.parse(p.bar_time);
   const same=S.bars.findIndex(b=>Date.parse(b.bar_time)===pTime);
@@ -1119,6 +1128,8 @@ function pushSeries(key,v){
 }
 
 function onBarUpdate(p){
+  rememberVwap(p);
+  if(S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
   // 形成中バー: 価格チャートと、追従モード時の FOOTPRINT に反映。
   S.liveBar=p;
   if(S.lock&&S.barView<0)renderFootprint();
@@ -1480,16 +1491,18 @@ function compact(v){
 function normalizeMarketBar(raw,live=false){
   if(!raw)return null;
   const time=Date.parse(raw.bar_time),o=N(raw.open),h=N(raw.high),l=N(raw.low),c=N(raw.close);
+  const vwap=N(raw.vwap),vwapStatus=Number.isFinite(vwap)?(raw.vwap_status==="PARTIAL"?"PARTIAL":"EXACT"):null;
   if(!Number.isFinite(time)||![o,h,l,c].every(Number.isFinite))return null;
   return {time,bar_time:raw.bar_time,timeframe:raw.timeframe||"1m",o,h,l,c,
     volume:Number.isFinite(N(raw.volume))?N(raw.volume):0,
     delta:Number.isFinite(N(raw.delta))?N(raw.delta):0,
-    cvd:Number.isFinite(N(raw.cvd))?N(raw.cvd):0,footprint:raw.footprint||null,live};
+    cvd:Number.isFinite(N(raw.cvd))?N(raw.cvd):0,
+    vwap:Number.isFinite(vwap)?vwap:null,vwapStatus,footprint:raw.footprint||null,live};
 }
 function marketBars(){
   const byTime=new Map();
-  for(const raw of S.bars){const b=normalizeMarketBar(raw,false);if(b)byTime.set(b.time,b);}
-  const live=normalizeMarketBar(S.liveBar,true);if(live)byTime.set(live.time,live);
+  for(const raw of S.bars){const b=normalizeMarketBar(raw,false);if(b){const cached=S.vwapHistory.get(b.time);if(!Number.isFinite(b.vwap)&&cached){b.vwap=cached.value;b.vwapStatus=cached.status;}byTime.set(b.time,b);}}
+  const live=normalizeMarketBar(S.liveBar,true);if(live){const cached=S.vwapHistory.get(live.time);if(!Number.isFinite(live.vwap)&&cached){live.vwap=cached.value;live.vwapStatus=cached.status;}byTime.set(live.time,live);}
   return [...byTime.values()].sort((a,b)=>a.time-b.time);
 }
 function chartScale(values,top,bottom,pad=.08){
@@ -1729,7 +1742,7 @@ function renderChart(){
   CHART.currentBars=bars;CHART.currentFlows=bars.map(flowForBar);CHART.currentEventBuckets=flowEventBuckets(bars);
   $("chartbars").textContent=`${CHART.visible} bars`;
   $("chartlive").classList.toggle("on",CHART.offset===0);
-  $("chartlegend").innerHTML=`<span><i style="background:${BUY}"></i>PRICE</span><span><i style="background:#23DFFF"></i>CVD</span><span><i style="background:${INFO}"></i>Δ</span><span><i style="background:${WARN}"></i>STALLED</span><span><i style="background:${INFO}"></i>DIVERGENCE ${flowWindowText(CHART.windowSec)}</span><span><i style="background:#FFFFFF"></i>EVENTS 2H</span>`;
+  $("chartlegend").innerHTML=`<span><i style="background:${BUY}"></i>PRICE</span><span><i style="background:${WARN}"></i>VWAP (~ PARTIAL)</span><span><i style="background:#23DFFF"></i>CVD</span><span><i style="background:${INFO}"></i>Δ</span><span><i style="background:${WARN}"></i>STALLED</span><span><i style="background:${INFO}"></i>DIVERGENCE ${flowWindowText(CHART.windowSec)}</span><span><i style="background:#FFFFFF"></i>EVENTS 2H</span>`;
   const frame=`
     <defs>
       <linearGradient id="cvdFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#23DFFF" stop-opacity=".20"/><stop offset="100%" stop-color="#23DFFF" stop-opacity="0"/></linearGradient>
@@ -1750,7 +1763,7 @@ function renderChart(){
     return;
   }
   const slot=(MC.R-MC.L)/n,body=Math.max(2,Math.min(12,slot*.60));
-  const priceScale=chartScale(bars.flatMap(b=>[b.l,b.h]),MC.price.top+8,MC.price.bottom-8,.07);
+  const priceScale=chartScale(bars.flatMap(b=>[b.l,b.h,...(Number.isFinite(b.vwap)?[b.vwap]:[])]),MC.price.top+8,MC.price.bottom-8,.07);
   CHART.priceScale=priceScale;
   const cvdScale=chartScale(bars.map(b=>b.cvd),MC.cvd.top+7,MC.cvd.bottom-7,.12);
   const volMax=Math.max(...bars.map(b=>b.volume),1),deltaMax=Math.max(...bars.map(b=>Math.abs(b.delta)),1);
@@ -1783,6 +1796,10 @@ function renderChart(){
     return `<line x1="${x}" x2="${x}" y1="${yh}" y2="${yl}" stroke="${col}" stroke-width="1.35" opacity=".95"/><rect x="${x-body/2}" y="${Math.min(yo,yc)}" width="${body}" height="${Math.max(1.8,Math.abs(yc-yo))}" rx="1" fill="${col}" ${b.live?`stroke="#FFFFFF" stroke-width=".8"`:""}/>`;
   }).join("");
   const eventMarkers=flowEventMarkersSvg(bars,CHART.currentEventBuckets,slot,priceScale);
+  let vwapStarted=false;const vwapCommands=[];
+  bars.forEach((b,i)=>{if(!Number.isFinite(b.vwap)){vwapStarted=false;return;}const cmd=vwapStarted?"L":"M";vwapCommands.push(`${cmd}${(MC.L+(i+.5)*slot).toFixed(2)},${priceScale.y(b.vwap).toFixed(2)}`);vwapStarted=true;});
+  const vwapPath=vwapCommands.join(" ");
+  const vwapLine=vwapPath?`<path d="${vwapPath}" fill="none" stroke="${WARN}" stroke-width="2.2" stroke-dasharray="7,5" stroke-linejoin="round" stroke-linecap="round"/>`:"";
   const cvdPath=bars.map((b,i)=>`${i?"L":"M"}${(MC.L+(i+.5)*slot).toFixed(2)},${cvdScale.y(b.cvd).toFixed(2)}`).join(" ");
   const deltaMid=(MC.cvd.top+MC.cvd.bottom)/2;
   const deltas=bars.map((b,i)=>{
@@ -1795,9 +1812,14 @@ function renderChart(){
     return `<rect x="${x-body/2}" y="${MC.vol.bottom-h}" width="${body}" height="${Math.max(.8,h)}" fill="${col}" fill-opacity=".58"/>`;
   }).join("");
   const last=bars[n-1],lastY=priceScale.y(last.c),lastCol=last.c>=last.o?BUY:SELL;
-  const lastLine=`<line x1="${MC.L}" x2="${MC.R}" y1="${lastY}" y2="${lastY}" stroke="${lastCol}" stroke-width="1" stroke-dasharray="5,5" opacity=".82"/><rect x="${MC.R}" y="${lastY-9}" width="82" height="18" rx="3" fill="#11162F" stroke="${lastCol}" stroke-width="1.2"/><text x="${MC.R+41}" y="${lastY+4}" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="950">${last.c.toFixed(priceDigits)}</text>`;
+  const lastVwapBar=bars.slice().reverse().find(b=>Number.isFinite(b.vwap));
+  const lastVwap=lastVwapBar?.vwap;
+  const vwapY=Number.isFinite(lastVwap)?priceScale.y(lastVwap):null;
+  const vwapText=lastVwapBar?.vwapStatus==="PARTIAL"?`~${lastVwap.toFixed(4)}`:lastVwap?.toFixed(4);
+  const vwapLabel=vwapY==null?"":`<rect x="${MC.R}" y="${vwapY-12}" width="92" height="24" rx="3" fill="#11162F" stroke="${WARN}" stroke-width="1.2"/><text x="${MC.R+46}" y="${vwapY+5}" text-anchor="middle" fill="${WARN}" font-size="14" font-weight="950">${vwapText}</text>`;
+  const lastLine=`<line x1="${MC.L}" x2="${MC.R}" y1="${lastY}" y2="${lastY}" stroke="${lastCol}" stroke-width="1" stroke-dasharray="5,5" opacity=".82"/><rect x="${MC.R}" y="${lastY-12}" width="92" height="24" rx="3" fill="#11162F" stroke="${lastCol}" stroke-width="1.2"/><text x="${MC.R+46}" y="${lastY+5}" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="950">${last.c.toFixed(priceDigits)}</text>`;
   const cross=`<g id="chartcross" style="display:none" pointer-events="none"><rect id="chartselectshade" y="${MC.price.top}" height="${MC.vol.bottom-MC.price.top}" fill="#FFFFFF" fill-opacity=".055"/><line id="chartcrossx" y1="${MC.price.top}" y2="${MC.vol.bottom}" stroke="#FFFFFF" stroke-width="1.35" stroke-dasharray="4,3" opacity=".95"/><line id="chartcrossy" x1="${MC.L}" x2="${MC.R}" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="4,3" opacity=".72"/></g>`;
-  $("chart").innerHTML=frame+grid.join("")+`<g clip-path="url(#priceClip)">${flowBands}${candles}${eventMarkers}</g>${lastLine}<g clip-path="url(#cvdClip)">${deltas}<path d="${cvdPath} L${MC.L+(n-.5)*slot},${MC.cvd.bottom} L${MC.L+.5*slot},${MC.cvd.bottom} Z" fill="url(#cvdFill)"/><path d="${cvdPath}" fill="none" stroke="#59E8FF" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/></g><g clip-path="url(#volClip)">${volumes}</g>${cross}`;
+  $("chart").innerHTML=frame+grid.join("")+`<g clip-path="url(#priceClip)">${flowBands}${candles}${vwapLine}${eventMarkers}</g>${lastLine}${vwapLabel}<g clip-path="url(#cvdClip)">${deltas}<path d="${cvdPath} L${MC.L+(n-.5)*slot},${MC.cvd.bottom} L${MC.L+.5*slot},${MC.cvd.bottom} Z" fill="url(#cvdFill)"/><path d="${cvdPath}" fill="none" stroke="#59E8FF" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/></g><g clip-path="url(#volClip)">${volumes}</g>${cross}`;
   const cl=$("chartlast");cl.classList.remove("dash");cl.textContent=last.c.toFixed(priceDigits);cl.style.color=lastCol;
   restoreChartSelection();
 }

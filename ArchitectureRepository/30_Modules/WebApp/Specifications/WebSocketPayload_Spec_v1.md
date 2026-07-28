@@ -1,8 +1,8 @@
 # WebSocketPayload仕様_v1
 
 **Document ID**: REF-WSP-001
-**Version**: v1（payload `"v": 1`）
-**Status**: Fixed（実装前凍結。変更は本文書の改訂＝vインクリメントによってのみ行う）
+**Version**: v1.1（payload `"v": 1`、additive extension）
+**Status**: Fixed（追加fieldは§6.1に従いpayload v1を維持する）
 
 ---
 
@@ -47,6 +47,7 @@
 | HELLO | 接続時1回 | バージョン・設定の握手 |
 | TICK | 約定毎 | 価格・tick CVD |
 | CANDLE | バー確定毎 | Footprint / OrderBook / POC / VAH / VAL |
+| BAR_UPDATE | 設定間隔毎 | 形成中バー / Footprint / Session VWAP |
 | ANALYSIS | バー確定毎 | シグナル・スコア内訳・confluence・market_state |
 | FLOW | 検出毎 | Detector発火イベント（リアルタイム） |
 | LIQUIDATION | 発生毎 | 強制決済 |
@@ -90,6 +91,8 @@ UIは `payload_version` 不一致の場合、Warningバナーを表示したう�
   "timeframe": "1m",
   "open": "63980.0", "high": "63995.5", "low": "63975.0", "close": "63988.5",
   "volume": "12.500", "delta": "0.800", "cvd": "15.300",
+  "vwap": "63984.125",
+  "vwap_status": "EXACT",
   "footprint": {
     "levels": [
       { "price": "63988.5", "bid": "1.203", "ask": "2.881" }
@@ -108,9 +111,38 @@ UIは `payload_version` 不一致の場合、Warningバナーを表示したう�
 ```
 
 - `footprint.levels` は価格降順
+- `vwap`は実約定`Σ(price×quantity)/Σ(quantity)`のUTC Session VWAP。値なしはnull
+- `vwap_status`は`EXACT`／`PARTIAL`／null。UTC 00:00からのcoverageを確認できない表示用累積は`PARTIAL`
+- `PARTIAL`は表示専用であり、Strategy EngineのSession VWAP condition材料へ使用しない
 - **POC**: bid+ask 合計が最大のレベルの価格（同値なら価格が高い方）
 - **VAH/VAL**: POCから両側へ、合計出来高の70%に達するまで大きい側から拡張して得た価格帯の上端/下端（Value Area 70%規則。計算はサーバー側。UIは受信値を描画するのみ）
 - `orderbook` は best から `depth_levels` 段。累積深度（Σ）は**UI側で単純加算表示してよい**（判定ではなく表示整形のため許可）
+
+### 4.3.1 BAR_UPDATE
+
+```json
+{
+  "bar_time": "2026-07-16T12:34:00+00:00",
+  "timeframe": "1m",
+  "in_progress": true,
+  "source_trade_id": 123456789,
+  "source_event_time": "2026-07-16T12:34:11.123+00:00",
+  "open": "63980.0", "high": "63995.5", "low": "63975.0", "close": "63988.5",
+  "volume": "12.500", "delta": "0.800", "cvd": "15.300",
+  "vwap": "63984.125",
+  "vwap_status": "PARTIAL",
+  "footprint": {
+    "levels": [],
+    "poc_price": null,
+    "vah_price": null,
+    "val_price": null
+  }
+}
+```
+
+- `CANDLE`と同じSession VWAP品質契約を使う
+- 軽量化のため`orderbook`を含めない
+- `source_trade_id`／`source_event_time`は当該形成中snapshotのsource境界
 
 ## 4.4 ANALYSIS
 

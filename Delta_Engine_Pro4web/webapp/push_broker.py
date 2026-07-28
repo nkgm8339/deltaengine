@@ -23,6 +23,14 @@ def d2s(v: Optional[Decimal]) -> Optional[str]:
     return str(v)
 
 
+def _vwap_status(value: Optional[Decimal], status: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    if status not in {"EXACT", "PARTIAL"}:
+        raise ValueError("vwap_status must be EXACT or PARTIAL when vwap is present")
+    return status
+
+
 def envelope(msg_type: str, time_: datetime, symbol: str, payload: dict) -> dict:
     return {
         "v": PAYLOAD_VERSION,
@@ -180,7 +188,14 @@ class PushBroker:
             "tick_cvd": d2s(getattr(trade, "tick_cvd", None)),
         }))
 
-    async def on_candle(self, candle, footprint_levels, orderbook_snapshot) -> None:
+    async def on_candle(
+        self,
+        candle,
+        footprint_levels,
+        orderbook_snapshot,
+        session_vwap: Optional[Decimal] = None,
+        vwap_status: Optional[str] = None,
+    ) -> None:
         levels = [
             {"price": lv["price"], "bid": lv["bid"], "ask": lv["ask"]}
             for lv in footprint_levels
@@ -196,12 +211,15 @@ class PushBroker:
                 "asks": [{"price": str(p), "qty": str(q)} for p, q in asks[: self.depth_levels]],
                 "depth_levels": self.depth_levels,
             }
+        quality = _vwap_status(session_vwap, vwap_status)
         await self._broadcast(envelope("CANDLE", candle.bar_time, self.symbol, {
             "bar_time": candle.bar_time.astimezone(timezone.utc).isoformat(),
             "timeframe": candle.timeframe,
             "open": d2s(candle.open), "high": d2s(candle.high),
             "low": d2s(candle.low), "close": d2s(candle.close),
             "volume": d2s(candle.volume), "delta": d2s(candle.delta), "cvd": d2s(candle.cvd),
+            "vwap": d2s(session_vwap),
+            "vwap_status": quality,
             "footprint": {
                 "levels": [{"price": str(l["price"]), "bid": str(l["bid"]), "ask": str(l["ask"])} for l in levels],
                 "poc_price": poc, "vah_price": vah, "val_price": val,
@@ -389,6 +407,8 @@ class PushBroker:
         *,
         source_trade_id: Optional[int] = None,
         source_event_time: Optional[datetime] = None,
+        session_vwap: Optional[Decimal] = None,
+        vwap_status: Optional[str] = None,
     ) -> None:
         """進行中バーのスナップショット配信 (BAR_UPDATE)。
 
@@ -400,6 +420,7 @@ class PushBroker:
             for lv in footprint_levels
         ]
         poc, vah, val = compute_value_area(levels)
+        quality = _vwap_status(session_vwap, vwap_status)
         await self._broadcast(envelope("BAR_UPDATE", candle.bar_time, self.symbol, {
             "bar_time": candle.bar_time.astimezone(timezone.utc).isoformat(),
             "timeframe": candle.timeframe,
@@ -412,6 +433,8 @@ class PushBroker:
             "open": d2s(candle.open), "high": d2s(candle.high),
             "low": d2s(candle.low), "close": d2s(candle.close),
             "volume": d2s(candle.volume), "delta": d2s(candle.delta), "cvd": d2s(candle.cvd),
+            "vwap": d2s(session_vwap),
+            "vwap_status": quality,
             "footprint": {
                 "levels": [{"price": str(l["price"]), "bid": str(l["bid"]), "ask": str(l["ask"])} for l in levels],
                 "poc_price": poc, "vah_price": vah, "val_price": val,

@@ -5,8 +5,10 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 
+from webapp.main import _chart_session_vwap
 from webapp.push_broker import IntervalGate, LatestValuePump, PushBroker
 
 T0 = datetime(2026, 7, 18, 12, 0, 30, tzinfo=timezone.utc)
@@ -159,3 +161,93 @@ def test_bar_update_numbers_are_strings():
         assert isinstance(lv["price"], str) and isinstance(lv["bid"], str)
 
     asyncio.run(run())
+
+
+def test_bar_update_carries_vwap_value_and_quality():
+    """表示値とexact／partialの品質を同じpayloadで固定する。"""
+    async def run():
+        broker = PushBroker(symbol="BTCUSDT")
+        ws = _FakeWs()
+        await broker.register(ws)
+        await broker.on_bar_update(
+            _candle(),
+            [],
+            source_trade_id=456,
+            source_event_time=T0,
+            session_vwap=Decimal("100.25"),
+            vwap_status="PARTIAL",
+        )
+        payload = json.loads(ws.sent[0])["payload"]
+        assert payload["source_trade_id"] == 456
+        assert payload["vwap"] == "100.25"
+        assert payload["vwap_status"] == "PARTIAL"
+
+    asyncio.run(run())
+
+
+def test_candle_carries_exact_vwap_quality():
+    async def run():
+        broker = PushBroker(symbol="BTCUSDT")
+        ws = _FakeWs()
+        await broker.register(ws)
+        await broker.on_candle(
+            _candle(),
+            [],
+            None,
+            session_vwap=Decimal("100.25"),
+            vwap_status="EXACT",
+        )
+        payload = json.loads(ws.sent[0])["payload"]
+        assert payload["vwap"] == "100.25"
+        assert payload["vwap_status"] == "EXACT"
+
+    asyncio.run(run())
+
+
+def test_chart_session_vwap_prefers_exact_and_labels_partial_fallback():
+    exact_pipeline = SimpleNamespace(
+        _last_market_state=SimpleNamespace(session_vwap=Decimal("101")),
+        _snapshot_producer=SimpleNamespace(
+            _session_vwap=SimpleNamespace(
+                current_value=Decimal("99"),
+                session_complete=False,
+            )
+        ),
+    )
+    assert _chart_session_vwap(exact_pipeline) == (Decimal("101"), "EXACT")
+
+    partial_pipeline = SimpleNamespace(
+        _last_market_state=SimpleNamespace(session_vwap=None),
+        _snapshot_producer=SimpleNamespace(
+            _session_vwap=SimpleNamespace(
+                current_value=Decimal("99"),
+                session_complete=False,
+            )
+        ),
+    )
+    assert _chart_session_vwap(partial_pipeline) == (Decimal("99"), "PARTIAL")
+
+
+def test_chart_session_vwap_returns_empty_pair_without_trades():
+    pipeline = SimpleNamespace(
+        _last_market_state=None,
+        _snapshot_producer=SimpleNamespace(
+            _session_vwap=SimpleNamespace(
+                current_value=None,
+                session_complete=False,
+            )
+        ),
+    )
+    assert _chart_session_vwap(pipeline) == (None, None)
+
+
+def test_static_vwap_overlay_is_orange_dashed_and_has_no_debug_trace():
+    html = (
+        Path(__file__).parents[2] / "webapp" / "static" / "index.html"
+    ).read_text(encoding="utf-8")
+
+    assert 'VWAP (~ PARTIAL)' in html
+    assert 'stroke="${WARN}"' in html
+    assert 'stroke-dasharray="7,5"' in html
+    assert "VWAP_TRACE" not in html
+    assert "LAST_PRICE_RX" not in html
