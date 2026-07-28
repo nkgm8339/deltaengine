@@ -1,7 +1,7 @@
 # Footprint × LIVE DOM × Time & Sales Phase 0A remediation checkpoint
 
-最終更新: 2026-07-28 16:58:49 JST
-状態: **完了／Phase 0B承認待ち**
+最終更新: 2026-07-28 17:08:15 JST
+状態: **Phase 0B完了／Phase 0C明示GO待ち**
 
 ## 承認範囲
 
@@ -187,3 +187,50 @@ target branch collision: none
 1. core fileをstage
 2. 600秒hunkをindexから除外
 3. cached diff検証後にCommit 1
+
+## 2026-07-28 17:08:15 JST Phase 0B complete
+
+作成commit:
+
+| no. | SHA | subject |
+|---:|---|---|
+| 1 | `715e9cb5323e8569b9023af3bd8414e80d213d4b` | `feat(strategy): add exact UTC session VWAP with warm start` |
+| 2 | `849a7a30744e5741c4e89e7a7dc9cd1a7376866d` | `feat(webapp): overlay qualified session VWAP on price pane` |
+| 3 | `c633fe32a3b5eabf898a8fdeb786c00eac585eac` | `docs: record session VWAP baseline and Phase 0A audit` |
+| 4 | `e6c0724e1297a8844c1edd75f5201d397a3232fc` | `docs: approve footprint DOM and time sales design v2.1` |
+
+branch:
+
+```text
+name: feature/footprint-dom-tape
+starting SHA: e6c0724e1297a8844c1edd75f5201d397a3232fc
+parent branch ui-refresh-v2 SHA: e6c0724e1297a8844c1edd75f5201d397a3232fc
+checkout: complete
+```
+
+検証済みbaseline:
+
+```text
+target regression: 72 passed
+full regression: 606 passed, 1 skipped
+inline JavaScript syntax: OK
+debug trace residue: 0
+cached diff whitespace errors: 0
+```
+
+除外状態を維持:
+
+- `DeltaEngine05M.bat`: unstaged
+- `Delta_Engine_Pro4web/docker-compose.yml`: unstaged
+- `_PRICE_HISTORY_NS = 600秒`: unstaged
+- runtime DB／capture: untracked
+- pytest／sandbox temp: untracked／access denied
+- unrelated経緯／Hook文書: untracked
+
+Phase 0Bで削除、reset、checkoutによる復元は行っていない。
+
+次の再開位置:
+
+1. 本SHA checkpointを管理用commitへ保存
+2. userへPhase 0B結果を報告
+3. Phase 0C read-only storage sizingは別の明示GO後に開始
