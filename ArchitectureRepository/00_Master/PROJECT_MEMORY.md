@@ -977,3 +977,24 @@ wall距離の曖昧さを、停止理由のまま残さず個別契約へ分解�
 Strategy Engine対象43件、pipeline／book境界79件、全回帰 **590 passed, 1 skipped**。
 完成済みFlow Price Response、3段チャート、8パターン、OI、UIの計算・表示は変更していない。
 runtime有効化、発注権限、G16 composite、CalibrationBook thresholdは別工程であり未承認のまま。
+## Strategy Engine Session VWAP v1（2026-07-28）
+
+ユーザーの「VWAP実装」指示に基づき、既存のclosed-candle typical-price近似G07/G08とは分離した、
+実約定ベースのSession VWAP材料をStrategy Engineへ追加した。
+
+- `Σ(price × quantity) / Σ(quantity)`をDecimalで累積し、UTC 00:00で日次sessionをresetする。
+- Session VWAPとSession Open AVWAPをsource-timeで生成する。現行のUTC 00:00 anchor契約では両者は同値だが、
+  Condition keyは`CD-G03-037`〜`CD-G03-040`として独立して保持する。
+- signed distanceは`(current trade price - VWAP) / tick_size`、relationは`BELOW=-1 / AT=0 / ABOVE=1`とする。
+- session冒頭1秒以内のtrade coverageを確認できない部分標本、future-data、別session、非正値・非有限値はomitする。
+- 再起動時はDuckDBをread-onlyでUTC固定して当日累積をseed復元し、境界duplicateを二重計上しない。
+- Replayは入力tradeを同じaccumulatorへ通し、Liveは起動前seed後に通常trade経路へ接続する。
+- threshold較正、HookEvent解禁、Strategy runtime有効化、発注権限は変更していない。
+- 完成済みFlow Price Response、3段チャート、8パターン、OI、UIの計算・表示は変更していない。
+
+検証は新規VWAP契約9件、Live再起動統合1件、既存関連46件、全体 **600 passed, 1 skipped**。
+
+## 3段チャート価格ペイン Session VWAP overlay（2026-07-28）
+ユーザー明示依頼により、既存の3段チャート構造を維持したまま価格ペインへSession VWAPを追加した。CANDLE/BAR_UPDATE payloadの`vwap`を橙色破線で描画し、価格スケールにもVWAPを含める。CVD・出来高・Flow Price Responseの計算や表示領域は変更していない。既存履歴candlesにはVWAP永続列がないため、履歴再読込ではVWAPは未提供、ライブ配信で表示される。webapp回帰36 passed。
+
+Phase 0A baseline監査の限定remediationでは、Strategy Engineのfail-closed契約を維持したまま、表示値へ`vwap_status=EXACT/PARTIAL`を追加した。UTC 00:00からのcoverageを確認できない累積値は表示だけに使用し、`~`付きPARTIALとして明示する。履歴OHLCVから実約定VWAPを推定せず、履歴APIは`vwap=null`／`vwap_status=null`を返す。server／browser debug traceを除去し、WebSocket正本をv1.1 additive extensionへ更新した。対象回帰72 passed、全体 **606 passed, 1 skipped**。完成済みFlow Price Response、3段チャート構造、8パターン、OI計算は変更していない。
