@@ -16,6 +16,7 @@ from typing import Iterable
 
 from .condition_adapter import IngestionAdapter
 from .market_state import BookLevel, MarketStateSnapshot, TimeSample
+from .session_vwap import SessionVwapAccumulator, SessionVwapSeed
 
 _ZERO = Decimal("0")
 _ONE = Decimal("1")
@@ -74,6 +75,7 @@ class SnapshotProducer:
         self._symbol = symbol
         self._cvd_updates: deque[object] = deque()
         self._price_history: deque[TimeSample] = deque()
+        self._session_vwap = SessionVwapAccumulator(symbol)
         self._flow_snapshots: dict[int, object] = {}
         self._absorption_flags: dict[str, Decimal] = {}
         self._book_snapshot: object | None = None
@@ -98,18 +100,28 @@ class SnapshotProducer:
         ) < cutoff:
             self._cvd_updates.popleft()
 
+    def seed_session_vwap(self, seed: SessionVwapSeed) -> int:
+        """Restore the latest persisted UTC-session aggregate before live input."""
+
+        return self._session_vwap.seed(seed)
+
     def observe_trade(self, trade: object) -> None:
-        """Retain accepted trade prices as an ordered source-time history."""
+        """Retain accepted trade prices and exact UTC-session VWAP material."""
 
         self._require_symbol(trade)
         event_time_ns = _datetime_ns(_required_datetime(trade, "event_time"))
         price = _decimal(getattr(trade, "price"))
+        quantity = _decimal(getattr(trade, "quantity"))
         if not price.is_finite() or price <= _ZERO:
             raise ValueError("trade price must be finite and positive")
+        if not quantity.is_finite() or quantity <= _ZERO:
+            raise ValueError("trade quantity must be finite and positive")
         if (
             self._price_history
             and event_time_ns < self._price_history[-1].engine_time_ns
         ):
+            return
+        if not self._session_vwap.observe_trade(trade):
             return
         self._price_history.append(
             TimeSample(engine_time_ns=event_time_ns, value=price)
@@ -246,6 +258,7 @@ class SnapshotProducer:
             source_time_ns if source_time_ns is not None else engine_time_ns
         )
         book_levels = self._book_levels(observation_time_ns)
+        session_vwap = self._session_vwap.value_at(observation_time_ns)
         return MarketStateSnapshot(
             engine_time_ns=engine_time_ns,
             source_time_ns=source_time_ns,
@@ -254,6 +267,8 @@ class SnapshotProducer:
             bid_levels=book_levels[0],
             ask_levels=book_levels[1],
             tick_size=approved_tick,
+            session_vwap=session_vwap,
+            session_open_avwap=session_vwap,
             pre_aggregated=self._pre_aggregated(observation_time_ns),
         )
 

@@ -34,6 +34,13 @@ JOINT_STATE_CODES = {
     "PRICE_DOWN_OI_DOWN": Decimal(4),
     "FLAT": Decimal(0),
 }
+# G03 relation ENUM encoding. The signed distance uses the same orientation:
+# positive means current price is above the reference.
+RELATION_CODES = {
+    "BELOW": Decimal(-1),
+    "AT": Decimal(0),
+    "ABOVE": Decimal(1),
+}
 
 
 class IngestionAdapter:
@@ -43,6 +50,7 @@ class IngestionAdapter:
         conditions: dict[str, Decimal] = {}
         self._add_cvd(snapshot, conditions)
         self._add_price_progress(snapshot, conditions)
+        self._add_vwap_location(snapshot, conditions)
         self._add_walls(snapshot, conditions)
         self._add_open_interest(snapshot, conditions)
         self._add_pre_aggregated(snapshot, conditions)
@@ -90,6 +98,42 @@ class IngestionAdapter:
             delta_ticks = (latest.value - base.value) / snapshot.tick_size
             out[f"upward_progress_ticks_{label}"] = max(delta_ticks, Decimal(0))
             out[f"downward_progress_ticks_{label}"] = max(-delta_ticks, Decimal(0))
+
+    # -- Session VWAP location (AGGTRADE / PROFILE) --------------------------
+
+    def _add_vwap_location(
+        self, snapshot: MarketStateSnapshot, out: dict[str, Decimal]
+    ) -> None:
+        now = (
+            snapshot.source_time_ns
+            if snapshot.source_time_ns is not None
+            else snapshot.engine_time_ns
+        )
+        latest = _latest_at(_sorted(snapshot.price_samples), now)
+        if latest is None:
+            return
+
+        references = (
+            (
+                "session_vwap",
+                snapshot.session_vwap,
+                "distance_to_session_vwap",
+                "relation_to_session_vwap",
+            ),
+            (
+                "session_open_avwap",
+                snapshot.session_open_avwap,
+                "distance_to_session_open_avwap",
+                "relation_to_session_open_avwap",
+            ),
+        )
+        for _name, reference, distance_key, relation_key in references:
+            if reference is None:
+                continue
+            delta = latest.value - reference
+            out[relation_key] = _relation_code(delta)
+            if snapshot.tick_size is not None and snapshot.tick_size > 0:
+                out[distance_key] = delta / snapshot.tick_size
 
     # -- Book walls (DEPTH / BOOK_SHAPE) -----------------------------------
 
@@ -186,6 +230,13 @@ def _value_at_or_before(
             break
     return chosen
 
+
+def _relation_code(delta: Decimal) -> Decimal:
+    if delta > 0:
+        return RELATION_CODES["ABOVE"]
+    if delta < 0:
+        return RELATION_CODES["BELOW"]
+    return RELATION_CODES["AT"]
 
 def _joint_state(price_delta: Decimal, oi_delta: Decimal) -> Decimal:
     if price_delta == 0 or oi_delta == 0:

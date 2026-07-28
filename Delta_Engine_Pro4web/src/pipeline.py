@@ -51,6 +51,7 @@ from .database.schema import (
     trade_to_row,
 )
 from .database.flow_response_warm_start import load_recent_flow_response_trades
+from .database.session_vwap_warm_start import load_latest_session_vwap_seed
 from .database.storage import BackgroundStorageWriter, StorageWriter
 from .normalization.normalizer import (
     DataNormalizer,
@@ -471,7 +472,6 @@ class ReplayPipeline:
         self.flow_response_events = deque(maxlen=5000)
         self.flow_response_outcomes = deque(maxlen=5000)
         producer = SnapshotProducer(self.symbol)
-        self._last_market_state = None
         replay_origin_source_ns: int | None = None
         replay_last_source_ns: int | None = None
         self._last_market_state = None
@@ -1112,6 +1112,17 @@ class LivePipeline:
         flow_response_tracker = None
         self.flow_response_warm_start_trades = 0
         self.flow_response_warm_start_error = None
+        session_vwap_seed = None
+        self.session_vwap_warm_start_trades = 0
+        self.session_vwap_warm_start_complete = False
+        self.session_vwap_warm_start_error = None
+        try:
+            session_vwap_seed = load_latest_session_vwap_seed(
+                self.duckdb_path, self.symbol
+            )
+        except Exception as exc:  # fail closed; live accumulation remains available
+            self.session_vwap_warm_start_error = str(exc)
+            logger.warning("session VWAP warm-start skipped: %s", exc)
         if self.flow_response_enabled:
             flow_response_detector = FlowPriceResponseDetector(
                 windows_sec=self.flow_response_windows_sec,
@@ -1223,8 +1234,22 @@ class LivePipeline:
         self.flow_response_events = deque(maxlen=5000)
         self.flow_response_outcomes = deque(maxlen=5000)
         producer = SnapshotProducer(self.symbol)
-        self._last_market_state = None
-
+        if session_vwap_seed is not None:
+            try:
+                self.session_vwap_warm_start_trades = producer.seed_session_vwap(
+                    session_vwap_seed
+                )
+                self.session_vwap_warm_start_complete = (
+                    session_vwap_seed.session_complete
+                )
+                logger.info(
+                    "session VWAP warm-start loaded %d persisted trades; complete=%s",
+                    self.session_vwap_warm_start_trades,
+                    self.session_vwap_warm_start_complete,
+                )
+            except Exception as exc:  # fail closed; do not stop the market pipeline
+                self.session_vwap_warm_start_error = str(exc)
+                logger.warning("session VWAP seed rejected: %s", exc)
         self._last_market_state = None
         self._snapshot_producer = producer
         # Per-direction cooldown state for webapp IMBALANCE flow events (Task-A).

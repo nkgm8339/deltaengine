@@ -54,6 +54,8 @@ class MarketStateSnapshot:
     bid_levels: tuple[BookLevel, ...] = ()
     ask_levels: tuple[BookLevel, ...] = ()
     tick_size: Decimal | None = None
+    session_vwap: Decimal | None = None
+    session_open_avwap: Decimal | None = None
     pre_aggregated: Mapping[str, Decimal] = field(default_factory=dict)
     source_time_ns: int | None = None
 
@@ -67,3 +69,11 @@ class MarketStateSnapshot:
             if not tick.is_finite() or tick <= 0:
                 raise ValueError("tick_size must be finite and positive when present")
             object.__setattr__(self, "tick_size", tick)
+        for name in ("session_vwap", "session_open_avwap"):
+            raw = getattr(self, name)
+            if raw is None:
+                continue
+            value = raw if isinstance(raw, Decimal) else Decimal(str(raw))
+            if not value.is_finite() or value <= 0:
+                raise ValueError(f"{name} must be finite and positive when present")
+            object.__setattr__(self, name, value)
