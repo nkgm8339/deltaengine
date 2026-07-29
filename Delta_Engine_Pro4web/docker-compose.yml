@@ -21,7 +21,8 @@ services:
       - PYTHONUNBUFFERED=1
       - HFM_QUOTE_FILE=/app/data_05M/hfm/DeltaEngine_HFM_quotes_utf8.jsonl
       - HOOK_OBSERVER_CONFIG=/app/config/hook_observer.yaml
-      # 旧persistent writer(UI投影系)は無効。コメントと値の矛盾を解消(R7)。
+      # PD4 compatibility boundary: persistent writer remains disabled.
+      # 旧persistent writer(UI投影系)は無効。値もfalseで一致(R7)。
       - PERSISTENT_DEPTH_HISTORY_ENABLED=false
       - PERSISTENT_DEPTH_HISTORY_ROOT=/app/data_05M/depth_history
       # ADR-011 raw depth history(取得層タップ)。有効化はP1-2で判断。
