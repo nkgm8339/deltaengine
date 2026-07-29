@@ -1,0 +1,79 @@
+diff --git a/Delta_Engine_Pro4web/webapp/main.py b/Delta_Engine_Pro4web/webapp/main.py
+--- a/Delta_Engine_Pro4web/webapp/main.py
++++ b/Delta_Engine_Pro4web/webapp/main.py
+@@ -31,7 +31,12 @@ from src.config import load_config
+ from src.observation.raw_journal import CaptureCampaign
+ from src.orderflow.shadow_signal_recorder import ShadowSignalRecorder
+ from src.pipeline import LivePipeline, ReplayPipeline, load_profile
+ from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
+ from webapp.persistent_depth_writer import PersistentDepthWriter
++from src.acquisition.depth_history_recorder import (
++    DepthHistoryRecorder,
++    RecorderTee,
++    SafeRecorder,
++)
+ from webapp.push_broker import (
+     IntervalGate,
+     LatestValuePump,
+@@ -116,8 +121,19 @@ async def lifespan(app: FastAPI):
+     app.state.version = resolve_version()
+     config = load_config(_CONFIG_PATH)
+     profile = load_profile(_profile_path(config))
+     persistent_enabled = os.getenv("PERSISTENT_DEPTH_HISTORY_ENABLED", "false").lower() == "true"
+     persistent_writer = PersistentDepthWriter(os.getenv("PERSISTENT_DEPTH_HISTORY_ROOT", "data_05M/depth_history"), config.market.symbol) if persistent_enabled else None
++    depth_history_enabled = os.getenv("DEPTH_HISTORY_ENABLED", "false").lower() == "true"
++    depth_history_recorder = (
++        SafeRecorder(
++            DepthHistoryRecorder(
++                os.getenv("DEPTH_HISTORY_ROOT", "data_05M/depth_history_raw"),
++                config.market.symbol,
++            )
++        )
++        if depth_history_enabled
++        else None
++    )
+     broker = _build_broker(config, persistent_writer)
+     context_observer = CombinedContextObserver(config.market.symbol)
+     shadow_recorder = ShadowSignalRecorder(Path("data_05M/manual/flow_response_shadow.jsonl"))
+@@ -356,7 +372,9 @@ async def lifespan(app: FastAPI):
+     else:
+         market_push_task = asyncio.create_task(market_push_pump.run())
+         book_projection_task = asyncio.create_task(book_projection_pump.run())
++        _raw_taps = [t for t in (hook_capture, depth_history_recorder) if t is not None]
++        _raw_tap = _raw_taps[0] if len(_raw_taps) == 1 else (RecorderTee(_raw_taps) if _raw_taps else None)
+         pipeline_task = asyncio.create_task(
+-            pipeline.run_async(raw_recorder=hook_capture)
++            pipeline.run_async(raw_recorder=_raw_tap)
+         )
+     tape_task = asyncio.create_task(tape_batcher.run())
+@@ -565,8 +583,12 @@ async def lifespan(app: FastAPI):
+         if hook_capture is not None:
+             with contextlib.suppress(Exception):
+                 await asyncio.to_thread(hook_capture.close)
+         if persistent_writer is not None:
+             with contextlib.suppress(Exception):
+                 await asyncio.to_thread(persistent_writer.close)
++        if depth_history_recorder is not None:
++            with contextlib.suppress(Exception):
++                depth_history_recorder.close()
+ 
+ 
+ app = FastAPI(title="DeltaEngine05M WebApp", lifespan=lifespan)
+diff --git a/Delta_Engine_Pro4web/docker-compose.yml b/Delta_Engine_Pro4web/docker-compose.yml
+--- a/Delta_Engine_Pro4web/docker-compose.yml
++++ b/Delta_Engine_Pro4web/docker-compose.yml
+@@ -21,7 +21,9 @@ services:
+       - PYTHONUNBUFFERED=1
+       - HFM_QUOTE_FILE=/app/data_05M/hfm/DeltaEngine_HFM_quotes_utf8.jsonl
+       - HOOK_OBSERVER_CONFIG=/app/config/hook_observer.yaml
+-      # PD4 compatibility boundary: persistent writer remains disabled.
+-      - PERSISTENT_DEPTH_HISTORY_ENABLED=true
++      # 旧persistent writer(UI投影系)は無効。コメントと値の矛盾を解消(R7)。
++      - PERSISTENT_DEPTH_HISTORY_ENABLED=false
+       - PERSISTENT_DEPTH_HISTORY_ROOT=/app/data_05M/depth_history
++      # ADR-011 raw depth history(取得層タップ)。有効化はP1-2で判断。
++      - DEPTH_HISTORY_ENABLED=false
++      - DEPTH_HISTORY_ROOT=/app/data_05M/depth_history_raw
+     restart: unless-stopped
+ 
+ 
