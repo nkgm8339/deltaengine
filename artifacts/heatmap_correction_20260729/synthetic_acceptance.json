@@ -1,0 +1,48 @@
+{
+  "console_errors": [
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED"
+  ],
+  "page_errors": [],
+  "before": {
+    "rect": {
+      "x": 11,
+      "y": 433,
+      "w": 768,
+      "h": 467
+    },
+    "point": {
+      "x": 10.362986666666666,
+      "y": 115.5424528301417
+    },
+    "metrics": {
+      "bookFrames": 599,
+      "trades": 4000,
+      "gaps": 1,
+      "estimatedBookBytes": 795472,
+      "ingestP95": 0.20000000298023224,
+      "renderP95": 112.10000000149012,
+      "renderMax": 112.10000000149012
+    },
+    "bubbles": 270,
+    "status": "BOOK SYNCED · DEPTH 50×50 · SESSION 11:57:49 · SESSION ONLY · 5M · STEP AUTO→5 · Q95 58.398 · BOOK 599/9000 · TAPE 4000/100000 · RENDER P95 112.10ms"
+  },
+  "hover": {
+    "hover": {
+      "x": 10,
+      "y": 115,
+      "time": 1785294470979.6145,
+      "price": 62985.264267990075
+    },
+    "hidden": false,
+    "text": "JST 12:07:50.979 · UTC 2026-07-29T03:07:50.979Z\nPRICE 62985.0–62985.5 · ASK\nRESTING QTY 39.195730 · SOURCE LEVELS 5\nBEST BID 62983.6 · ASK 62983.8 · SPREAD 0.2\nBOOK 123e4567 · SEQ 401 · UPDATE 401\nBOOK AGE 20ms · SYNCED · FRAME 12:07:49.715\nBUY · QTY 0.080000 · NOTIONAL 5038.82 · TRADES 1 · TAPE SEQ 2670"
+  },
+  "metrics": {
+    "bookFrames": 599,
+    "trades": 4000,
+    "gaps": 1,
+    "estimatedBookBytes": 795472,
+    "ingestP95": 0.20000000298023224,
+    "renderP95": 112.10000000149012,
+    "renderMax": 112.10000000149012
+  }
+}

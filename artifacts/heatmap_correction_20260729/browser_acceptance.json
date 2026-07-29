@@ -1,0 +1,179 @@
+{
+  "console_errors": [],
+  "page_errors": [],
+  "flag_off": {
+    "buttonHidden": true,
+    "canvasHidden": true,
+    "hasApi": false,
+    "footprintHidden": false
+  },
+  "live": {
+    "mode": "HEATMAP",
+    "frames": 10,
+    "trades": 353,
+    "bubbles": 26,
+    "status": "BOOK SYNCED · DEPTH 50×50 · SESSION 11:58:55 · SESSION ONLY · 5M · STEP AUTO→5 · Q95 4.195 · BOOK 10/9000 · TAPE 353/100000 · RENDER P95 31.80ms",
+    "viewMs": 300000,
+    "step": "AUTO",
+    "metrics": {
+      "bookFrames": 10,
+      "trades": 353,
+      "gaps": 0,
+      "estimatedBookBytes": 13280,
+      "ingestP95": 4.200000002980232,
+      "renderP95": 31.799999997019768,
+      "renderMax": 31.799999997019768
+    },
+    "controls": [
+      {
+        "id": "hm1m",
+        "text": "1M",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hm5m",
+        "text": "5M",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hm15m",
+        "text": "15M",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hmstep",
+        "text": "AUTO1 TICK2 TICKS5 TICKS10 TICKS",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hmintensityminus",
+        "text": "INTENSITY −",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hmintensityplus",
+        "text": "INTENSITY +",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hmbubbles",
+        "text": "BUBBLES ON",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hmlock",
+        "text": "LIVE LOCK",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "id": "hmgear",
+        "text": "⚙",
+        "hidden": false,
+        "display": "block"
+      }
+    ],
+    "page": {
+      "scrollWidth": 1280,
+      "clientWidth": 1280
+    },
+    "tooltipFont": "14px",
+    "geometry": {
+      "stage": {
+        "x": -185.25,
+        "y": 411,
+        "w": 964.25,
+        "h": 489,
+        "hidden": false,
+        "display": "block",
+        "font": "12px"
+      },
+      "heat": {
+        "x": -185.25,
+        "y": 411,
+        "w": 964.25,
+        "h": 489,
+        "hidden": false,
+        "display": "block",
+        "font": "12px"
+      },
+      "footprint": {
+        "x": 0,
+        "y": 0,
+        "w": 0,
+        "h": 0,
+        "hidden": true,
+        "display": "none",
+        "font": "12px"
+      },
+      "tape": {
+        "x": 788,
+        "y": 376,
+        "w": 232,
+        "h": 552,
+        "hidden": false,
+        "display": "flex",
+        "font": "12px"
+      },
+      "flow": {
+        "x": 10,
+        "y": 940,
+        "w": 1260,
+        "h": 198,
+        "hidden": false,
+        "display": "flex",
+        "font": "12px"
+      },
+      "main": {
+        "x": 10,
+        "y": 376,
+        "w": 1010,
+        "h": 552,
+        "hidden": false,
+        "display": "grid",
+        "font": "12px"
+      },
+      "chart": {
+        "x": 11,
+        "y": -33,
+        "w": 1008,
+        "h": 396,
+        "hidden": false,
+        "display": "grid",
+        "font": "12px"
+      }
+    },
+    "overlapHeatTape": 0,
+    "overlapHeatFlow": 0.0
+  },
+  "tooltip": {
+    "hidden": true,
+    "text": ""
+  },
+  "controls_after": {
+    "viewMs": 900000,
+    "step": 5,
+    "intensity": 1.25,
+    "bubbles": false
+  },
+  "gap": {
+    "active": "LOCAL STALE",
+    "status": "LOCAL STALE · DEPTH 50×50 · SESSION 11:58:55 · SESSION ONLY · 5M · STEP 5 · Q95 4.195 · BOOK 10/9000 · TAPE 353/100000 · RENDER P95 31.80ms"
+  },
+  "final_metrics": {
+    "bookFrames": 10,
+    "trades": 353,
+    "gaps": 3,
+    "estimatedBookBytes": 13280,
+    "ingestP95": 4.200000002980232,
+    "renderP95": 31.799999997019768,
+    "renderMax": 31.799999997019768
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "console_errors": [],
+  "page_errors": [],
+  "url": "http://127.0.0.1:18080/",
+  "title": "",
+  "heat_hidden": false,
+  "status": "HEATMAP LIVE · 14 BOOK FRAMES · Q95 10.129000000000001",
+  "frames": 14,
+  "trades": 0,
+  "book_gap": null,
+  "canvas_css": {
+    "x": -125.3125,
+    "y": 1150,
+    "width": 904.3125,
+    "height": 467
+  },
+  "canvas_backing": {
+    "width": 904,
+    "height": 467
+  },
+  "page": {
+    "scrollWidth": 1280,
+    "clientWidth": 1280,
+    "scrollHeight": 1610
+  },
+  "mode_font": "10px",
+  "status_font": "11px",
+  "expected_controls": {
+    "m1": false,
+    "m5": false,
+    "m15": false,
+    "step_auto": false,
+    "intensity_minus": false,
+    "intensity_plus": false,
+    "bubbles": false,
+    "live_lock": true,
+    "return_live": false
+  },
+  "pixel_counts": {
+    "nonDark": 113069,
+    "greenish": 49346,
+    "reddish": 63318,
+    "blueish": 0,
+    "yellowish": 0,
+    "whiteish": 0
+  },
+  "before_click": {
+    "frames": 10,
+    "trades": 0,
+    "status": "HEATMAP LIVE · 10 BOOK FRAMES · Q95 10.132"
+  }
+}

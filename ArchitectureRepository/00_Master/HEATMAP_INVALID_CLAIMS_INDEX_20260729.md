@@ -1,0 +1,64 @@
+# Heatmap関連 完成主張 無効化インデックス
+作成日: 2026-07-29
+根拠: Phase 0現状調査(2026-07-29)、指示書_Heatmap_是正_v1/v2
+
+## 無効通知
+
+以下に列挙する全文書中の「完成」「PASS」「稼働」に関する記載は、
+Phase 0現状調査により**無効**と判定された。原文は訂正・削除せず、証拠として保存する。
+
+無効と判定した根拠:
+- Heatmapフラグは index.html:969 で明示的にOFF、通常画面から起動不能
+- UIテスト(test_orderbook_heatmap_ui.py:9)は「Heatmap OFF」を合格条件としており、機能動作を検証していない
+- 実Canvas描画の自動テストは存在しない
+- 保存済み描画成果物は x座標-185.25px のバグと描画p95 31.8ms/112.1ms(予算16ms超過)を示す
+- 永続writerは50段サンプリング記録でありADR-011(全量記録)に違反
+- writerの毎フレーム同期write+flush+fsyncはADR-003(単一ループ非同期)に違反
+
+正本は HEATMAP_指示書(最新版) とする。
+
+## 対象文書一覧(無効化対象)
+
+- ArchitectureRepository/00_Master/PROJECT_MEMORY.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_CORRECTION_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_IMPLEMENTATION_INSTRUCTION_V1_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_INSTRUCTION_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PERSISTENT_DEPTH_SIZING_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PERSISTENT_DEPTH_SIZING_REPORT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_BASELINE_AUDIT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H1_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H1_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H2_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H2_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H3_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H3_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H4_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H4_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H5_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H5_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H6_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H6_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_IMPLEMENTATION_INSTRUCTION_V1_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_INSTRUCTION_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD0_CAPTURE_DISTRIBUTION_AND_FORMAT_COMPARISON_DESIGN_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD0_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD1_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD1_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD2_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD2_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD3_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD3_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD4_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD4_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD5_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD5_FINAL_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD5_IMPLEMENTATION_COMPLETION_REPORT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD5_NO_GO_REPORT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD6_SOAK_CHECKPOINT_20260729.md
+- ArchitectureRepository/00_Master/PERSISTENT_DEPTH_HISTORY_PD6_SOAK_COMPLETION_REPORT_20260729.md
+
+## 対象外と判断した文書
+
+- ArchitectureRepository/AA_仕様書_LiquidityHeatmap_WebUI_v1.md
+  理由: 設計案であり完成・稼働の主張文書ではないため
