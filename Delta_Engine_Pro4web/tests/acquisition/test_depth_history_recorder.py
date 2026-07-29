@@ -70,10 +70,13 @@ def test_manifest_matches_content(tmp_path):
 
 
 def test_rotation_by_size(tmp_path):
-    rec = DepthHistoryRecorder(tmp_path, "BTCUSDT", max_bytes=10)
-    rec.write(DEPTH_EVENT)   # 1件でmax_bytes超過→rotate
-    rec.write(DEPTH_EVENT)
-    rec.close()
+    # 1レコード=148バイト。max_bytes=200なら2件目書込み後(累積296)で1回rotate、
+    # 残り1件はcloseで確定 → セグメント2つ、理由 ["close", "rotate"]。
+    rec = DepthHistoryRecorder(tmp_path, "BTCUSDT", max_bytes=200)
+    rec.write(DEPTH_EVENT)   # 累積148: rotateなし
+    rec.write(DEPTH_EVENT)   # 累積296: rotate(1つ目closed, reason=rotate)
+    rec.write(DEPTH_EVENT)   # 2つ目セグメントへ追記
+    rec.close()              # 2つ目をclose(reason=close)
     root = tmp_path / "symbol=BTCUSDT"
     finals = sorted(root.glob("*.jsonl"))
     assert len(finals) == 2
