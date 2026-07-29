@@ -32,6 +32,11 @@ from src.observation.raw_journal import CaptureCampaign
 from src.orderflow.shadow_signal_recorder import ShadowSignalRecorder
 from src.pipeline import LivePipeline, ReplayPipeline, load_profile
 from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
+from src.acquisition.depth_history_recorder import (
+    DepthHistoryRecorder,
+    RecorderTee,
+    SafeRecorder,
+)
 from webapp.push_broker import (
     IntervalGate,
     LatestValuePump,
@@ -114,6 +119,17 @@ async def lifespan(app: FastAPI):
     app.state.version = resolve_version()
     config = load_config(_CONFIG_PATH)
     profile = load_profile(_profile_path(config))
+    depth_history_enabled = os.getenv("DEPTH_HISTORY_ENABLED", "false").lower() == "true"
+    depth_history_recorder = (
+        SafeRecorder(
+            DepthHistoryRecorder(
+                os.getenv("DEPTH_HISTORY_ROOT", "data_05M/depth_history_raw"),
+                config.market.symbol,
+            )
+        )
+        if depth_history_enabled
+        else None
+    )
     broker = _build_broker(config)
     context_observer = CombinedContextObserver(config.market.symbol)
     shadow_recorder = ShadowSignalRecorder(Path("data_05M/manual/flow_response_shadow.jsonl"))
@@ -352,8 +368,10 @@ async def lifespan(app: FastAPI):
     else:
         market_push_task = asyncio.create_task(market_push_pump.run())
         book_projection_task = asyncio.create_task(book_projection_pump.run())
+        _raw_taps = [t for t in (hook_capture, depth_history_recorder) if t is not None]
+        _raw_tap = _raw_taps[0] if len(_raw_taps) == 1 else (RecorderTee(_raw_taps) if _raw_taps else None)
         pipeline_task = asyncio.create_task(
-            pipeline.run_async(raw_recorder=hook_capture)
+            pipeline.run_async(raw_recorder=_raw_tap)
         )
     tape_task = asyncio.create_task(tape_batcher.run())
 
@@ -561,6 +579,9 @@ async def lifespan(app: FastAPI):
         if hook_capture is not None:
             with contextlib.suppress(Exception):
                 await asyncio.to_thread(hook_capture.close)
+        if depth_history_recorder is not None:
+            with contextlib.suppress(Exception):
+                depth_history_recorder.close()
 
 
 app = FastAPI(title="DeltaEngine05M WebApp", lifespan=lifespan)
