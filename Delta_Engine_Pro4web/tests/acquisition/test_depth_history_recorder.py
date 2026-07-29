@@ -130,3 +130,15 @@ def test_tee_writes_to_all_taps(tmp_path):
 
     RecorderTee([Tap("a"), None, Tap("b")]).write(DEPTH_EVENT)
     assert seen == ["a", "b"]
+
+
+def test_tee_close_is_noop():
+    closed = []
+
+    class Tap:
+        def close(self):
+            closed.append(True)
+
+    tee = RecorderTee([Tap()])
+    tee.close()  # 呼んでも例外なし、配下tapは所有者が個別にcloseする
+    assert closed == []

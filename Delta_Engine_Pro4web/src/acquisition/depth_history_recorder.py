@@ -157,9 +157,11 @@ class SafeRecorder:
 
 
 class RecorderTee:
-    """複数タップへ同一イベントを配る(hook_captureとの併用用)。closeは行わない。
+    """複数タップへ同一イベントを配る(hook_captureとの併用用)。
 
-    各タップのライフサイクル(close)は所有者(main.py lifespan)が管理する。
+    close() は呼ばれても安全な no-op とする。各タップの実ライフサイクル(close)は
+    所有者(main.py lifespan)が個別変数を保持して管理する。Teeを経由した
+    二重closeを避けるため、ここでは何も閉じない。
     """
 
     def __init__(self, taps) -> None:
@@ -168,3 +170,6 @@ class RecorderTee:
     def write(self, obj: dict) -> None:
         for tap in self._taps:
             tap.write(obj)
+
+    def close(self) -> None:  # no-op: 所有者が各タップを個別にcloseする
+        return
