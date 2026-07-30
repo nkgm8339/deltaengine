@@ -1,6 +1,348 @@
 schema_version: 1
 default_status: UNCALIBRATED
 
-# Deliberately empty in Stage 2A. Missing entries fail closed. The calibration
-# tool may add entries only from a valid, hashed append-only input manifest.
-thresholds: {}
+# Stage 2C p90 calibration from the hashed 72-hour append-only full journal.
+# Missing entries remain UNCALIBRATED and fail closed.
+thresholds:
+  A01:
+    metric: level_quantity_over_side_median
+    operator: ge
+    quantile: 0.90
+    value: 3407.1428571429
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 723556
+    valid_days: 3
+  A02:
+    metric: level_quantity_over_side_median
+    operator: ge
+    quantile: 0.90
+    value: 3161.5
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 723265
+    valid_days: 3
+  A03:
+    metric: untraded_removed_fraction
+    operator: ge
+    quantile: 0.90
+    value: 0.9480510776
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 423212
+    valid_days: 3
+  A04:
+    metric: untraded_removed_fraction
+    operator: ge
+    quantile: 0.90
+    value: 0.9582662537
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 416832
+    valid_days: 3
+  A05:
+    metric: depth_removed_fraction
+    operator: ge
+    quantile: 0.90
+    value: 0.2257413037
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 935052
+    valid_days: 3
+  A06:
+    metric: depth_removed_fraction
+    operator: ge
+    quantile: 0.90
+    value: 0.230138894
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 931297
+    valid_days: 3
+  A07:
+    metric: depth_added_fraction
+    operator: ge
+    quantile: 0.90
+    value: 0.266824863
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 1011389
+    valid_days: 3
+  A08:
+    metric: depth_added_fraction
+    operator: ge
+    quantile: 0.90
+    value: 0.2759758466
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 1007302
+    valid_days: 3
+  A09:
+    metric: dominant_to_opposite_depth_ratio
+    operator: ge
+    quantile: 0.90
+    value: 7.4475869641
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 1194226
+    valid_days: 3
+  A10:
+    metric: dominant_to_opposite_depth_ratio
+    operator: ge
+    quantile: 0.90
+    value: 6.6616221957
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 1080611
+    valid_days: 3
+  A11:
+    metric: best_quote_move_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.8919830986
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 41240
+    valid_days: 3
+  A12:
+    metric: best_quote_move_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.8975032953
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 40084
+    valid_days: 3
+  A13:
+    metric: best_quote_move_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.8949303141
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 40302
+    valid_days: 3
+  A14:
+    metric: best_quote_move_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.8902801853
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 41429
+    valid_days: 3
+  A15:
+    metric: spread_expansion_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.0000015227
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 41438
+    valid_days: 3
+  A16:
+    metric: spread_contraction_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.0000015405
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 40251
+    valid_days: 3
+  A17:
+    metric: replenished_to_executed_ratio
+    operator: ge
+    quantile: 0.90
+    value: 1644
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 285761
+    valid_days: 3
+  A18:
+    metric: replenished_to_executed_ratio
+    operator: ge
+    quantile: 0.90
+    value: 1661
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 316051
+    valid_days: 3
+  A19:
+    metric: untraded_pull_count
+    operator: ge
+    quantile: 0.90
+    value: 62
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 423212
+    valid_days: 3
+  A20:
+    metric: untraded_pull_count
+    operator: ge
+    quantile: 0.90
+    value: 67
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 416832
+    valid_days: 3
+  A21:
+    metric: maximum_upside_level_gap_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.0784677447
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 2274837
+    valid_days: 3
+  A22:
+    metric: maximum_downside_level_gap_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.0784220849
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 2274837
+    valid_days: 3
+  A23:
+    metric: wall_tracking_move_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.914078283
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 88938
+    valid_days: 3
+  A24:
+    metric: wall_tracking_move_bps
+    operator: ge
+    quantile: 0.90
+    value: 0.9113299525
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 93831
+    valid_days: 3
+  C06:
+    metric: aggressive_to_wall_quantity_ratio
+    operator: ge
+    quantile: 0.90
+    value: 0.0660099463
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 670740
+    valid_days: 3
+  D07:
+    metric: trapped_duration_ms
+    operator: ge
+    quantile: 0.90
+    value: 1465.2
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 2039
+    valid_days: 3
+  D08:
+    metric: aligned_window_count
+    operator: ge
+    quantile: 0.90
+    value: 4
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 63787
+    valid_days: 3
+  G01:
+    metric: distance_to_recent_high_bps
+    operator: le
+    quantile: 0.90
+    value: 15.8790121078
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 3935
+    valid_days: 3
+  G02:
+    metric: distance_to_recent_low_bps
+    operator: le
+    quantile: 0.90
+    value: 17.1345938592
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 3935
+    valid_days: 3
+  G03:
+    metric: high_break_bps
+    operator: ge
+    quantile: 0.90
+    value: 7.0508754708
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 620
+    valid_days: 3
+  G04:
+    metric: low_break_bps
+    operator: ge
+    quantile: 0.90
+    value: 6.4573440178
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 710
+    valid_days: 3
+  G05:
+    metric: failed_break_return_bps
+    operator: ge
+    quantile: 0.90
+    value: 8.5284948314
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 307
+    valid_days: 3
+  G06:
+    metric: failed_break_return_bps
+    operator: ge
+    quantile: 0.90
+    value: 8.1968877126
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 334
+    valid_days: 3
+  G07:
+    metric: distance_to_session_vwap_bps
+    operator: le
+    quantile: 0.90
+    value: 35.113490544
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 3963
+    valid_days: 3
+  G08:
+    metric: absolute_vwap_deviation_bps
+    operator: ge
+    quantile: 0.90
+    value: 35.113490544
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 3963
+    valid_days: 3
+  G09:
+    metric: distance_to_high_volume_node_bps
+    operator: le
+    quantile: 0.90
+    value: 12.5287637773
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 3963
+    valid_days: 3
+  G10:
+    metric: distance_to_round_number_bps
+    operator: le
+    quantile: 0.90
+    value: 3.4887781038
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 3963
+    valid_days: 3
+  G11:
+    metric: distance_to_nearest_range_edge_bps
+    operator: le
+    quantile: 0.90
+    value: 9.2906141325
+    status: CALIBRATED
+    input_manifest_sha256: f90fda5131a3a317039fdbc2596737c406319c8066004893e1c47c076a1b548b
+    sample_count: 3935
+    valid_days: 3

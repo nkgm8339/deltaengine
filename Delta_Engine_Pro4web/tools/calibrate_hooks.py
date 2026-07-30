@@ -13,6 +13,7 @@ the full journal contains no open-interest samples.
 Usage:
     python tools/calibrate_hooks.py
     python tools/calibrate_hooks.py --output-json C:/tmp/hook_distribution.json
+    python tools/calibrate_hooks.py --with-thresholds --output-json C:/tmp/hook_fire.json
     python tools/calibrate_hooks.py --max-sessions 1 --max-records-per-session 50000
 """
 
@@ -61,6 +62,7 @@ from src.orderflow.hooks.dom_iceberg import DomIcebergDetector  # noqa: E402
 from src.orderflow.hooks.dom_liquidity import DomLiquidityDetector  # noqa: E402
 from src.orderflow.hooks.dom_quote_motion import DomQuoteMotionDetector  # noqa: E402
 from src.orderflow.hooks.dom_wall import DomWallDetector  # noqa: E402
+from src.orderflow.hooks.config import ThresholdBook  # noqa: E402
 from src.orderflow.hooks.flow_transition import FlowTransitionDetector  # noqa: E402
 from src.orderflow.hooks.interaction import InteractionDetector  # noqa: E402
 from src.orderflow.hooks.models import (  # noqa: E402
@@ -86,6 +88,7 @@ DEFAULT_CAMPAIGN_ROOT = (
 )
 DEFAULT_CONFIG = PROJECT_ROOT / "config" / "config.yaml"
 DEFAULT_PROFILE = PROJECT_ROOT / "config" / "profiles" / "binance.yaml"
+DEFAULT_THRESHOLDS = PROJECT_ROOT / "config" / "hook_thresholds.yaml"
 
 A_HOOKS = tuple(f"A{index:02d}" for index in range(1, 25))
 C_HOOKS = tuple(f"C{index:02d}" for index in range(3, 9))
@@ -157,10 +160,19 @@ class CandidateStore:
         self.connection = duckdb.connect(str(database_path))
         self.connection.execute("SET threads = 1")
         self.connection.execute(
-            "CREATE TABLE samples (hook_id VARCHAR NOT NULL, value DECIMAL(38,18) NOT NULL)"
+            """
+            CREATE TABLE samples (
+                hook_id VARCHAR NOT NULL,
+                value DECIMAL(38,18) NOT NULL,
+                metric_name VARCHAR NOT NULL,
+                quality_valid BOOLEAN NOT NULL
+            )
+            """
         )
         self._hook_ids: list[str] = []
         self._values: list[str] = []
+        self._metric_names: list[str] = []
+        self._quality_valid: list[bool] = []
         self._in_transaction = False
         self.total_rows = 0
 
@@ -177,6 +189,10 @@ class CandidateStore:
                 continue
             self._hook_ids.append(candidate.hook_id)
             self._values.append(_decimal_text(candidate.metric_value))
+            self._metric_names.append(candidate.metric_name)
+            self._quality_valid.append(
+                candidate.quality_status is HookQualityStatus.VALID
+            )
             added += 1
         if len(self._hook_ids) >= self.batch_size:
             self._flush()
@@ -190,13 +206,22 @@ class CandidateStore:
             INSERT INTO samples
             SELECT
                 unnest(?::VARCHAR[]),
-                CAST(unnest(?::VARCHAR[]) AS DECIMAL(38,18))
+                CAST(unnest(?::VARCHAR[]) AS DECIMAL(38,18)),
+                unnest(?::VARCHAR[]),
+                unnest(?::BOOLEAN[])
             """,
-            [self._hook_ids, self._values],
+            [
+                self._hook_ids,
+                self._values,
+                self._metric_names,
+                self._quality_valid,
+            ],
         )
         self.total_rows += len(self._hook_ids)
         self._hook_ids = []
         self._values = []
+        self._metric_names = []
+        self._quality_valid = []
 
     def commit_session(self) -> None:
         if not self._in_transaction:
@@ -208,6 +233,8 @@ class CandidateStore:
     def rollback_session(self) -> None:
         self._hook_ids = []
         self._values = []
+        self._metric_names = []
+        self._quality_valid = []
         if self._in_transaction:
             self.connection.execute("ROLLBACK")
             self._in_transaction = False
@@ -286,6 +313,112 @@ def _statistics_from_source(
         found.get(hook_id, {"hook_id": hook_id, **empty})
         for hook_id in TARGET_HOOKS
     ]
+
+
+def _fire_rate_classification(rate_percent: float | None) -> str:
+    if rate_percent is None:
+        return "NO_SAMPLES"
+    if 5.0 <= rate_percent <= 15.0:
+        return "NORMAL"
+    if 1.0 <= rate_percent < 5.0 or 15.0 < rate_percent <= 25.0:
+        return "ATTENTION"
+    return "ABNORMAL"
+
+
+def _fire_frequency_from_source(
+    connection: Any,
+    source_sql: str,
+    *,
+    threshold_book: ThresholdBook,
+    input_manifest_hash: str,
+) -> list[dict[str, Any]]:
+    """Apply the ThresholdBook contract to spooled replay candidates."""
+
+    operator_sql = {"ge": ">=", "gt": ">", "le": "<=", "lt": "<"}
+    result: list[dict[str, Any]] = []
+    for hook_id in threshold_book.calibrated_hook_ids():
+        if hook_id not in TARGET_HOOK_SET:
+            raise ValueError(
+                f"calibrated Hook is outside this replay target set: {hook_id}"
+            )
+        threshold = threshold_book.threshold(hook_id)
+        assert threshold is not None
+        if threshold.input_manifest_sha256 != input_manifest_hash:
+            raise ValueError(
+                f"threshold manifest mismatch for {hook_id}: "
+                f"{threshold.input_manifest_sha256} != {input_manifest_hash}"
+            )
+
+        common_sql = f"""
+            FROM ({source_sql}) AS candidate_source
+            WHERE hook_id = ?
+        """
+        if threshold.operator == "always":
+            row = connection.execute(
+                f"""
+                SELECT
+                    count(*) AS candidate_count,
+                    count(*) FILTER (
+                        WHERE quality_valid AND metric_name = ?
+                    ) AS eligible_count,
+                    count(*) FILTER (
+                        WHERE quality_valid AND metric_name = ?
+                    ) AS passed_count
+                {common_sql}
+                """,
+                [
+                    threshold.metric_name,
+                    threshold.metric_name,
+                    hook_id,
+                ],
+            ).fetchone()
+        else:
+            comparison = operator_sql[threshold.operator]
+            assert threshold.value is not None
+            row = connection.execute(
+                f"""
+                SELECT
+                    count(*) AS candidate_count,
+                    count(*) FILTER (
+                        WHERE quality_valid AND metric_name = ?
+                    ) AS eligible_count,
+                    count(*) FILTER (
+                        WHERE quality_valid
+                          AND metric_name = ?
+                          AND value {comparison} CAST(? AS DECIMAL(38,18))
+                    ) AS passed_count
+                {common_sql}
+                """,
+                [
+                    threshold.metric_name,
+                    threshold.metric_name,
+                    _decimal_text(threshold.value),
+                    hook_id,
+                ],
+            ).fetchone()
+
+        candidate_count = int(row[0])
+        eligible_count = int(row[1])
+        passed_count = int(row[2])
+        rate_percent = (
+            round(passed_count * 100.0 / candidate_count, 6)
+            if candidate_count
+            else None
+        )
+        result.append({
+            "hook_id": hook_id,
+            "metric": threshold.metric_name,
+            "operator": threshold.operator,
+            "threshold": (
+                None if threshold.value is None else _decimal_text(threshold.value)
+            ),
+            "candidate_count": candidate_count,
+            "eligible_count": eligible_count,
+            "passed_count": passed_count,
+            "fire_rate_percent": rate_percent,
+            "classification": _fire_rate_classification(rate_percent),
+        })
+    return result
 
 
 @dataclass
@@ -1235,6 +1368,25 @@ def _render_markdown(result: dict[str, Any]) -> str:
         if result["insufficient_hooks"]
         else "None",
     ))
+    fire_frequency = result.get("fire_frequency")
+    if fire_frequency is not None:
+        lines.extend((
+            "",
+            "## Threshold fire frequency",
+            "",
+            "| Hook ID | operator | threshold | candidates | eligible | fired | fire rate % | classification |",
+            "|---|---|---:|---:|---:|---:|---:|---|",
+        ))
+        for row in fire_frequency:
+            rate = row["fire_rate_percent"]
+            lines.append(
+                "| {hook_id} | {operator} | {threshold} | {candidate_count} | "
+                "{eligible_count} | {passed_count} | {rate} | "
+                "{classification} |".format(
+                    **row,
+                    rate="—" if rate is None else f"{rate:.6f}",
+                )
+            )
     return "\n".join(lines)
 
 
@@ -1259,6 +1411,17 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         type=Path,
         default=DEFAULT_PROFILE,
         help="read-only exchange profile",
+    )
+    parser.add_argument(
+        "--with-thresholds",
+        action="store_true",
+        help="read ThresholdBook and report threshold pass frequencies",
+    )
+    parser.add_argument(
+        "--thresholds",
+        type=Path,
+        default=DEFAULT_THRESHOLDS,
+        help="read-only Hook threshold YAML used with --with-thresholds",
     )
     parser.add_argument(
         "--output-json",
@@ -1299,6 +1462,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         parser.error("--progress-every must be >= 0")
     if args.jobs < 1:
         parser.error("--jobs must be >= 1")
+    if args.with_thresholds and (
+        args.max_sessions is not None
+        or args.max_records_per_session is not None
+    ):
+        parser.error("--with-thresholds requires an unlimited full replay")
     return args
 
 
@@ -1318,6 +1486,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.config.is_file() or not args.profile.is_file():
         print("config/profile file is missing", file=sys.stderr)
         return 2
+    if args.with_thresholds and not args.thresholds.is_file():
+        print(f"threshold file is missing: {args.thresholds}", file=sys.stderr)
+        return 2
     if args.output_json is not None and args.output_json.exists():
         print(
             f"refusing to overwrite existing output: {args.output_json}",
@@ -1329,12 +1500,24 @@ def main(argv: list[str] | None = None) -> int:
     discovered = len(session_dirs)
     if args.max_sessions is not None:
         session_dirs = session_dirs[: args.max_sessions]
+    input_manifest_hash = _campaign_manifest_hash(session_dirs)
+    threshold_book: ThresholdBook | None = None
+    if args.with_thresholds:
+        try:
+            threshold_book = ThresholdBook.load(args.thresholds)
+        except Exception as exc:
+            print(
+                f"failed to load thresholds: {type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
+            return 2
     started = time.perf_counter()
 
     with tempfile.TemporaryDirectory(prefix="calibrate_hooks_") as temp_dir:
         session_results: list[SessionResult] = []
         database_paths: list[Path] = []
         candidate_rows = 0
+        fire_frequency: list[dict[str, Any]] | None = None
         jobs = min(args.jobs, max(1, len(session_dirs)))
         if jobs == 1:
             config = load_config(str(args.config))
@@ -1373,6 +1556,16 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 statistics = store.statistics()
                 candidate_rows = store.total_rows
+                if threshold_book is not None:
+                    fire_frequency = _fire_frequency_from_source(
+                        store.connection,
+                        (
+                            "SELECT hook_id, value, metric_name, quality_valid "
+                            "FROM samples"
+                        ),
+                        threshold_book=threshold_book,
+                        input_manifest_hash=input_manifest_hash,
+                    )
             finally:
                 store.close()
         else:
@@ -1437,7 +1630,10 @@ def main(argv: list[str] | None = None) -> int:
                         f"ATTACH '{escaped}' AS {alias} (READ_ONLY)"
                     )
                     sources.append(
-                        f"SELECT hook_id, value FROM {alias}.samples"
+                        (
+                            "SELECT hook_id, value, metric_name, quality_valid "
+                            f"FROM {alias}.samples"
+                        )
                     )
                 statistics = (
                     _statistics_from_source(
@@ -1465,6 +1661,13 @@ def main(argv: list[str] | None = None) -> int:
                         for hook_id in TARGET_HOOKS
                     ]
                 )
+                if threshold_book is not None:
+                    fire_frequency = _fire_frequency_from_source(
+                        aggregate,
+                        " UNION ALL ".join(sources),
+                        threshold_book=threshold_book,
+                        input_manifest_hash=input_manifest_hash,
+                    )
             finally:
                 aggregate.close()
 
@@ -1481,7 +1684,7 @@ def main(argv: list[str] | None = None) -> int:
             "dry_run": True,
             "generated_at_utc": _utc_now_text(),
             "campaign_root": str(campaign_root),
-            "input_manifest_sha256": _campaign_manifest_hash(session_dirs),
+            "input_manifest_sha256": input_manifest_hash,
             "target_hooks": list(TARGET_HOOKS),
             "excluded_hooks": [
                 "C09",
@@ -1509,6 +1712,7 @@ def main(argv: list[str] | None = None) -> int:
                 "session_state_policy": "reset all detector state at each session boundary",
                 "failed_session_policy": "transactional rollback; no partial candidates retained",
                 "jobs": jobs,
+                "with_thresholds": args.with_thresholds,
             },
             "sessions_discovered": discovered,
             "sessions_selected": len(session_dirs),
@@ -1523,6 +1727,18 @@ def main(argv: list[str] | None = None) -> int:
             ).items())),
             "elapsed_sec": round(time.perf_counter() - started, 3),
             "statistics": statistics,
+            "threshold_config": (
+                {
+                    "path": str(args.thresholds.resolve()),
+                    "config_hash": threshold_book.config_hash,
+                    "calibrated_hook_ids": list(
+                        threshold_book.calibrated_hook_ids()
+                    ),
+                }
+                if threshold_book is not None
+                else None
+            ),
+            "fire_frequency": fire_frequency,
             "insufficient_hooks": [
                 row["hook_id"] for row in statistics if row["count"] < 100
             ],
