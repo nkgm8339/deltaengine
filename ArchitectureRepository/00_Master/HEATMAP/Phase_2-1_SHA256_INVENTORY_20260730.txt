@@ -1,0 +1,23 @@
+Phase 2-1 Reconstructor complete-package inventory
+Generated: 2026-07-30 JST
+Path base: repository root
+Hash: SHA-256 (uppercase)
+Line metric: count of LF byte 0x0A
+Payload files excluding this inventory: 13
+Expected ZIP entries including this inventory: 14
+Self-reference rule: this inventory's own hash and the final ZIP hash are reported by the external package audit.
+
+SHA256  BYTES  LF  PATH
+01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B  1  1  Delta_Engine_Pro4web/src/heatmap/__init__.py
+84639422635CC01678CFB1E622FA561DF0B51D733A3262DA4A2B3A25C16BEB0C  20394  573  Delta_Engine_Pro4web/src/heatmap/reconstruct.py
+01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B  1  1  Delta_Engine_Pro4web/tests/heatmap/__init__.py
+0C2D734F95D6A6A05B0DD438ED8F946DD8964C844939261D6227E21D53C605F7  14290  501  Delta_Engine_Pro4web/tests/heatmap/test_reconstruct.py
+FC947A962C4216998294713535A665995F186BE16776F7D251438CF8553632F8  428126  77  Delta_Engine_Pro4web/tests/heatmap/fixtures/real_validation/raw_depth.20260729T193154.046959Z.jsonl
+442CF60B418093C28642D245C1082E4DECD640F6A62C9968E55FFA3378D46326  906  1  Delta_Engine_Pro4web/tests/heatmap/fixtures/real_validation/raw_depth.20260729T193154.046959Z.jsonl.manifest.json
+2E79BA05A8390283F608B858D5976A94CDD8A44D906F517D2E9366DEC23EC231  406713  65  Delta_Engine_Pro4web/tests/heatmap/fixtures/real_validation/raw_depth.20260729T193201.309417Z.jsonl
+9F0CE451817FD19A4CF007D357815DB9F9B0A5F40DEB2880241B39DF701C0ED2  725  1  Delta_Engine_Pro4web/tests/heatmap/fixtures/real_validation/raw_depth.20260729T193201.309417Z.jsonl.manifest.json
+84C15DFB96A2D3E41D472568BD6E86EC7A07B09DED38017F1F85477BF18C4CA9  4987  156  ArchitectureRepository/00_Master/HEATMAP/tools_p21/reconstruct_check.py
+3EB58620B61F2BA1BED36254C579BD9E62896E63B5C26DA1EA5E52B781AC679B  9347  278  Delta_Engine_Pro4web/tests/heatmap/fixtures/make_real_fixture.py
+6BB4821C0F6CA6E860528DAC09112EFCC1642EF86ADE83BC2A04AD7A08224873  23471  450  ArchitectureRepository/00_Master/HEATMAP/Phase_2-1_板state再構築器実装報告.md
+E3DE49359AFC63117433DDF9B8183CA2C4B0AE2C6E21ADE08963EF14997C1B70  108960  2413  ArchitectureRepository/00_Master/HEATMAP/worktree_backup_pre_p21_20260730.patch
+E7A3E18130C245392D2B02D074CB3A4A667A3F7658A7CA188D63818D7BD7560A  6389  58  ArchitectureRepository/00_Master/HEATMAP/worktree_status_pre_p21_20260730.txt

@@ -1248,3 +1248,62 @@ acquisition.binance_ws INFO binance subscribed streams=['btcusdt@trade', 'btcusd
 
 - 期待表示`CVD SLOPE +1.99 BTC/bar (REGRESSION · 20)`を確認した。
 - WebAppの表示契約テストを追加し、対象試験で確認した。
+
+---
+
+## Phase 2-1 板state再構築器
+
+**実施日**: 2026-07-30
+
+### 完成内容
+
+- manifest V1／V2とJSONL segmentをオフラインで読み、byte_size、record_count、
+  SHA-256を使用前に検証する`DepthHistoryReader`を新規実装した。
+- `DepthSyncCoordinator`がverifiedを返したsnapshot＋diffsだけを
+  `OrderBookStateManager`へ渡す`DepthReconstructor`を新規実装した。
+- 固定適用順を
+  `apply(SNAPSHOT) → apply_initial_sync(snapshot_u) → verified diffs`
+  とし、lenient分岐をverified bridge専用に限定した。
+- gap、recorded snapshotからのresync、SYNC_FAILED後のdiscard、stale diff、
+  trade skip、sampling、明示counterを実装した。
+- 価格・数量はdecimal stringからDecimalへのみ変換し、float混入は即時拒否する。
+- 実録画先頭2segmentからdepthSnapshot全1件、depthUpdate全136件、
+  trade先頭5件の縮約fixtureを生成した。各manifestへ元filename／元SHA-256を記録した。
+- 34segmentを検証・再構築するmanual offline CLIを追加した。
+
+### 検証
+
+| 検証 | 結果 |
+|---|---|
+| Phase 2-1正式test | **10 passed** |
+| 全体pytest | **737 passed, 1 skipped, 1 failed** |
+| 全体pytestのfail | 開始前から存在する既知UI selector 1件のみ、新規fail 0 |
+| real fixture | snapshot 1、verified diff 135、gap 0、sync failure 0 |
+| 34segment CLI | integrity PASS、segment 34、skip 0 |
+| 34segment reconstruction | DIFF 2,938、GAP 0、SYNC_FAILED 0 |
+| final last_update_id | `11165441170516` |
+| ライブ接続 | 0 |
+
+### 最終成果物
+
+- 報告書:
+  `ArchitectureRepository/00_Master/HEATMAP/Phase_2-1_板state再構築器実装報告.md`
+- SHA-256 inventory:
+  `ArchitectureRepository/00_Master/HEATMAP/Phase_2-1_SHA256_INVENTORY_20260730.txt`
+  - SHA-256:
+    `2A046971BB5A03077E320856BB892B969C02565CD974A4523AFE64D26DDFA7B5`
+- 完全ZIP:
+  `ArchitectureRepository/00_Master/HEATMAP/Phase_2-1_Reconstructor_complete_20260730.zip`
+  - 14 entries／211,688 bytes
+  - SHA-256:
+    `74CBFB4B8B30700C766CCB54751717B7908FC4D212C860AEE60EAA341FAFD7D3`
+- Task 0 tracked差分patch:
+  - SHA-256:
+    `E3DE49359AFC63117433DDF9B8183CA2C4B0AE2C6E21ADE08963EF14997C1B70`
+
+### 変更境界
+
+- 完成済みFlow Price Response、3段チャート、描画、ライブpipeline、
+  既存orderbook／depth_sync／recorderは変更していない。
+- `git add / commit / stash / checkout`は実行していない。
+- CompletionLog.md追記は既存ファイル変更禁止に対するユーザー承認済み例外。
