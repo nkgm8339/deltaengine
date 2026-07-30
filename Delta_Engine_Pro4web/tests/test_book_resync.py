@@ -1,186 +1,219 @@
-"""Tests for _book_resync_supervisor (ADR-010)."""
+"""Tests for the request-driven depth snapshot fetch worker (network-free)."""
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from decimal import Decimal
 
 import pytest
 
-from src.orderflow.orderbook import BookLevel, OrderBookStateManager, OrderBookUpdate
+from src.acquisition.depth_sync import (
+    BOOK_RESYNC,
+    INITIAL_BOOK_SYNC,
+    SnapshotRequest,
+)
 from src.pipeline import BookResyncCounters, _book_resync_supervisor
-
-UTC = timezone.utc
-
-
-class _Normalizer:
-    def process_depth(self, raw):
-        return OrderBookUpdate(
-            event_time=datetime(2026, 1, 1, tzinfo=UTC),
-            symbol=raw["s"], update_type="SNAPSHOT", first_update_id=None,
-            final_update_id=raw["u"],
-            bids=tuple(BookLevel(Decimal(p), Decimal(q)) for p, q in raw["b"]),
-            asks=tuple(BookLevel(Decimal(p), Decimal(q)) for p, q in raw["a"]),
-        )
 
 
 class _Recorder:
-    def __init__(self):
-        self.rows = []
+    def __init__(self) -> None:
+        self.rows: list[tuple[dict, str]] = []
 
-    def write(self, row):
-        self.rows.append(row)
+    def write_snapshot(self, row: dict, *, reason: str) -> None:
+        self.rows.append((row, reason))
 
 
 def _raw(update_id: int) -> dict:
-    return {"lastUpdateId": update_id, "bids": [["50000.0", "1.0"]], "asks": [["50001.0", "1.0"]]}
+    return {
+        "lastUpdateId": update_id,
+        "E": 1767225600000,
+        "bids": [["50000.0", "1.0"]],
+        "asks": [["50001.0", "1.0"]],
+    }
 
 
-def test_startup_retry_until_success():
-    async def run():
-        book = OrderBookStateManager("BTCUSDT")
+async def _cancel(task: asyncio.Task) -> None:
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+def test_fetch_failure_is_reported_for_coordinator_retry() -> None:
+    async def run() -> None:
+        requests = asyncio.Queue()
+        results = asyncio.Queue()
         counters = BookResyncCounters()
-        delays = []
-        attempts = 0
+        delays: list[int] = []
 
-        async def fetch(symbol):
-            nonlocal attempts
-            attempts += 1
-            if attempts < 3:
-                raise ConnectionError("temporary")
-            return _raw(100)
+        async def fetch(symbol: str) -> dict:
+            raise ConnectionError(f"{symbol} temporary")
 
-        async def sleep(delay):
+        async def sleep(delay: int) -> None:
             delays.append(delay)
-            if delay == 1:
-                raise asyncio.CancelledError
 
-        with pytest.raises(asyncio.CancelledError):
-            await _book_resync_supervisor(symbol="BTCUSDT", book_state=book, normalizer=_Normalizer(), fetch_snapshot=fetch, counters=counters, sleep=sleep)
-        assert book.is_initialized is True
-        assert counters.fetch_failures == 2 and counters.resyncs == 0
-        assert delays[:2] == [5, 10]
-    asyncio.run(run())
-
-
-def test_successful_snapshot_is_recorded_for_exact_depth_replay():
-    async def run():
-        book = OrderBookStateManager("BTCUSDT")
-        recorder = _Recorder()
-
-        async def fetch(symbol):
-            return _raw(100)
-
-        async def sleep(delay):
-            raise asyncio.CancelledError
-
-        with pytest.raises(asyncio.CancelledError):
-            await _book_resync_supervisor(
+        task = asyncio.create_task(
+            _book_resync_supervisor(
                 symbol="BTCUSDT",
-                book_state=book,
-                normalizer=_Normalizer(),
                 fetch_snapshot=fetch,
-                counters=BookResyncCounters(),
-                recorder=recorder,
+                requests=requests,
+                results=results,
+                counters=counters,
                 sleep=sleep,
             )
+        )
+        request = SnapshotRequest(1, 1, INITIAL_BOOK_SYNC)
+        await requests.put(request)
+        result = await asyncio.wait_for(results.get(), timeout=1)
 
-        assert len(recorder.rows) == 1
-        assert recorder.rows[0]["e"] == "depthSnapshot"
-        assert recorder.rows[0]["u"] == 100
-        assert recorder.rows[0]["b"] == [["50000.0", "1.0"]]
+        assert result.request == request
+        assert result.snapshot is None
+        assert "temporary" in result.error
+        assert counters.fetch_failures == 1
+        assert delays == [5]
+        await _cancel(task)
 
     asyncio.run(run())
 
 
-def test_backoff_caps_at_30():
-    async def run():
-        counters = BookResyncCounters()
-        delays = []
+def test_successful_snapshot_candidate_is_recorded_before_delivery() -> None:
+    async def run() -> None:
+        requests = asyncio.Queue()
+        results = asyncio.Queue()
+        recorder = _Recorder()
 
-        async def fetch(symbol):
+        async def fetch(symbol: str) -> dict:
+            return _raw(100)
+
+        task = asyncio.create_task(
+            _book_resync_supervisor(
+                symbol="BTCUSDT",
+                fetch_snapshot=fetch,
+                requests=requests,
+                results=results,
+                counters=BookResyncCounters(),
+                recorder=recorder,
+            )
+        )
+        request = SnapshotRequest(1, 1, INITIAL_BOOK_SYNC)
+        await requests.put(request)
+        result = await asyncio.wait_for(results.get(), timeout=1)
+
+        assert result.request == request
+        assert result.error is None
+        assert result.snapshot["e"] == "depthSnapshot"
+        assert result.snapshot["u"] == 100
+        assert recorder.rows == [(result.snapshot, INITIAL_BOOK_SYNC)]
+        await _cancel(task)
+
+    asyncio.run(run())
+
+
+def test_fetch_backoff_is_bounded_by_request_attempt() -> None:
+    async def run() -> None:
+        requests = asyncio.Queue()
+        results = asyncio.Queue()
+        delays: list[int] = []
+
+        async def fetch(symbol: str) -> dict:
             raise ConnectionError("down")
 
-        async def sleep(delay):
+        async def sleep(delay: int) -> None:
             delays.append(delay)
-            if len(delays) == 4:
-                raise asyncio.CancelledError
 
-        with pytest.raises(asyncio.CancelledError):
-            await _book_resync_supervisor(symbol="BTCUSDT", book_state=OrderBookStateManager("BTCUSDT"), normalizer=_Normalizer(), fetch_snapshot=fetch, counters=counters, sleep=sleep)
+        task = asyncio.create_task(
+            _book_resync_supervisor(
+                symbol="BTCUSDT",
+                fetch_snapshot=fetch,
+                requests=requests,
+                results=results,
+                counters=BookResyncCounters(),
+                sleep=sleep,
+            )
+        )
+        for attempt in (1, 2, 3, 4):
+            await requests.put(
+                SnapshotRequest(1, attempt, INITIAL_BOOK_SYNC)
+            )
+            await asyncio.wait_for(results.get(), timeout=1)
+
         assert delays == [5, 10, 30, 30]
-        assert counters.fetch_failures == 4
+        await _cancel(task)
+
     asyncio.run(run())
 
 
-def test_resync_after_gap():
-    async def run():
-        book = OrderBookStateManager("BTCUSDT")
-        counters = BookResyncCounters()
-        fetches = 0
-        sleeps = 0
+def test_book_resync_candidate_uses_reason_without_mutating_book() -> None:
+    async def run() -> None:
+        requests = asyncio.Queue()
+        results = asyncio.Queue()
+        recorder = _Recorder()
 
-        async def fetch(symbol):
-            nonlocal fetches
-            fetches += 1
-            return _raw(100 if fetches == 1 else 500)
+        async def fetch(symbol: str) -> dict:
+            return _raw(500)
 
-        async def sleep(delay):
-            nonlocal sleeps
-            sleeps += 1
-            if sleeps == 1:
-                sync_diff = OrderBookUpdate(datetime(2026, 1, 1, tzinfo=UTC), "BTCUSDT", "DIFF", 95, 101, (), (), 99)
-                assert book.apply(sync_diff).applied is True
-                gap = OrderBookUpdate(datetime(2026, 1, 1, tzinfo=UTC), "BTCUSDT", "DIFF", 300, 310, (), (), 250)
-                assert book.apply(gap).gap_detected is True
-            elif sleeps == 2:
-                raise asyncio.CancelledError
+        task = asyncio.create_task(
+            _book_resync_supervisor(
+                symbol="BTCUSDT",
+                fetch_snapshot=fetch,
+                requests=requests,
+                results=results,
+                counters=BookResyncCounters(),
+                recorder=recorder,
+            )
+        )
+        request = SnapshotRequest(2, 1, BOOK_RESYNC)
+        await requests.put(request)
+        result = await asyncio.wait_for(results.get(), timeout=1)
 
-        with pytest.raises(asyncio.CancelledError):
-            await _book_resync_supervisor(symbol="BTCUSDT", book_state=book, normalizer=_Normalizer(), fetch_snapshot=fetch, counters=counters, sleep=sleep)
-        assert book.is_initialized is True
-        assert counters.resyncs == 1 and fetches == 2
+        assert result.snapshot["u"] == 500
+        assert recorder.rows == [(result.snapshot, BOOK_RESYNC)]
+        # The worker has no OrderBookStateManager argument: apply ownership stays
+        # with LivePipeline's main consumer.
+        await _cancel(task)
+
     asyncio.run(run())
 
 
-def test_no_fetch_while_healthy():
-    async def run():
-        book = OrderBookStateManager("BTCUSDT")
-        counters = BookResyncCounters()
+def test_worker_does_not_fetch_without_an_explicit_request() -> None:
+    async def run() -> None:
+        requests = asyncio.Queue()
+        results = asyncio.Queue()
         fetches = 0
-        polls = 0
 
-        async def fetch(symbol):
+        async def fetch(symbol: str) -> dict:
             nonlocal fetches
             fetches += 1
             return _raw(100)
 
-        async def sleep(delay):
-            nonlocal polls
-            polls += 1
-            if polls == 6:
-                raise asyncio.CancelledError
-
-        with pytest.raises(asyncio.CancelledError):
-            await _book_resync_supervisor(symbol="BTCUSDT", book_state=book, normalizer=_Normalizer(), fetch_snapshot=fetch, counters=counters, sleep=sleep)
-        assert fetches == 1
-    asyncio.run(run())
-
-
-def test_cancel_terminates_cleanly():
-    async def run():
-        gate = asyncio.Event()
-
-        async def fetch(symbol):
-            return _raw(100)
-
-        async def sleep(delay):
-            await gate.wait()
-
-        task = asyncio.create_task(_book_resync_supervisor(symbol="BTCUSDT", book_state=OrderBookStateManager("BTCUSDT"), normalizer=_Normalizer(), fetch_snapshot=fetch, counters=BookResyncCounters(), sleep=sleep))
+        task = asyncio.create_task(
+            _book_resync_supervisor(
+                symbol="BTCUSDT",
+                fetch_snapshot=fetch,
+                requests=requests,
+                results=results,
+                counters=BookResyncCounters(),
+            )
+        )
         await asyncio.sleep(0)
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
+
+        assert fetches == 0
+        assert results.empty()
+        await _cancel(task)
+
+    asyncio.run(run())
+
+
+def test_cancel_terminates_cleanly_while_waiting_for_request() -> None:
+    async def run() -> None:
+        task = asyncio.create_task(
+            _book_resync_supervisor(
+                symbol="BTCUSDT",
+                fetch_snapshot=lambda symbol: _raw(100),
+                requests=asyncio.Queue(),
+                results=asyncio.Queue(),
+                counters=BookResyncCounters(),
+            )
+        )
+        await asyncio.sleep(0)
+        await _cancel(task)
+
     asyncio.run(run())

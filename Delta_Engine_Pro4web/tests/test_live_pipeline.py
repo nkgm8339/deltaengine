@@ -17,7 +17,7 @@ from decimal import Decimal as _Decimal
 
 from src.acquisition.replay import ListTransport, ReplaySource
 from src.normalization.normalizer import ExchangeProfile
-from src.pipeline import LivePipeline, ReplayPipeline, _RecorderFanout
+from src.pipeline import LivePipeline, ReplayPipeline, _RecorderFanout, load_profile
 
 # Binance profile with the Phase6 aggTrade mapping (trade_id -> aggregate id `a`).
 PROFILE = ExchangeProfile.from_dict(
@@ -36,6 +36,8 @@ PROFILE = ExchangeProfile.from_dict(
         "timestamp_format": "epoch_ms",
     }
 )
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEPTH_PROFILE = load_profile(PROJECT_ROOT / "config" / "profiles" / "binance.yaml")
 
 
 def _agg(a: int, m: bool, q: str, epoch_ms: int) -> dict:
@@ -65,6 +67,26 @@ class FakeConnect:
 
     async def __call__(self, url: str, streams: list[str]) -> ListTransport:
         return ListTransport(self.messages)
+
+
+class RawCapture:
+    def __init__(self) -> None:
+        self.rows: list[dict] = []
+        self.sync_actions: list[object] = []
+        self.closed = False
+
+    @property
+    def written(self) -> int:
+        return len(self.rows)
+
+    def write(self, row: dict) -> None:
+        self.rows.append(dict(row))
+
+    def record_sync_action(self, action) -> None:
+        self.sync_actions.append(action)
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def _live(tmp_path: Path, sub: str, record_path=None) -> LivePipeline:
@@ -527,3 +549,118 @@ def test_live_pipeline_rejects_zero_trade_and_keeps_flow_outcome_alive(tmp_path:
         ).fetchone()[0] == 0
     finally:
         con.close()
+
+
+def _depth(first_id: int, final_id: int, previous_id: int) -> dict:
+    return {
+        "e": "depthUpdate",
+        "E": _T0 + final_id,
+        "s": "BTCUSDT",
+        "U": first_id,
+        "u": final_id,
+        "pu": previous_id,
+        "b": [["99.9", "2.0"]],
+        "a": [["100.1", "3.0"]],
+    }
+
+
+def _depth_live(tmp_path: Path, sub: str, **kwargs) -> LivePipeline:
+    return LivePipeline(
+        symbol="BTCUSDT",
+        timeframe="1m",
+        profile=DEPTH_PROFILE,
+        ws_url="wss://test/ws",
+        subscribe_streams=["btcusdt@depth@100ms"],
+        parquet_path=tmp_path / sub / "parquet",
+        duckdb_path=tmp_path / sub / "orderflow.duckdb",
+        batch_size=10,
+        flush_interval_sec=1,
+        reconnect=False,
+        **kwargs,
+    )
+
+
+def test_live_depth_fetch_starts_after_raw_buffer_and_applies_verified_batch(
+    tmp_path: Path,
+) -> None:
+    raw_capture = RawCapture()
+    fetch_calls = 0
+
+    async def fetch(symbol: str) -> dict:
+        nonlocal fetch_calls
+        fetch_calls += 1
+        # Receiver contract: raw write and coordinator buffer both precede the
+        # request consumed by this fetch worker.
+        assert raw_capture.rows
+        assert raw_capture.rows[0]["e"] == "depthUpdate"
+        return {
+            "lastUpdateId": 100,
+            "E": _T0,
+            "bids": [["99.8", "1.0"]],
+            "asks": [["100.2", "1.0"]],
+        }
+
+    pipeline = _depth_live(tmp_path, "strict_depth")
+    stats = pipeline.run(
+        connect=FakeConnect([_depth(100, 101, 99), _depth(102, 103, 101)]),
+        poll_interval=0.01,
+        fetch_snapshot=fetch,
+        raw_recorder=raw_capture,
+    )
+
+    assert fetch_calls == 1
+    assert stats.book_snapshots_applied == 1
+    assert stats.book_diffs_applied == 2
+    assert pipeline.book_manager.is_synchronized is True
+    assert pipeline.book_manager.snapshot().last_update_id == 103
+    assert raw_capture.rows[0]["e"] == "depthUpdate"
+    assert any(
+        row.get("_capture_reason") == "INITIAL_BOOK_SYNC"
+        for row in raw_capture.rows
+    )
+    assert len(raw_capture.sync_actions) == 1
+    assert raw_capture.sync_actions[0].is_verified is True
+    assert raw_capture.sync_actions[0].epoch == 1
+
+
+def test_live_depth_attempt_limit_is_fail_closed_while_trade_path_continues(
+    tmp_path: Path,
+) -> None:
+    raw_capture = RawCapture()
+    fetch_calls = 0
+
+    async def fetch(symbol: str) -> dict:
+        nonlocal fetch_calls
+        fetch_calls += 1
+        return {
+            "lastUpdateId": 100,
+            "E": _T0,
+            "bids": [["99.8", "1.0"]],
+            "asks": [["100.2", "1.0"]],
+        }
+
+    pipeline = _depth_live(
+        tmp_path,
+        "strict_fail_closed",
+        depth_sync_max_attempts=2,
+    )
+    stats = pipeline.run(
+        connect=FakeConnect(
+            [
+                _depth(105, 106, 104),
+                _agg(501, m=False, q="2", epoch_ms=_T0),
+            ]
+        ),
+        poll_interval=0.01,
+        fetch_snapshot=fetch,
+        raw_recorder=raw_capture,
+    )
+
+    assert fetch_calls == 2
+    assert stats.book_snapshots_applied == 0
+    assert stats.book_diffs_applied == 0
+    assert pipeline.book_manager.snapshot() is None
+    assert stats.trades_stored == 1
+    assert len(raw_capture.sync_actions) == 1
+    assert raw_capture.sync_actions[0].state.value == "SYNC_FAILED"
+    assert raw_capture.sync_actions[0].failure_reason

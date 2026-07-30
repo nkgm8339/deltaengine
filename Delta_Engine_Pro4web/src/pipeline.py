@@ -37,6 +37,12 @@ import logging
 
 from .acquisition.binance_rest import fetch_depth_snapshot, rest_to_depth_event
 from .acquisition.binance_ws import is_agg_trade, is_agg_trade_or_depth, make_binance_connect
+from .acquisition.depth_sync import (
+    DepthSyncAction,
+    DepthSyncCoordinator,
+    DepthSyncState,
+    SnapshotRequest,
+)
 from .ai.analysis import AnalysisEngine, AnalysisInput
 from .mt5.adapter import MT5Server, analysis_to_mt5_message
 from .acquisition.connector import ExchangeConnector
@@ -131,6 +137,20 @@ class _RecorderFanout:
                     "independent Hook snapshot tap failed; market pipeline continues"
                 )
 
+    def record_sync_action(self, action: DepthSyncAction) -> None:
+        """Forward terminal depth sync metadata to the observation recorder only."""
+        if self._observation is None:
+            return
+        callback = getattr(self._observation, "record_sync_action", None)
+        if callback is None:
+            return
+        try:
+            callback(action)
+        except Exception:
+            logger.exception(
+                "independent Hook sync metadata tap failed; market pipeline continues"
+            )
+
     def close(self) -> None:
         if self._legacy is not None:
             self._legacy.close()
@@ -175,67 +195,72 @@ def _imbalance_should_fire(
     if bars_since_last is None or bars_since_last >= cooldown_bars:
         return True
     return net > last_net
-# --- Order Book resync supervisor (ADR-010) -----------------------------------
+# --- Strict Order Book snapshot fetch worker (ADR-003/ADR-010/ADR-011) --------
 
 _BOOK_RESYNC_BACKOFF_SEC: tuple[int, ...] = (5, 10, 30)
-_BOOK_HEALTH_POLL_SEC: int = 1
+_DEPTH_SYNC_MAX_BUFFERED_DIFFS: int = 100000
+_DEPTH_SYNC_MAX_ATTEMPTS: int = 3
 
 
 @dataclass
 class BookResyncCounters:
-    """Mutable counters owned by the live pipeline; single writer (supervisor)."""
+    """Mutable counters owned by the live pipeline's single asyncio loop."""
     resyncs: int = 0
     fetch_failures: int = 0
+
+
+@dataclass(frozen=True)
+class _DepthSnapshotFetchResult:
+    request: SnapshotRequest
+    snapshot: Optional[dict[str, Any]] = None
+    error: Optional[str] = None
 
 
 async def _book_resync_supervisor(
     *,
     symbol: str,
-    book_state: OrderBookStateManager,
-    normalizer: Any,
     fetch_snapshot: Callable,
+    requests: asyncio.Queue[SnapshotRequest],
+    results: asyncio.Queue[_DepthSnapshotFetchResult],
     counters: BookResyncCounters,
     recorder: Optional[Any] = None,
     sleep: Callable[[int], Awaitable[None]] = asyncio.sleep,
 ) -> None:
-    """Keep the live order book initialized with retry and gap recovery."""
-    consecutive_failures = 0
-    synced_once = False
+    """Fetch requested candidates only; never mutate or validate the order book."""
     while True:
-        if book_state.is_initialized:
-            consecutive_failures = 0
-            await sleep(_BOOK_HEALTH_POLL_SEC)
-            continue
+        request = await requests.get()
         try:
             raw_snap = await fetch_snapshot(symbol)
             depth_evt = rest_to_depth_event(raw_snap, symbol)
-            update = normalizer.process_depth(depth_evt)
-            if update is None:
-                raise ValueError("depth snapshot normalization returned None")
             if recorder is not None:
-                reason = "BOOK_RESYNC" if synced_once else "INITIAL_BOOK_SYNC"
                 if hasattr(recorder, "write_snapshot"):
-                    recorder.write_snapshot(depth_evt, reason=reason)
+                    recorder.write_snapshot(depth_evt, reason=request.reason)
                 else:
                     recorder.write(depth_evt)
-            book_state.apply(update)
-            book_state.apply_initial_sync(update.final_update_id)
-            if synced_once:
-                counters.resyncs += 1
-                logger.info("order book resynced: snap_id=%s resyncs=%s", update.final_update_id, counters.resyncs)
-            else:
-                logger.info("initial snapshot applied: snap_id=%s (sync waiting for first diff with U<=%s)", update.final_update_id, update.final_update_id + 1)
-            synced_once = True
-            consecutive_failures = 0
-            await sleep(_BOOK_HEALTH_POLL_SEC)
+            await results.put(
+                _DepthSnapshotFetchResult(request=request, snapshot=depth_evt)
+            )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             counters.fetch_failures += 1
-            delay = _BOOK_RESYNC_BACKOFF_SEC[min(consecutive_failures, len(_BOOK_RESYNC_BACKOFF_SEC) - 1)]
-            consecutive_failures += 1
-            logger.warning("depth snapshot fetch failed (attempt=%s, retry_in=%ss): %s", consecutive_failures, delay, exc)
+            delay = _BOOK_RESYNC_BACKOFF_SEC[
+                min(request.attempt - 1, len(_BOOK_RESYNC_BACKOFF_SEC) - 1)
+            ]
+            logger.warning(
+                "depth snapshot fetch failed "
+                "(epoch=%s attempt=%s retry_in=%ss): %s",
+                request.epoch,
+                request.attempt,
+                delay,
+                exc,
+            )
             await sleep(delay)
+            await results.put(
+                _DepthSnapshotFetchResult(request=request, error=str(exc))
+            )
+        finally:
+            requests.task_done()
 
 @dataclass(frozen=True)
 class PushFlowEvent:
@@ -915,6 +940,8 @@ class LivePipeline:
         tick_size: Decimal = Decimal("0.1"),
         queue_depth: int = 10000,
         overflow_policy: str = "drop_oldest_log",
+        depth_sync_max_buffered_diffs: int = _DEPTH_SYNC_MAX_BUFFERED_DIFFS,
+        depth_sync_max_attempts: int = _DEPTH_SYNC_MAX_ATTEMPTS,
         reconnect: bool = True,
         reconnect_delay_sec: int = 5,
         reconnect_max_retries: int = 0,
@@ -989,6 +1016,8 @@ class LivePipeline:
         self.tick_size = tick_size
         self.queue_depth = queue_depth
         self.overflow_policy = overflow_policy
+        self.depth_sync_max_buffered_diffs = depth_sync_max_buffered_diffs
+        self.depth_sync_max_attempts = depth_sync_max_attempts
         self.reconnect = reconnect
         self.reconnect_delay_sec = reconnect_delay_sec
         self.reconnect_max_retries = reconnect_max_retries
@@ -1181,11 +1210,41 @@ class LivePipeline:
             if legacy_recorder is not None or raw_recorder is not None
             else None
         )
+        depth_sync: Optional[DepthSyncCoordinator] = None
+        snapshot_requests: asyncio.Queue[SnapshotRequest] = asyncio.Queue()
+        snapshot_results: asyncio.Queue[_DepthSnapshotFetchResult] = asyncio.Queue()
+        depth_sync_actions: asyncio.Queue[DepthSyncAction] = asyncio.Queue()
+        prebuffered_depth_events: dict[int, dict[str, Any]] = {}
+        if fetch_snapshot is not None:
+            depth_sync = DepthSyncCoordinator(
+                max_buffered_diffs=self.depth_sync_max_buffered_diffs,
+                max_attempts=self.depth_sync_max_attempts,
+            )
+
+        def notify_depth_sync(message: dict[str, Any]) -> None:
+            """Buffer valid pre-sync depth after raw recording and before forward."""
+            if (
+                depth_sync is None
+                or not depth_sync.is_valid_depth_update(message)
+                or depth_sync.state
+                in {DepthSyncState.SYNCED, DepthSyncState.SYNC_FAILED}
+            ):
+                return
+            action = depth_sync.observe_depth(message)
+            prebuffered_depth_events[id(message)] = message
+            if (
+                action.request is not None
+                or action.is_verified
+                or action.state is DepthSyncState.SYNC_FAILED
+            ):
+                depth_sync_actions.put_nowait(action)
+
         receiver = DataReceiver(
             out_q,
             norm_q,
             recorder=recorder,
             validate=lambda m: default_validate(m) and event_filter(m),
+            on_valid_message=notify_depth_sync,
         )
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
@@ -1478,21 +1537,208 @@ class LivePipeline:
                             mt5_server.broadcast(analysis_to_mt5_message(bar_close.analysis_result))
                         )
 
+        self.book_resync_counters = BookResyncCounters()
+
+        def apply_verified_depth_sync(action: DepthSyncAction) -> None:
+            """Apply a strictly verified batch from this sole book-owning coroutine."""
+            if not action.is_verified or action.snapshot is None:
+                raise RuntimeError("depth sync action is not strictly verified")
+
+            snapshot_update = normalizer.process_depth(action.snapshot)
+            diff_updates = [
+                normalizer.process_depth(raw_diff) for raw_diff in action.diffs
+            ]
+            if snapshot_update is None or any(
+                update is None for update in diff_updates
+            ):
+                raise RuntimeError("verified depth batch failed normalization")
+
+            snapshot_result = book_state.apply(snapshot_update)
+            if not snapshot_result.applied:
+                raise RuntimeError("verified depth snapshot was not applied")
+            book_state.apply_initial_sync(snapshot_update.final_update_id)
+
+            for raw_diff, update in zip(action.diffs, diff_updates):
+                if update is None:  # narrowed above; retained for runtime clarity
+                    raise RuntimeError("verified depth diff normalized to None")
+                apply_result = book_state.apply(update)
+                if not apply_result.applied or apply_result.gap_detected:
+                    raise RuntimeError(
+                        "coordinator-verified depth diff was rejected "
+                        f"(U={raw_diff.get('U')}, u={raw_diff.get('u')}, "
+                        f"pu={raw_diff.get('pu')})"
+                    )
+                book_snapshot = book_state.snapshot()
+                producer.observe_book_update(
+                    update,
+                    apply_result,
+                    book_snapshot,
+                    approved_tick_size=self.tick_size,
+                )
+
+            if action.epoch > 1:
+                self.book_resync_counters.resyncs += 1
+                logger.info(
+                    "order book strict resync verified: epoch=%s attempt=%s "
+                    "snap_id=%s bridge_U=%s bridge_u=%s resyncs=%s",
+                    action.epoch,
+                    action.attempt,
+                    action.snapshot["u"],
+                    action.diffs[0]["U"],
+                    action.diffs[0]["u"],
+                    self.book_resync_counters.resyncs,
+                )
+            else:
+                logger.info(
+                    "initial order book strict sync verified: attempt=%s "
+                    "snap_id=%s bridge_U=%s bridge_u=%s",
+                    action.attempt,
+                    action.snapshot["u"],
+                    action.diffs[0]["U"],
+                    action.diffs[0]["u"],
+                )
+
+        def handle_depth_sync_action(action: DepthSyncAction) -> None:
+            if action.request is not None:
+                snapshot_requests.put_nowait(action.request)
+            if action.state is DepthSyncState.SYNC_FAILED:
+                if recorder is not None:
+                    recorder.record_sync_action(action)
+                logger.error(
+                    "depth synchronization failed closed: %s",
+                    action.failure_reason,
+                )
+                return
+            if action.is_verified:
+                try:
+                    apply_verified_depth_sync(action)
+                    if recorder is not None:
+                        recorder.record_sync_action(action)
+                except Exception as exc:
+                    if depth_sync is not None:
+                        failed = depth_sync.fail(
+                            f"verified depth batch apply failed: {exc}"
+                        )
+                        if recorder is not None:
+                            recorder.record_sync_action(failed)
+                        logger.exception(
+                            "depth synchronization failed closed: %s",
+                            failed.failure_reason,
+                        )
+
+        def drain_depth_sync_actions() -> None:
+            while True:
+                try:
+                    action = depth_sync_actions.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+                try:
+                    handle_depth_sync_action(action)
+                finally:
+                    depth_sync_actions.task_done()
+
+        def drain_snapshot_results() -> None:
+            if depth_sync is None:
+                return
+            while True:
+                try:
+                    result = snapshot_results.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+                try:
+                    if result.error is not None:
+                        action = depth_sync.observe_fetch_failure(
+                            result.request, result.error
+                        )
+                    elif result.snapshot is not None:
+                        action = depth_sync.observe_snapshot(
+                            result.request, result.snapshot
+                        )
+                    else:
+                        action = depth_sync.fail(
+                            "snapshot worker returned neither candidate nor error"
+                        )
+                    handle_depth_sync_action(action)
+                except Exception as exc:
+                    failed = depth_sync.fail(
+                        f"snapshot candidate processing failed: {exc}"
+                    )
+                    handle_depth_sync_action(failed)
+                    logger.exception("snapshot candidate processing failed")
+                finally:
+                    snapshot_results.task_done()
+
+        def process_live_depth(raw_depth: dict[str, Any]) -> None:
+            """Route one depth event; only this main consumer mutates book_state."""
+            if depth_sync is None:
+                update = normalizer.process_depth(raw_depth)
+                if update is not None:
+                    apply_result = book_state.apply(update)
+                    book_snapshot = book_state.snapshot()
+                    producer.observe_book_update(
+                        update,
+                        apply_result,
+                        book_snapshot,
+                        approved_tick_size=self.tick_size,
+                    )
+                return
+
+            buffered_raw = prebuffered_depth_events.get(id(raw_depth))
+            if buffered_raw is raw_depth:
+                del prebuffered_depth_events[id(raw_depth)]
+                return
+            if (
+                prebuffered_depth_events
+                and depth_sync.state
+                in {DepthSyncState.SYNCED, DepthSyncState.SYNC_FAILED}
+            ):
+                # This unmarked depth arrived after synchronization. Any older
+                # pre-sync events not seen by the main queue were explicitly
+                # dropped by that queue, but remain covered by the coordinator's
+                # verified raw batch. Release their identity guards now.
+                prebuffered_depth_events.clear()
+
+            if not depth_sync.is_valid_depth_update(raw_depth):
+                # Invalid depth cannot open or participate in a strict bridge.
+                normalizer.process_depth(raw_depth)
+                logger.warning(
+                    "depth update excluded from strict synchronization: "
+                    "integer U/u/pu contract not satisfied"
+                )
+                return
+
+            if depth_sync.state is DepthSyncState.SYNCED:
+                update = normalizer.process_depth(raw_depth)
+                if update is None:
+                    return
+                apply_result = book_state.apply(update)
+                book_snapshot = book_state.snapshot()
+                producer.observe_book_update(
+                    update,
+                    apply_result,
+                    book_snapshot,
+                    approved_tick_size=self.tick_size,
+                )
+                if apply_result.gap_detected:
+                    handle_depth_sync_action(depth_sync.start_resync(raw_depth))
+                return
+
+            handle_depth_sync_action(depth_sync.observe_depth(raw_depth))
+
         loop = asyncio.get_event_loop()
         connector_task = asyncio.create_task(connector.run())
         receiver_task = asyncio.create_task(receiver.run())
 
-        # Order book sync is owned by the resync supervisor (ADR-010): it performs
-        # the initial REST snapshot with retry, and re-syncs automatically after
-        # gap-detection resets. fetch_snapshot=None disables it (tests).
-        self.book_resync_counters = BookResyncCounters()
+        # The worker starts idle. The receiver tap enqueues the first request
+        # only after recording the first valid depthUpdate. It fetches and records
+        # candidates but never touches the mutable order book (ADR-003).
         book_supervisor_task: Optional[asyncio.Task] = None
         if fetch_snapshot is not None:
             book_supervisor_task = asyncio.create_task(_book_resync_supervisor(
                 symbol=self.symbol,
-                book_state=book_state,
-                normalizer=normalizer,
                 fetch_snapshot=fetch_snapshot,
+                requests=snapshot_requests,
+                results=snapshot_results,
                 counters=self.book_resync_counters,
                 recorder=recorder,
             ))
@@ -1501,23 +1747,52 @@ class LivePipeline:
 
         try:
             while True:
+                drain_depth_sync_actions()
+                drain_snapshot_results()
                 now = loop.time()
                 if deadline is not None and now >= deadline:
                     break
                 # Natural end: the connector stopped (finite/injected source) and
                 # everything it produced has been drained.
-                if connector_task.done() and out_q.empty() and norm_q.empty():
-                    break
+                source_drained = (
+                    connector_task.done()
+                    and out_q.empty()
+                    and norm_q.empty()
+                    and receiver.forwarded + receiver.invalid
+                    >= connector.messages_out
+                )
+                if source_drained:
+                    if depth_sync is None or depth_sync.state in {
+                        DepthSyncState.WAITING_FOR_FIRST_DEPTH,
+                        DepthSyncState.SYNCED,
+                        DepthSyncState.SYNC_FAILED,
+                    }:
+                        break
+                    if depth_sync.state in {
+                        DepthSyncState.VERIFYING_INITIAL_BRIDGE,
+                        DepthSyncState.VERIFYING_RESYNC_BRIDGE,
+                    }:
+                        handle_depth_sync_action(
+                            depth_sync.fail(
+                                "depth stream ended before a strict snapshot bridge "
+                                "could be verified"
+                            )
+                        )
+                        break
                 timeout = poll_interval
                 if deadline is not None:
                     timeout = min(poll_interval, max(0.0, deadline - now))
                 try:
                     raw = await asyncio.wait_for(norm_q.get(), timeout=timeout)
                 except asyncio.TimeoutError:
+                    drain_depth_sync_actions()
+                    drain_snapshot_results()
                     storage.tick()  # time-based flush while idle
                     continue
                 if raw is STOP:
                     break
+                drain_depth_sync_actions()
+                drain_snapshot_results()
                 kind = normalizer.classify_raw(raw)
                 if kind == "liquidation":
                     try:
@@ -1533,16 +1808,7 @@ class LivePipeline:
                     except NormalizationError as exc:
                         logger.warning("liquidation normalization failed: %s", exc)
                 elif kind == "depth":
-                    update = normalizer.process_depth(raw)
-                    if update is not None:
-                        apply_result = book_state.apply(update)
-                        book_snapshot = book_state.snapshot()
-                        producer.observe_book_update(
-                            update,
-                            apply_result,
-                            book_snapshot,
-                            approved_tick_size=self.tick_size,
-                        )
+                    process_live_depth(raw)
                 else:
                     for normalized in normalizer.process(raw):
                         handle(normalized)
@@ -1560,6 +1826,8 @@ class LivePipeline:
             await out_q.put(STOP)
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(receiver_task, timeout=5)
+            drain_depth_sync_actions()
+            drain_snapshot_results()
             # Drain any events the receiver forwarded after the consumer stopped.
             while not norm_q.empty():
                 pending = norm_q.get_nowait()
@@ -1580,19 +1848,12 @@ class LivePipeline:
                     except NormalizationError as exc:
                         logger.warning("liquidation normalization failed: %s", exc)
                 elif kind == "depth":
-                    update = normalizer.process_depth(pending)
-                    if update is not None:
-                        apply_result = book_state.apply(update)
-                        book_snapshot = book_state.snapshot()
-                        producer.observe_book_update(
-                            update,
-                            apply_result,
-                            book_snapshot,
-                            approved_tick_size=self.tick_size,
-                        )
+                    process_live_depth(pending)
                 else:
                     for normalized in normalizer.process(pending):
                         handle(normalized)
+            drain_depth_sync_actions()
+            drain_snapshot_results()
             for normalized in normalizer.flush():
                 handle(normalized)
             if flow_response_detector is not None and flow_response_tracker is not None:

@@ -23,16 +23,81 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+from .depth_sync import (
+    BOOK_RESYNC,
+    INITIAL_BOOK_SYNC,
+    DepthSyncAction,
+    DepthSyncState,
+)
 
 logger = logging.getLogger(__name__)
 
 _FLUSH_INTERVAL_SEC = 1.0
 _DEFAULT_MAX_BYTES = 64 * 1024 * 1024
-_SCHEMA_REVISION = "RAW_DEPTH_HISTORY_V1"
+_MAX_BYTES_ENV = "DEPTH_HISTORY_MAX_BYTES"
+_SCHEMA_VERSION = 2
+_SCHEMA_REVISION = "RAW_DEPTH_HISTORY_V2"
 
 
 def _utc_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+
+
+def _positive_int(name: str, value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+def _non_negative_int(name: str, value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
+def resolve_depth_history_max_bytes(
+    explicit_max_bytes: int | None = None,
+) -> int:
+    """Resolve explicit > environment > 64 MiB without float coercion."""
+
+    if explicit_max_bytes is not None:
+        return _positive_int("max_bytes", explicit_max_bytes)
+
+    raw_value = os.environ.get(_MAX_BYTES_ENV)
+    if raw_value is None:
+        return _DEFAULT_MAX_BYTES
+    return parse_depth_history_max_bytes(raw_value)
+
+
+def parse_depth_history_max_bytes(raw_value: str) -> int:
+    """Parse the environment representation as a strict positive integer."""
+
+    if not isinstance(raw_value, str):
+        raise ValueError(f"{_MAX_BYTES_ENV} must be a positive integer")
+    normalized = raw_value.strip()
+    if not normalized.isdecimal():
+        raise ValueError(f"{_MAX_BYTES_ENV} must be a positive integer")
+    return _positive_int(_MAX_BYTES_ENV, int(normalized, 10))
+
+
+def load_depth_history_manifest(path: str | Path) -> dict[str, Any]:
+    """Load V1 or V2 manifest; missing ``schema_version`` means legacy V1."""
+
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("depth history manifest must be a JSON object")
+    version = raw.get("schema_version", 1)
+    if isinstance(version, bool) or not isinstance(version, int):
+        raise ValueError("manifest schema_version must be an integer")
+    if version not in {1, 2}:
+        raise ValueError(
+            f"unsupported depth history manifest schema_version: {version}"
+        )
+    manifest = dict(raw)
+    manifest["schema_version"] = version
+    return manifest
 
 
 class DepthHistoryRecorder:
@@ -42,14 +107,14 @@ class DepthHistoryRecorder:
         self,
         root: str | Path,
         symbol: str,
-        max_bytes: int = _DEFAULT_MAX_BYTES,
+        max_bytes: int | None = None,
         flush_interval_sec: float = _FLUSH_INTERVAL_SEC,
         clock=time.monotonic,
     ) -> None:
         self.root = Path(root) / f"symbol={symbol}"
         self.root.mkdir(parents=True, exist_ok=True)
         self.symbol = symbol
-        self.max_bytes = max(1, int(max_bytes))
+        self.max_bytes = resolve_depth_history_max_bytes(max_bytes)
         self.flush_interval_sec = float(flush_interval_sec)
         self._clock = clock
         self._handle = None
@@ -59,6 +124,12 @@ class DepthHistoryRecorder:
         self._bytes = 0
         self._last_flush = self._clock()
         self._started_at: str | None = None
+        self._rotation_due = False
+        self._sync_events: list[dict[str, Any]] = []
+        self._sync_failures: list[dict[str, Any]] = []
+        self._pending_sync_events: list[dict[str, Any]] = []
+        self._pending_sync_failures: list[dict[str, Any]] = []
+        self._sync_result_keys: set[tuple[str, int]] = set()
         self.segments_closed = 0
 
     @property
@@ -73,8 +144,15 @@ class DepthHistoryRecorder:
         self._count = 0
         self._bytes = 0
         self._last_flush = self._clock()
+        self._rotation_due = False
+        self._sync_events = self._pending_sync_events
+        self._sync_failures = self._pending_sync_failures
+        self._pending_sync_events = []
+        self._pending_sync_failures = []
 
     def write(self, obj: dict) -> None:
+        if self._rotation_due:
+            self._close_segment("rotate")
         line = (
             json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
             + "\n"
@@ -90,10 +168,76 @@ class DepthHistoryRecorder:
             self._handle.flush()
             self._last_flush = now
         if self._bytes >= self.max_bytes:
-            self._close_segment("rotate")
+            self._rotation_due = True
+
+    def record_sync_action(self, action: DepthSyncAction) -> None:
+        """Attach one terminal coordinator result to exactly one segment manifest."""
+
+        if not isinstance(action, DepthSyncAction):
+            raise TypeError("action must be a DepthSyncAction")
+        epoch = _positive_int("sync epoch", action.epoch)
+        attempts = _positive_int("sync attempts", action.attempt)
+        reason = INITIAL_BOOK_SYNC if epoch == 1 else BOOK_RESYNC
+
+        if action.is_verified:
+            if action.snapshot is None or not action.diffs:
+                raise ValueError("verified sync action requires snapshot and bridge diff")
+            snapshot_u = _non_negative_int(
+                "snapshot_u", action.snapshot.get("u")
+            )
+            bridge = action.diffs[0]
+            bridge_U = _non_negative_int("bridge_U", bridge.get("U"))
+            bridge_u = _non_negative_int("bridge_u", bridge.get("u"))
+            entry = {
+                "epoch": epoch,
+                "reason": reason,
+                "snapshot_u": snapshot_u,
+                "bridge_U": bridge_U,
+                "bridge_u": bridge_u,
+                "sync_verified": True,
+                "attempts": attempts,
+            }
+            self._record_sync_result("verified", epoch, entry)
+            return
+
+        if action.state is DepthSyncState.SYNC_FAILED:
+            failure_reason = action.failure_reason
+            if not isinstance(failure_reason, str) or not failure_reason.strip():
+                raise ValueError("SYNC_FAILED action requires a non-empty failure_reason")
+            entry = {
+                "epoch": epoch,
+                "reason": reason,
+                "failure_reason": failure_reason,
+                "attempts": attempts,
+            }
+            self._record_sync_result("failed", epoch, entry)
+            return
+
+        raise ValueError("only verified or SYNC_FAILED actions can enter manifest V2")
+
+    def _record_sync_result(
+        self, result_type: str, epoch: int, entry: dict[str, Any]
+    ) -> None:
+        key = (result_type, epoch)
+        if key in self._sync_result_keys:
+            return
+        self._sync_result_keys.add(key)
+        if result_type == "verified":
+            target = (
+                self._sync_events
+                if self._handle is not None
+                else self._pending_sync_events
+            )
+        else:
+            target = (
+                self._sync_failures
+                if self._handle is not None
+                else self._pending_sync_failures
+            )
+        target.append(entry)
 
     def close(self) -> None:
-        self._close_segment("close")
+        self._close_segment("rotate" if self._rotation_due else "close")
 
     def _close_segment(self, reason: str) -> None:
         if self._handle is None or self._part is None:
@@ -104,6 +248,7 @@ class DepthHistoryRecorder:
         final = self._part.with_suffix("")  # drop ".part"
         os.replace(self._part, final)
         manifest = {
+            "schema_version": _SCHEMA_VERSION,
             "schema_revision": _SCHEMA_REVISION,
             "symbol": self.symbol,
             "record_count": self._count,
@@ -112,6 +257,8 @@ class DepthHistoryRecorder:
             "closed_reason": reason,
             "started_at": self._started_at,
             "closed_at": _utc_stamp(),
+            "sync_events": [dict(entry) for entry in self._sync_events],
+            "sync_failures": [dict(entry) for entry in self._sync_failures],
         }
         final.with_suffix(final.suffix + ".manifest.json").write_text(
             json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
@@ -119,6 +266,9 @@ class DepthHistoryRecorder:
         self.segments_closed += 1
         self._handle = None
         self._part = None
+        self._rotation_due = False
+        self._sync_events = []
+        self._sync_failures = []
 
 
 class SafeRecorder:
@@ -147,6 +297,23 @@ class SafeRecorder:
             except Exception:  # noqa: BLE001
                 pass
 
+    def record_sync_action(self, action: DepthSyncAction) -> None:
+        if self.disabled:
+            return
+        try:
+            self._inner.record_sync_action(action)
+        except Exception as exc:  # noqa: BLE001 — 隔離が目的
+            self.disabled = True
+            self.error = f"{type(exc).__name__}: {exc}"
+            logger.error(
+                "depth history recorder sync metadata failed; recording disabled: %s",
+                self.error,
+            )
+            try:
+                self._inner.close()
+            except Exception:  # noqa: BLE001
+                pass
+
     def close(self) -> None:
         try:
             self._inner.close()
@@ -170,6 +337,12 @@ class RecorderTee:
     def write(self, obj: dict) -> None:
         for tap in self._taps:
             tap.write(obj)
+
+    def record_sync_action(self, action: DepthSyncAction) -> None:
+        for tap in self._taps:
+            callback = getattr(tap, "record_sync_action", None)
+            if callback is not None:
+                callback(action)
 
     def close(self) -> None:  # no-op: 所有者が各タップを個別にcloseする
         return

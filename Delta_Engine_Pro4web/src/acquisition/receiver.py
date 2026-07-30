@@ -69,12 +69,14 @@ class DataReceiver:
         recorder: Optional[JsonlRecorder] = None,
         validate: Callable[[Any], bool] = default_validate,
         sequence_key: Optional[Callable[[dict], Any]] = None,
+        on_valid_message: Optional[Callable[[dict], Any]] = None,
     ) -> None:
         self._source = source
         self._destination = destination
         self._recorder = recorder
         self._validate = validate
         self._sequence_key = sequence_key
+        self._on_valid_message = on_valid_message
         self._last_seq: Any = None
         # counters
         self.forwarded = 0
@@ -98,5 +100,7 @@ class DataReceiver:
                 self._last_seq = key
             if self._recorder is not None:
                 self._recorder.write(message)
+            if self._on_valid_message is not None:
+                self._on_valid_message(message)
             await self._destination.put(message)
             self.forwarded += 1

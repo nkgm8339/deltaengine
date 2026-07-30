@@ -21,6 +21,7 @@ from src.acquisition.binance_rest import (
     fetch_ticker_24hr,
     rest_to_depth_event,
 )
+from src.acquisition.depth_sync import DepthSyncCoordinator
 from src.normalization.normalizer import DataNormalizer, ExchangeProfile
 from src.orderflow.orderbook import OrderBookStateManager
 
@@ -140,60 +141,40 @@ def test_snapshot_then_diff_apply_sequence() -> None:
     assert book_state.snapshot().bid_quantity_at(Decimal("99999.50")) == Decimal("0")
 
 
-# ── Test 4: snapshot → apply_initial_sync → stale diff → sync diff ────────────
+# ── Test 4: strict coordinator proof → snapshot + verified bridge apply ────────
 
-def test_snapshot_apply_initial_sync_then_stale_and_sync_diff() -> None:
-    """REST snapshot → apply_initial_sync: buffered stale diffs are skipped without
-    gap detection; the first diff spanning lastUpdateId+1 is applied (BugFix_Live_v1)."""
-    from datetime import datetime, timezone
-    from src.orderflow.orderbook import BookLevel, OrderBookUpdate
-
-    UTC = timezone.utc
+def test_only_coordinator_verified_bridge_enters_initial_sync_apply() -> None:
+    """The lenient manager branch receives only an externally verified bridge."""
     profile = _load_binance_profile()
     normalizer = DataNormalizer(profile)
     book_state = OrderBookStateManager("BTCUSDT")
+    coordinator = DepthSyncCoordinator(max_buffered_diffs=8, max_attempts=2)
 
-    # Apply REST snapshot.
-    evt = rest_to_depth_event(_REST_RESPONSE, "BTCUSDT")
-    update = normalizer.process_depth(evt)
-    assert update is not None
-    book_state.apply(update)
-    snap_id = update.final_update_id  # 1234567
+    bridge_raw = {
+        "e": "depthUpdate",
+        "E": 1767225601000,
+        "s": "BTCUSDT",
+        "U": 1234565,
+        "u": 1234570,
+        "pu": 1234564,
+        "b": [["99999.50", "0"]],
+        "a": [],
+    }
+    request = coordinator.observe_depth(bridge_raw).request
+    snapshot_event = rest_to_depth_event(_REST_RESPONSE, "BTCUSDT")
+    verified = coordinator.observe_snapshot(request, snapshot_event)
+    assert verified.is_verified is True
 
-    # Enter initial sync mode (mimics pipeline after connector/receiver are running).
-    book_state.apply_initial_sync(snap_id)
+    snapshot_update = normalizer.process_depth(verified.snapshot)
+    bridge_update = normalizer.process_depth(verified.diffs[0])
+    assert snapshot_update is not None and bridge_update is not None
+    assert book_state.apply(snapshot_update).applied is True
+    book_state.apply_initial_sync(snapshot_update.final_update_id)
+    bridge_result = book_state.apply(bridge_update)
 
-    # Stale diff (final_id == snap_id) → no gap detected.
-    stale = OrderBookUpdate(
-        event_time=datetime(2026, 1, 1, tzinfo=UTC),
-        symbol="BTCUSDT",
-        update_type="DIFF",
-        first_update_id=snap_id - 5,
-        final_update_id=snap_id,
-        bids=(), asks=(),
-    )
-    r = book_state.apply(stale)
-    assert r.applied is False
-    assert r.gap_detected is False
-    assert book_state.diffs_stale == 1
-    assert book_state.gaps_detected == 0
-
-    # Sync diff: first_id <= snap_id+1 <= final_id.
-    sync_diff = OrderBookUpdate(
-        event_time=datetime(2026, 1, 1, tzinfo=UTC),
-        symbol="BTCUSDT",
-        update_type="DIFF",
-        first_update_id=snap_id - 3,
-        final_update_id=snap_id + 10,
-        bids=(BookLevel(Decimal("99999.50"), Decimal("0")),),
-        asks=(),
-    )
-    r2 = book_state.apply(sync_diff)
-    assert r2.applied is True
+    assert bridge_result.applied is True
     assert book_state.diffs_applied == 1
     assert book_state.gaps_detected == 0
-
-    # Level removed by sync diff.
     assert book_state.snapshot().bid_quantity_at(Decimal("99999.50")) == Decimal("0")
 
 
