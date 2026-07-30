@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -1177,6 +1178,7 @@ class LivePipeline:
         treat_stream_end_as_disconnect: bool = True,
         poll_interval: float = 0.5,
         fetch_snapshot: Optional[Callable] = fetch_depth_snapshot,
+        hook_observer: Any | None = None,
     ) -> LiveStats:
         """Run the live CVD+Absorption path until a stop condition; return a LiveStats.
 
@@ -1188,6 +1190,134 @@ class LivePipeline:
         when omitted, the pre-Stage-2A path is unchanged.
         """
         connect = connect or make_binance_connect(ping_interval=self.heartbeat_sec)
+
+        owned_hook_observer = False
+        hook_event_storage = None
+        self.hook_observer_error = None
+        self.hook_observer_failures = 0
+        if hook_observer is None:
+            hook_config_path = os.environ.get("HOOK_OBSERVER_CONFIG", "").strip()
+            if hook_config_path:
+                try:
+                    from .observation.hook_storage import HookEventStorage
+                    from .orderflow.hooks.config import (
+                        ThresholdBook,
+                        load_hook_observer_config,
+                        validate_observe_only_playbooks,
+                    )
+                    from .orderflow.hooks.live import (
+                        STAGE2C4_CALIBRATED_HOOK_IDS,
+                        LiveHookObserver,
+                        load_live_hook_config,
+                    )
+
+                    hook_config = load_hook_observer_config(hook_config_path)
+                    live_config_path = os.environ.get(
+                        "HOOK_LIVE_CONFIG",
+                        str(
+                            Path(hook_config_path).with_name(
+                                "hook_live_observer.yaml"
+                            )
+                        ),
+                    ).strip()
+                    live_config = load_live_hook_config(live_config_path)
+                    if hook_config.enabled and live_config.event_firing_enabled:
+                        if not hook_config.storage.enabled:
+                            raise RuntimeError(
+                                "HookEvent firing requires storage.enabled=true"
+                            )
+                        if (
+                            live_config.mode != "OBSERVE"
+                            or live_config.execution_enabled
+                        ):
+                            raise RuntimeError(
+                                "HookEvent firing must remain observe-only"
+                            )
+                        validate_observe_only_playbooks(hook_config.playbooks_path)
+                        threshold_book = ThresholdBook.load(
+                            hook_config.thresholds_path
+                        )
+                        calibrated = frozenset(
+                            threshold_book.calibrated_hook_ids()
+                        )
+                        if calibrated != STAGE2C4_CALIBRATED_HOOK_IDS:
+                            raise RuntimeError(
+                                "Stage 2C-4 calibrated Hook set mismatch: "
+                                f"expected={sorted(STAGE2C4_CALIBRATED_HOOK_IDS)} "
+                                f"actual={sorted(calibrated)}"
+                            )
+                        if (
+                            live_config.calibrated_hook_ids
+                            != STAGE2C4_CALIBRATED_HOOK_IDS
+                        ):
+                            raise RuntimeError(
+                                "Stage 2C-4 live allowlist mismatch: "
+                                f"expected={sorted(STAGE2C4_CALIBRATED_HOOK_IDS)} "
+                                f"actual={sorted(live_config.calibrated_hook_ids)}"
+                            )
+                        timeframe_seconds = {
+                            "1s": 1,
+                            "1m": 60,
+                            "5m": 300,
+                            "15m": 900,
+                            "1h": 3600,
+                            "4h": 14400,
+                            "1d": 86400,
+                        }.get(self.timeframe)
+                        if timeframe_seconds is None:
+                            raise RuntimeError(
+                                "unsupported Hook price-structure timeframe: "
+                                f"{self.timeframe}"
+                            )
+                        hook_event_storage = HookEventStorage(
+                            hook_config.storage.root,
+                            queue_depth=hook_config.storage.queue_depth,
+                            batch_size=hook_config.storage.batch_size,
+                            flush_interval_sec=(
+                                hook_config.storage.flush_interval_sec
+                            ),
+                        )
+                        hook_observer = LiveHookObserver(
+                            symbol=self.symbol,
+                            profile=self.profile,
+                            thresholds=threshold_book,
+                            sink=hook_event_storage,
+                            timeframe_sec=timeframe_seconds,
+                        )
+                        owned_hook_observer = True
+                        logger.info(
+                            "Stage 2C-4 HookEvent observe firing enabled for %d "
+                            "CALIBRATED Hooks; execution remains disconnected",
+                            len(calibrated),
+                        )
+                except Exception as exc:
+                    if hook_event_storage is not None:
+                        with contextlib.suppress(Exception):
+                            hook_event_storage.close()
+                    hook_observer = None
+                    self.hook_observer_error = f"{type(exc).__name__}: {exc}"
+                    logger.exception(
+                        "Stage 2C-4 HookEvent observe runtime did not start; "
+                        "market pipeline continues"
+                    )
+        self.hook_observer = hook_observer
+
+        def notify_hook(method: str, *args: Any, **kwargs: Any) -> Any:
+            if hook_observer is None:
+                return None
+            try:
+                callback = getattr(hook_observer, method)
+                return callback(*args, **kwargs)
+            except Exception as exc:
+                self.hook_observer_failures += 1
+                self.hook_observer_error = (
+                    f"{method}: {type(exc).__name__}: {exc}"
+                )
+                logger.exception(
+                    "Hook observer callback %s failed; market pipeline continues",
+                    method,
+                )
+                return None
 
         out_q = BoundedEventQueue(self.queue_depth, self.overflow_policy, name="ws_out")
         norm_q = BoundedEventQueue(self.queue_depth, self.overflow_policy, name="receiver_out")
@@ -1442,6 +1572,11 @@ class LivePipeline:
                     self.flow_response = snapshots
                     for _snap in snapshots:
                         producer.observe_flow_response(_snap)
+                    notify_hook(
+                        "observe_flow_response",
+                        snapshots,
+                        received_time=datetime.now(timezone.utc),
+                    )
                     events = flow_response_tracker.register(snapshots)
                     self.flow_response_events.extend(events)
                     for event in events:
@@ -1487,6 +1622,11 @@ class LivePipeline:
             if _ta is not None:
                 _emit_flow(_ta)
             if cvd_result.closed_candle is not None:
+                notify_hook(
+                    "observe_candle",
+                    cvd_result.closed_candle,
+                    received_time=normalized.event_time,
+                )
                 detected_divergence = divergence_detector.update(cvd_result.closed_candle)
                 # Spec §3.2: event indicators are silent on non-fire bars.
                 # Assign every bar (None when nothing fired) — fixes stale-persist bug.
@@ -1557,6 +1697,13 @@ class LivePipeline:
             if not snapshot_result.applied:
                 raise RuntimeError("verified depth snapshot was not applied")
             book_state.apply_initial_sync(snapshot_update.final_update_id)
+            notify_hook(
+                "observe_depth",
+                snapshot_update,
+                snapshot_result,
+                book_state.snapshot(),
+                received_time=datetime.now(timezone.utc),
+            )
 
             for raw_diff, update in zip(action.diffs, diff_updates):
                 if update is None:  # narrowed above; retained for runtime clarity
@@ -1574,6 +1721,13 @@ class LivePipeline:
                     apply_result,
                     book_snapshot,
                     approved_tick_size=self.tick_size,
+                )
+                notify_hook(
+                    "observe_depth",
+                    update,
+                    apply_result,
+                    book_snapshot,
+                    received_time=datetime.now(timezone.utc),
                 )
 
             if action.epoch > 1:
@@ -1681,6 +1835,13 @@ class LivePipeline:
                         book_snapshot,
                         approved_tick_size=self.tick_size,
                     )
+                    notify_hook(
+                        "observe_depth",
+                        update,
+                        apply_result,
+                        book_snapshot,
+                        received_time=datetime.now(timezone.utc),
+                    )
                 return
 
             buffered_raw = prebuffered_depth_events.get(id(raw_depth))
@@ -1718,6 +1879,13 @@ class LivePipeline:
                     apply_result,
                     book_snapshot,
                     approved_tick_size=self.tick_size,
+                )
+                notify_hook(
+                    "observe_depth",
+                    update,
+                    apply_result,
+                    book_snapshot,
+                    received_time=datetime.now(timezone.utc),
                 )
                 if apply_result.gap_detected:
                     handle_depth_sync_action(depth_sync.start_resync(raw_depth))
@@ -1810,6 +1978,11 @@ class LivePipeline:
                 elif kind == "depth":
                     process_live_depth(raw)
                 else:
+                    notify_hook(
+                        "observe_raw_trade",
+                        raw,
+                        received_time=datetime.now(timezone.utc),
+                    )
                     for normalized in normalizer.process(raw):
                         handle(normalized)
                     trades_in += 1
@@ -1850,6 +2023,11 @@ class LivePipeline:
                 elif kind == "depth":
                     process_live_depth(pending)
                 else:
+                    notify_hook(
+                        "observe_raw_trade",
+                        pending,
+                        received_time=datetime.now(timezone.utc),
+                    )
                     for normalized in normalizer.process(pending):
                         handle(normalized)
             drain_depth_sync_actions()
@@ -1909,6 +2087,9 @@ class LivePipeline:
             storage.close()
             if mt5_server is not None:
                 await mt5_server.stop()
+            if owned_hook_observer and hook_observer is not None:
+                with contextlib.suppress(Exception):
+                    hook_observer.close()
             if recorder is not None:
                 recorder.close()
             if not connector_task.done():

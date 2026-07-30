@@ -89,6 +89,33 @@ class RawCapture:
         self.closed = True
 
 
+class HookObserverSpy:
+    def __init__(self) -> None:
+        self.raw_trade_ids: list[int] = []
+        self.depth_types: list[str] = []
+        self.candle_times = []
+        self.flow_batches = 0
+
+    def observe_raw_trade(self, payload, *, received_time=None) -> None:
+        self.raw_trade_ids.append(int(payload["a"]))
+
+    def observe_depth(
+        self,
+        update,
+        _apply_result,
+        _snapshot,
+        *,
+        received_time=None,
+    ) -> None:
+        self.depth_types.append(update.update_type)
+
+    def observe_candle(self, candle, *, received_time=None) -> None:
+        self.candle_times.append(candle.bar_time)
+
+    def observe_flow_response(self, snapshots, *, received_time=None) -> None:
+        self.flow_batches += int(bool(tuple(snapshots)))
+
+
 def _live(tmp_path: Path, sub: str, record_path=None) -> LivePipeline:
     return LivePipeline(
         symbol="BTCUSDT",
@@ -164,6 +191,24 @@ def test_live_accepted_trade_observer_failure_does_not_stop_analysis(
     assert stats.normalized == 2
     assert stats.trades_stored == 2
     assert stats.final_cvd == Decimal("1")
+
+
+def test_live_hook_observer_receives_raw_trade_and_closed_candle_boundaries(
+    tmp_path: Path,
+) -> None:
+    observer = HookObserverSpy()
+    pipeline = _live(tmp_path, "hook_observer_boundaries")
+
+    stats = pipeline.run(
+        connect=FakeConnect(MESSAGES),
+        poll_interval=0.02,
+        fetch_snapshot=None,
+        hook_observer=observer,
+    )
+
+    assert observer.raw_trade_ids == [1, 2]
+    assert len(observer.candle_times) == 1
+    assert stats.trades_stored == 2
 
 
 def test_live_divergence_clears_on_non_fire_bar(tmp_path: Path) -> None:
@@ -584,6 +629,7 @@ def test_live_depth_fetch_starts_after_raw_buffer_and_applies_verified_batch(
     tmp_path: Path,
 ) -> None:
     raw_capture = RawCapture()
+    hook_observer = HookObserverSpy()
     fetch_calls = 0
 
     async def fetch(symbol: str) -> dict:
@@ -606,6 +652,7 @@ def test_live_depth_fetch_starts_after_raw_buffer_and_applies_verified_batch(
         poll_interval=0.01,
         fetch_snapshot=fetch,
         raw_recorder=raw_capture,
+        hook_observer=hook_observer,
     )
 
     assert fetch_calls == 1
@@ -621,6 +668,7 @@ def test_live_depth_fetch_starts_after_raw_buffer_and_applies_verified_batch(
     assert len(raw_capture.sync_actions) == 1
     assert raw_capture.sync_actions[0].is_verified is True
     assert raw_capture.sync_actions[0].epoch == 1
+    assert hook_observer.depth_types == ["SNAPSHOT", "DIFF", "DIFF"]
 
 
 def test_live_depth_attempt_limit_is_fail_closed_while_trade_path_continues(
