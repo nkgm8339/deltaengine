@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
+from uuid import UUID
 
 import pytest
 
@@ -298,6 +300,8 @@ def test_book_update_payload_and_reconnect_cache_use_latest_projection() -> None
     message = first_messages[0]
     assert message["type"] == "BOOK_UPDATE"
     payload = message["payload"]
+    assert str(UUID(payload["book_stream_id"])) == payload["book_stream_id"]
+    assert payload["book_sequence"] == 1
     assert payload["event_time"] == "2026-07-28T10:00:00.100000+00:00"
     assert payload["last_update_id"] == 123456
     assert payload["sync_state"] == "SYNCED"
@@ -308,6 +312,119 @@ def test_book_update_payload_and_reconnect_cache_use_latest_projection() -> None
     assert payload["spread"] == "0.1"
     assert payload["depth_levels"] == 50
     assert reconnect_messages == [message]
+    assert broker.book_updates_broadcast == 1
+
+
+def test_book_sequence_is_contiguous_across_synced_fail_closed_and_recovery() -> None:
+    synced = BookProjection(
+        projection_time=T0 + timedelta(milliseconds=200),
+        event_time=T0 + timedelta(milliseconds=100),
+        last_update_id=100,
+        sync_state="SYNCED",
+        bids=((D("100.0"), D("2.5")),),
+        asks=((D("100.1"), D("3.5")),),
+        depth_levels=50,
+        best_bid=D("100.0"),
+        best_ask=D("100.1"),
+        spread=D("0.1"),
+        age_ms=100,
+    )
+    stale = replace(
+        synced,
+        projection_time=T0 + timedelta(milliseconds=300),
+        event_time=T0 - timedelta(seconds=3),
+        last_update_id=101,
+        sync_state="STALE",
+        age_ms=3000,
+    )
+    recovered = replace(
+        synced,
+        projection_time=T0 + timedelta(milliseconds=400),
+        event_time=T0 + timedelta(milliseconds=350),
+        last_update_id=102,
+        age_ms=50,
+    )
+    broker = PushBroker("BTCUSDT")
+    messages: list[dict] = []
+    ws = MagicMock()
+    ws.send_text = AsyncMock(side_effect=lambda text: messages.append(json.loads(text)))
+
+    async def run() -> None:
+        await broker.register(ws)
+        for projection in (synced, stale, recovered):
+            await broker.on_book_update(projection)
+
+    asyncio.run(run())
+    payloads = [message["payload"] for message in messages]
+    assert [payload["book_sequence"] for payload in payloads] == [1, 2, 3]
+    assert {payload["book_stream_id"] for payload in payloads} == {broker.book_stream_id}
+    assert payloads[1]["sync_state"] == "STALE"
+    assert payloads[1]["bids"] == payloads[1]["asks"] == []
+    assert payloads[2]["sync_state"] == "SYNCED"
+    assert broker.book_updates_broadcast == 3
+
+
+def test_book_stream_changes_per_broker_lifecycle_and_sequence_restarts_at_one() -> None:
+    projection = BookProjection(
+        projection_time=T0,
+        event_time=T0,
+        last_update_id=1,
+        sync_state="SYNCED",
+        bids=((D("100.0"), D("1")),),
+        asks=((D("100.1"), D("1")),),
+        depth_levels=50,
+        best_bid=D("100.0"),
+        best_ask=D("100.1"),
+        spread=D("0.1"),
+        age_ms=0,
+    )
+    brokers = (PushBroker("BTCUSDT"), PushBroker("BTCUSDT"))
+    payloads: list[dict] = []
+
+    async def run() -> None:
+        for broker in brokers:
+            ws = MagicMock()
+            ws.send_text = AsyncMock(
+                side_effect=lambda text: payloads.append(json.loads(text)["payload"])
+            )
+            await broker.register(ws)
+            await broker.on_book_update(projection)
+
+    asyncio.run(run())
+    assert [payload["book_sequence"] for payload in payloads] == [1, 1]
+    assert payloads[0]["book_stream_id"] != payloads[1]["book_stream_id"]
+    assert all(str(UUID(payload["book_stream_id"])) == payload["book_stream_id"] for payload in payloads)
+
+
+def test_invalid_book_projection_does_not_consume_sequence() -> None:
+    valid = BookProjection(
+        projection_time=T0,
+        event_time=T0,
+        last_update_id=1,
+        sync_state="SYNCED",
+        bids=((D("100.0"), D("1")),),
+        asks=((D("100.1"), D("1")),),
+        depth_levels=50,
+        best_bid=D("100.0"),
+        best_ask=D("100.1"),
+        spread=D("0.1"),
+        age_ms=0,
+    )
+    invalid = replace(valid, best_bid=None)
+    broker = PushBroker("BTCUSDT")
+    messages: list[dict] = []
+    ws = MagicMock()
+    ws.send_text = AsyncMock(side_effect=lambda text: messages.append(json.loads(text)))
+
+    async def run() -> None:
+        await broker.register(ws)
+        with pytest.raises(ValueError, match="requires best bid"):
+            await broker.on_book_update(invalid)
+        await broker.on_book_update(valid)
+
+    asyncio.run(run())
+    assert len(messages) == 1
+    assert messages[0]["payload"]["book_sequence"] == 1
     assert broker.book_updates_broadcast == 1
 
 

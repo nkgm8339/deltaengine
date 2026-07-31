@@ -7,9 +7,10 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Optional
+from uuid import uuid4
 
 from webapp.book_projection import BookProjection, FAIL_CLOSED_STATES, SYNCED
 from webapp.tape import TapeBatch
@@ -145,14 +146,18 @@ class PushBroker:
         symbol: str,
         depth_levels: int = 15,
         live_dom_depth_levels: int = 50,
+        persistent_writer=None,
     ) -> None:
         self.symbol = symbol
+        self.persistent_writer = persistent_writer
         self.depth_levels = depth_levels
         self.live_dom_depth_levels = live_dom_depth_levels
         self._clients: set[Any] = set()
         self._lock = asyncio.Lock()
         self._latest_hfm_message: dict | None = None
         self._latest_book_message: dict | None = None
+        self._latest_absorption_message: dict | None = None
+        self.book_stream_id = str(uuid4())
         self.book_updates_broadcast = 0
         self.tape_batches_broadcast = 0
         self.tape_trades_broadcast = 0
@@ -162,7 +167,8 @@ class PushBroker:
             self._clients.add(ws)
             latest_hfm = self._latest_hfm_message
             latest_book = self._latest_book_message
-        for latest in (latest_hfm, latest_book):
+            latest_absorption = self._latest_absorption_message
+        for latest in (latest_hfm, latest_book, latest_absorption):
             if latest is None:
                 continue
             try:
@@ -252,6 +258,7 @@ class PushBroker:
             or projection.spread is None
         ):
             raise ValueError("SYNCED BOOK_UPDATE requires best bid, best ask, and spread")
+        book_sequence = self.book_updates_broadcast + 1
         bids = projection.bids if synced else ()
         asks = projection.asks if synced else ()
         message = envelope(
@@ -259,6 +266,8 @@ class PushBroker:
             projection.projection_time,
             self.symbol,
             {
+                "book_stream_id": self.book_stream_id,
+                "book_sequence": book_sequence,
                 "event_time": (
                     projection.event_time.astimezone(timezone.utc).isoformat()
                     if projection.event_time is not None else None
@@ -284,7 +293,9 @@ class PushBroker:
             },
         )
         self._latest_book_message = message
-        self.book_updates_broadcast += 1
+        self.book_updates_broadcast = book_sequence
+        if self.persistent_writer is not None:
+            self.persistent_writer.append(message["payload"])
         await self._broadcast(message)
 
     async def on_candle(
@@ -372,6 +383,39 @@ class PushBroker:
                 for fe in flow_events
             ],
         }))
+
+    async def on_absorption_state(
+        self,
+        event_time: datetime,
+        result: Any | None,
+        *,
+        window_sec: int,
+    ) -> None:
+        """Broadcast the tick-time absorption state and cache it for late clients."""
+
+        if window_sec <= 0:
+            raise ValueError("window_sec must be > 0")
+        classification = None if result is None else str(result.classification)
+        if classification not in {None, "BUY_ABSORPTION", "SELL_ABSORPTION"}:
+            raise ValueError(f"unsupported absorption classification: {classification}")
+        message = envelope("ABSORPTION_STATE", event_time, self.symbol, {
+            "active": result is not None,
+            "classification": classification,
+            "strength": None if result is None else d2s(result.strength),
+            "price_low": None if result is None else d2s(result.price_low),
+            "price_high": None if result is None else d2s(result.price_high),
+            "observed_at": event_time.astimezone(timezone.utc).isoformat(),
+            "expires_at": (
+                None
+                if result is None
+                else (event_time + timedelta(seconds=window_sec))
+                .astimezone(timezone.utc)
+                .isoformat()
+            ),
+            "window_sec": window_sec,
+        })
+        self._latest_absorption_message = message
+        await self._broadcast(message)
 
     async def on_flow_event(self, ev) -> None:
         category = str(getattr(ev, "category", getattr(ev, "kind", "UNKNOWN"))).upper()
