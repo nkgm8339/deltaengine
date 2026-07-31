@@ -218,6 +218,7 @@
       this.filterElement = config.filterElement;
       this.onSelect = config.onSelect || function () {};
       this.onStreamRestart = config.onStreamRestart || function () {};
+      this.onAcceptedTrades = config.onAcceptedTrades || function () {};
       this.store = new TapeStore({ capacity: config.capacity || DEFAULT_CAPACITY });
       this.poolSize = clamp(Math.round(Number(config.poolSize) || DEFAULT_POOL_SIZE), 20, 40);
       this.rowHeight = Math.max(28, Math.round(Number(config.rowHeight) || 28));
@@ -297,7 +298,10 @@
 
     ingestBatch(payload, symbol) {
       const atTop = !this.viewport || this.viewport.scrollTop <= 2;
+      const before = new Set(this.store.keys);
       const result = this.store.ingestBatch(payload, symbol);
+      const accepted = this.store.trades.filter(trade => !before.has(trade.key));
+      if (accepted.length) { try { this.onAcceptedTrades(accepted, result); } catch (_) {} }
       if (result.restart) this.onStreamRestart(this.store.streamId);
       if (atTop && this.viewport) this.viewport.scrollTop = 0;
       this.render();
@@ -427,3 +431,5 @@
     p95,
   };
 });
+
+
