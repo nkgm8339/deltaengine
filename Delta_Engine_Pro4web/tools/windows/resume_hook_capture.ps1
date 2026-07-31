@@ -5,15 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$baseCompose = Join-Path $projectRoot "docker-compose.yml"
-$stage2bCompose = Join-Path $projectRoot "docker-compose.stage2b.yml"
-$stage2aCompose = Join-Path $projectRoot "docker-compose.stage2a.yml"
-$overrideCompose = if (Test-Path -LiteralPath $stage2bCompose) {
-    $stage2bCompose
-} else {
-    $stage2aCompose
-}
+$projectRoot = "C:\Users\user\Desktop\DeltaEngine05M\Delta_Engine_Pro4web"
 $artifactRoot = Join-Path $projectRoot "data_05M\hook_observer\autostart"
 [IO.Directory]::CreateDirectory($artifactRoot) | Out-Null
 $runId = "{0}-{1}" -f (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmss.fffffffZ"), ([guid]::NewGuid().ToString("N").Substring(0, 8))
@@ -69,7 +61,7 @@ try {
 
     Write-RunEvent -Event "START" -Details @{
         project_root = $projectRoot
-        compose_override = $overrideCompose
+        compose_command = "docker compose up -d"
         user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     }
 
@@ -107,12 +99,7 @@ try {
 
     Push-Location $projectRoot
     try {
-        Invoke-Docker -Arguments @(
-            "compose", "-p", "deltaengine_05m",
-            "-f", $baseCompose,
-            "-f", $overrideCompose,
-            "up", "-d", "--no-build", "deltaengine_clone"
-        ) | Out-Null
+        Invoke-Docker -Arguments @("compose", "up", "-d") | Out-Null
     } finally {
         Pop-Location
     }
