@@ -1019,6 +1019,7 @@ function setLive(on){
   if(TAPE_UI)TAPE_UI.setConnected(on);
   if(window.HEATMAP_UI)window.HEATMAP_UI.setConnected(on,S.marketTime||Date.now());
   if(!on&&PHASE5_FUSION_ENABLED){S.liveBook={sync_state:"NO_CONNECTION",bids:[],asks:[]};renderFootprint("liveDom");}
+  if(!on)resetAbsorptionRealtimeState();
 }
 
 function versionWarn(serverV){
@@ -1030,7 +1031,10 @@ function handle(m){
   if(m.v!=null&&m.v!==UI_PAYLOAD_VERSION)versionWarn(m.v);
   const previousSymbol=S.symbol;
   S.symbol=m.symbol||S.symbol;
-  if(previousSymbol!=="—"&&S.symbol!==previousSymbol&&FP.chart)FP.chart.clearDomTradePulses("SYMBOL_CHANGE");
+  if(previousSymbol!=="—"&&S.symbol!==previousSymbol){
+    if(FP.chart)FP.chart.clearDomTradePulses("SYMBOL_CHANGE");
+    resetAbsorptionRealtimeState();
+  }
   const messageTime=Date.parse(m.time);
   if(Number.isFinite(messageTime))S.marketTime=S.marketTime==null?messageTime:Math.max(S.marketTime,messageTime);
   const p=m.payload||{};
@@ -1049,6 +1053,7 @@ function handle(m){
           if(added){renderFlow();renderChart();}
         }
         break;
+      case "ABSORPTION_STATE": onAbsorptionState(m,p); break;
       case "FLOW": onFlow(m,p); break;
       case "FLOW_RESPONSE": onFlowResponse(m,p);break;
       case "LIQUIDATION": pushSeries("LIQUIDATION",Math.abs(N(p.quantity)??0)); break;
@@ -1062,6 +1067,7 @@ function handle(m){
       case "TAPE_UPDATE": if(PHASE5_FUSION_ENABLED)onTapeUpdate(m,p); break;
       default: break; // 未知typeは破棄（前方互換）
     }
+    expireAbsorptionState();
   }catch(_){/* 必須フィールド欠落等はメッセージ単位でスキップ。画面は落とさない */}
 }
 
@@ -1548,8 +1554,47 @@ function renderImbalance(){
   ri.onchange=apply;si.onchange=apply;mi.onchange=apply;
 })();
 
-// ---- Absorption independent indicator: event-only native reading ----
-let ABS=null;
+// ---- Absorption independent indicator: tick-time current state ----
+let ABS=null,ABS_REALTIME_SEEN=false,ABS_EXPIRES_AT=null;
+function resetAbsorptionRealtimeState(){
+  ABS=null;
+  ABS_REALTIME_SEEN=false;
+  ABS_EXPIRES_AT=null;
+  renderAbsorption();
+  renderLiveObservation();
+}
+function expireAbsorptionState(){
+  if(!ABS||!Number.isFinite(ABS_EXPIRES_AT)||!Number.isFinite(S.marketTime)||S.marketTime<ABS_EXPIRES_AT)return false;
+  ABS=null;
+  ABS_EXPIRES_AT=null;
+  renderAbsorption();
+  renderLiveObservation();
+  return true;
+}
+function onAbsorptionState(m,p){
+  ABS_REALTIME_SEEN=true;
+  if(p.active!==true){
+    ABS=null;
+    ABS_EXPIRES_AT=null;
+  }else{
+    const classification=String(p.classification||"");
+    const strength=N(p.strength),priceLow=N(p.price_low),priceHigh=N(p.price_high);
+    const validClassification=classification==="BUY_ABSORPTION"||classification==="SELL_ABSORPTION";
+    if(!validClassification||!Number.isFinite(strength)||strength<0||strength>1||
+       !Number.isFinite(priceLow)||!Number.isFinite(priceHigh)||priceLow>priceHigh){
+      ABS=null;
+      ABS_EXPIRES_AT=null;
+    }else{
+      ABS={classification,strength:p.strength,price_low:p.price_low,price_high:p.price_high};
+      const expiresAt=Date.parse(p.expires_at);
+      ABS_EXPIRES_AT=Number.isFinite(expiresAt)?expiresAt:null;
+    }
+  }
+  if(!expireAbsorptionState()){
+    renderAbsorption();
+    renderLiveObservation();
+  }
+}
 function renderAbsorption(){
   const el=$("absbody"), hint=$("abshint");
   if(!ABS){el.innerHTML='<div class="dash" style="text-align:center">—</div>'; hint.textContent="—"; return;}
@@ -1627,8 +1672,10 @@ function renderAnalysis(){
     }
   }
   renderImbalance();renderFootprint("staticHistory");
-  ABS=a.absorption||null;
-  renderAbsorption();
+  if(!ABS_REALTIME_SEEN){
+    ABS=a.absorption||null;
+    renderAbsorption();
+  }
   renderLiveObservation();
 }// market chart — shared time axis: PRICE / CVD+DELTA / VOLUME
 const MC={W:1200,H:500,L:18,R:1110,price:{top:20,bottom:286},cvd:{top:318,bottom:408},vol:{top:438,bottom:480}};

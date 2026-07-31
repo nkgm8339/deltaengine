@@ -310,6 +310,13 @@ async def lifespan(app: FastAPI):
                 bc.flow_events,
             ))
 
+    def on_absorption_state_cb(event_time, result):
+        schedule_broker(broker.on_absorption_state(
+            event_time,
+            result,
+            window_sec=pipeline.absorption_window_sec,
+        ))
+
     def on_liquidation_cb(liq):
         schedule_broker(broker.on_liquidation(liq))
 
@@ -340,6 +347,7 @@ async def lifespan(app: FastAPI):
     pipeline.on_trade = None if config.replay.enabled else on_trade_cb
     pipeline.on_candle = on_candle_cb
     pipeline.on_analysis = on_analysis_cb
+    pipeline.on_absorption_state = on_absorption_state_cb
     pipeline.on_liquidation = on_liquidation_cb
     pipeline.on_flow_event = on_webapp_flow_cb
     pipeline.on_webapp_flow_event = on_webapp_flow_cb

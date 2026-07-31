@@ -425,6 +425,7 @@ class ReplayPipeline:
         self.on_trade: Optional[Callable] = None
         self.on_candle: Optional[Callable] = None
         self.on_analysis: Optional[Callable] = None
+        self.on_absorption_state: Optional[Callable] = None
         self.on_flow_response: Optional[Callable] = None
         self._last_bar_close = None
         self._last_fp_bar = None
@@ -626,7 +627,11 @@ class ReplayPipeline:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
             fp_closed = footprint.process_trade(normalized)
-            absorption.observe_trade(normalized)
+            _observe_absorption_state(
+                absorption,
+                normalized,
+                self.on_absorption_state,
+            )
             if cvd_result.closed_candle is not None:
                 detected_divergence = divergence_detector.update(cvd_result.closed_candle)
                 # Spec §3.2: event indicators are silent on non-fire bars.
@@ -779,6 +784,23 @@ def _to_engine_ns(dt: datetime, origin_source_ns: int | None) -> int:
     if origin_source_ns is None:
         return 0
     return _to_source_ns(dt) - origin_source_ns
+
+
+def _observe_absorption_state(
+    absorption: AbsorptionDetector,
+    trade: Any,
+    on_state: Optional[Callable],
+) -> tuple[int, Optional[Any]]:
+    """Update the tick-driven detector and publish only meaningful UI state changes."""
+
+    previous = absorption.current()
+    previous_events = absorption.events_detected
+    absorption.observe_trade(trade)
+    current = absorption.current()
+    detected = absorption.events_detected > previous_events
+    if on_state is not None and (detected or current != previous):
+        on_state(trade.event_time, current)
+    return previous_events, current
 
 
 
@@ -977,6 +999,7 @@ class LivePipeline:
         on_accepted_trade: Optional[Callable] = None,
         on_candle: Optional[Callable] = None,
         on_analysis: Optional[Callable] = None,
+        on_absorption_state: Optional[Callable] = None,
         on_liquidation: Optional[Callable] = None,
         on_flow_event: Optional[Callable] = None,
         on_webapp_flow_event: Optional[Callable] = None,
@@ -1057,6 +1080,7 @@ class LivePipeline:
         self.on_accepted_trade = on_accepted_trade
         self.on_candle = on_candle
         self.on_analysis = on_analysis
+        self.on_absorption_state = on_absorption_state
         self.on_liquidation = on_liquidation
         self.on_flow_event = on_flow_event
         self.on_webapp_flow_event = on_webapp_flow_event
@@ -1596,10 +1620,12 @@ class LivePipeline:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
             fp_closed = footprint.process_trade(normalized)
-            prev_abs = absorption.events_detected
-            absorption.observe_trade(normalized)
+            prev_abs, ar = _observe_absorption_state(
+                absorption,
+                normalized,
+                self.on_absorption_state,
+            )
             if self.on_webapp_flow_event is not None and absorption.events_detected > prev_abs:
-                ar = absorption.current()
                 if ar is not None:
                     side = "BUY" if ar.classification == "BUY_ABSORPTION" else "SELL"
                     self.on_webapp_flow_event(PushFlowEvent(
