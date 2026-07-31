@@ -32,6 +32,7 @@ from src.observation.raw_journal import CaptureCampaign
 from src.orderflow.shadow_signal_recorder import ShadowSignalRecorder
 from src.pipeline import LivePipeline, ReplayPipeline, load_profile
 from src.monitor.health import HealthMonitor, HealthSnapshot, read_rss_mb
+from webapp.persistent_depth_writer import PersistentDepthWriter
 from src.acquisition.depth_history_recorder import (
     DepthHistoryRecorder,
     RecorderTee,
@@ -88,12 +89,13 @@ def _config_to_dict(node) -> Any:
     return node
 
 
-def _build_broker(config) -> PushBroker:
+def _build_broker(config, persistent_writer=None) -> PushBroker:
     w = config.webapp
     return PushBroker(
         symbol=config.market.symbol,
         depth_levels=w.depth_levels,
         live_dom_depth_levels=w.live_dom_depth_levels,
+        persistent_writer=persistent_writer,
     )
 
 
@@ -119,6 +121,8 @@ async def lifespan(app: FastAPI):
     app.state.version = resolve_version()
     config = load_config(_CONFIG_PATH)
     profile = load_profile(_profile_path(config))
+    persistent_enabled = os.getenv("PERSISTENT_DEPTH_HISTORY_ENABLED", "false").lower() == "true"
+    persistent_writer = PersistentDepthWriter(os.getenv("PERSISTENT_DEPTH_HISTORY_ROOT", "data_05M/depth_history"), config.market.symbol) if persistent_enabled else None
     depth_history_enabled = os.getenv("DEPTH_HISTORY_ENABLED", "false").lower() == "true"
     depth_history_recorder = (
         SafeRecorder(
@@ -130,7 +134,7 @@ async def lifespan(app: FastAPI):
         if depth_history_enabled
         else None
     )
-    broker = _build_broker(config)
+    broker = _build_broker(config, persistent_writer)
     context_observer = CombinedContextObserver(config.market.symbol)
     shadow_recorder = ShadowSignalRecorder(Path("data_05M/manual/flow_response_shadow.jsonl"))
     hook_capture = None
@@ -587,6 +591,9 @@ async def lifespan(app: FastAPI):
         if hook_capture is not None:
             with contextlib.suppress(Exception):
                 await asyncio.to_thread(hook_capture.close)
+        if persistent_writer is not None:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(persistent_writer.close)
         if depth_history_recorder is not None:
             with contextlib.suppress(Exception):
                 depth_history_recorder.close()
