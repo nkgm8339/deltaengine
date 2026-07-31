@@ -6,9 +6,9 @@ INDEX = ROOT / "webapp" / "static" / "index.html"
 HEATMAP = ROOT / "webapp" / "static" / "orderbook_heatmap.js"
 
 
-def test_heatmap_is_fail_closed_until_operational_activation():
+def test_heatmap_gate_is_enabled_for_operation():
     source = INDEX.read_text(encoding="utf-8")
-    assert "const ORDER_BOOK_HEATMAP_ENABLED = false;" in source
+    assert "const ORDER_BOOK_HEATMAP_ENABLED = true;" in source
     assert "if(!ORDER_BOOK_HEATMAP_ENABLED)" in source
     assert "heatmapButton.hidden=true" in source
     assert "window.HEATMAP_UI=api" in source

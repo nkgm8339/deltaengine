@@ -53,6 +53,7 @@ from webapp.book_projection import (
 from webapp.tape import TapeBatcher
 from webapp.oi_poller import oi_polling_loop
 from webapp.hfm_quote_tailer import hfm_quote_tail_loop
+from webapp.heatmap_replay_task import ensure_replay_source, heatmap_replay_loop
 from webapp.history import (
     query_combined_context_events,
     query_candles,
@@ -134,6 +135,12 @@ async def lifespan(app: FastAPI):
         if depth_history_enabled
         else None
     )
+    heatmap_replay_enabled = os.getenv("HEATMAP_REPLAY_ENABLED", "false").lower() == "true"
+    heatmap_replay_dir = Path(os.getenv("DEPTH_HISTORY_ROOT", "data_05M/depth_history_raw")) / f"symbol={config.market.symbol}"
+    heatmap_replay_interval_ms = int(os.getenv("HEATMAP_REPLAY_INTERVAL_MS", "100"))
+    heatmap_replay_sample_interval_ms = int(os.getenv("HEATMAP_REPLAY_SAMPLE_INTERVAL_MS", "1000"))
+    if heatmap_replay_enabled:
+        ensure_replay_source(heatmap_replay_dir)
     broker = _build_broker(config, persistent_writer)
     context_observer = CombinedContextObserver(config.market.symbol)
     shadow_recorder = ShadowSignalRecorder(Path("data_05M/manual/flow_response_shadow.jsonl"))
@@ -379,13 +386,47 @@ async def lifespan(app: FastAPI):
         )
     else:
         market_push_task = asyncio.create_task(market_push_pump.run())
-        book_projection_task = asyncio.create_task(book_projection_pump.run())
+        book_projection_task = (
+            None
+            if heatmap_replay_enabled
+            else asyncio.create_task(book_projection_pump.run())
+        )
         _raw_taps = [t for t in (hook_capture, depth_history_recorder) if t is not None]
         _raw_tap = _raw_taps[0] if len(_raw_taps) == 1 else (RecorderTee(_raw_taps) if _raw_taps else None)
         pipeline_task = asyncio.create_task(
             pipeline.run_async(raw_recorder=_raw_tap)
         )
     tape_task = asyncio.create_task(tape_batcher.run())
+
+    app.state.heatmap_replay_failed = False
+    heatmap_replay_task = (
+        asyncio.create_task(
+            heatmap_replay_loop(
+                broker.on_book_update,
+                recording_dir=heatmap_replay_dir,
+                interval_ms=heatmap_replay_interval_ms,
+                sample_interval_ms=heatmap_replay_sample_interval_ms,
+                depth_levels=config.webapp.live_dom_depth_levels,
+                symbol=config.market.symbol,
+            )
+        )
+        if heatmap_replay_enabled
+        else None
+    )
+
+    def _mark_replay_failure(completed) -> None:
+        if completed.cancelled():
+            return
+        error = completed.exception()
+        if error is not None:
+            logger.error(
+                "heatmap replay task failed",
+                exc_info=(type(error), error, error.__traceback__),
+            )
+            app.state.heatmap_replay_failed = True
+
+    if heatmap_replay_task is not None:
+        heatmap_replay_task.add_done_callback(_mark_replay_failure)
 
     pending_oi_samples: list[dict] = []
 
@@ -560,6 +601,13 @@ async def lifespan(app: FastAPI):
                 }
                 if tape_problem and health_payload["state"] == "GREEN":
                     health_payload["state"] = "YELLOW"
+                if getattr(app.state, "heatmap_replay_failed", False):
+                    health_payload["state"] = "RED"
+                    health_payload["checks"]["heatmap_replay"] = {
+                        "level": "RED",
+                        "value": "1",
+                        "detail": "heatmap replay task failed",
+                    }
                 app.state.health_report = health_payload
                 await broker.send_health(snap.sample_time, health_payload)
             except Exception:
@@ -571,6 +619,8 @@ async def lifespan(app: FastAPI):
         tasks.append(market_push_task)
     if book_projection_task is not None:
         tasks.append(book_projection_task)
+    if heatmap_replay_task is not None:
+        tasks.append(heatmap_replay_task)
     tasks.append(tape_task)
     if oi_task is not None:
         tasks.append(oi_task)
