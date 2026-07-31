@@ -22,6 +22,7 @@
   const positive = value => finite(value) && Number(value) > 0;
   const parseTime = value => typeof value === "number" ? value : Date.parse(value);
   const uuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  const FRAME_BUDGET_MS = 16;
   const p95 = values => percentile(values, 0.95);
 
   function percentile(values, quantile) {
@@ -1019,8 +1020,12 @@
       const view = this.viewMs >= 900000 ? "15M" : this.viewMs >= 300000 ? "5M" : "1M";
       const step = this.stepMode === "AUTO" ? `AUTO→${geometry.multiplier}` : String(geometry.multiplier);
       const bookState = activeGap ? activeGap.reason : "BOOK SYNCED";
-      const renderP95 = p95(this.renderTimes).toFixed(2);
-      this.status.textContent = `${bookState} · DEPTH ${frame.bidPrices.length}×${frame.askPrices.length} · SESSION ${jstClock(this.bookStore.sessionStart, "second")} · SESSION ONLY · ${view} · STEP ${step} · Q95 ${geometry.scale.q95.toFixed(3)} · BOOK ${this.bookStore.frames.length}/${this.bookStore.maxFrames} · TAPE ${this.tradeStore.trades.length}/${this.tradeStore.capacity} · RENDER P95 ${renderP95}ms`;
+      const renderP95Value = p95(this.renderTimes);
+      const renderP95 = renderP95Value.toFixed(2);
+      const frameBudgetPassed = renderP95Value <= FRAME_BUDGET_MS;
+      const frameBudgetLabel = frameBudgetPassed ? "[PASS]" : "[OVER]";
+      this.status.textContent = `${bookState} · DEPTH ${frame.bidPrices.length}×${frame.askPrices.length} · SESSION ${jstClock(this.bookStore.sessionStart, "second")} · SESSION ONLY · ${view} · STEP ${step} · Q95 ${geometry.scale.q95.toFixed(3)} · BOOK ${this.bookStore.frames.length}/${this.bookStore.maxFrames} · TAPE ${this.tradeStore.trades.length}/${this.tradeStore.capacity} · RENDER P95 ${renderP95}ms ${frameBudgetLabel}`;
+      this.status.style.color = frameBudgetPassed ? "#00cc00" : "#ff4444";
       this.status.classList.toggle("warning", Boolean(activeGap));
     }
 
