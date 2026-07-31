@@ -1190,3 +1190,48 @@ GO-H1以降のsource実装、runtime再起動、deploymentは未承認。
 
 - `ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_BASELINE_AUDIT_20260729.md`
 - `ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_CHECKPOINT_20260729.md`
+
+## Time & Sales → LIVE DOM 約定価格ハイライト（2026-07-31 source実装完成）
+
+ユーザーの明示指示により、Time & Salesの新規受理約定とLIVE DOMの受け側価格セルを
+瞬時に対応付ける`DOM Trade Pulse`を実装した。
+
+- DataNormalizer／TapeStoreを通った新規`TAPE_UPDATE` tradeだけをsourceとする
+- aggressive `BUY`は同価格bucketのpassive `ASK`半セルを黄色でハイライト
+- aggressive `SELL`は同価格bucketのpassive `BID`半セルを黄色でハイライト
+- browser受理時のmonotonic clockから400ms、70% hold＋30% fade
+- 同price／same sideの連続約定はcoalesceし、最新約定から400msへ延長
+- 約定直後に板数量levelが消えても、DOMが`SYNCED`でprice rowが存在すれば
+  黄色overlayだけを満了まで残し、過去数量は復元しない
+- history hydrate、`TICK`、Flowからは発火しない
+- fail-closed、disconnect、Tape／Book stream、symbol、feature境界で古いpulseをclear
+- 最大256 active entry、Canvas当たり一個のRAF scheduler
+- Heatmapへの既存accepted trade routeをnamed coordinatorで維持
+- backend、storage、WebSocket schema、`time_sales.js`の既存acceptance契約は変更なし
+
+検証:
+
+- 新規Pulse試験 **5 passed**
+- WebApp **142 passed, 1 baseline failure**
+- repository全体 **770 passed, 1 baseline failure, 1 skipped**
+- failure 1件は本件開始前からあるHeatmap layout selectorと旧testの不一致で、新規failure 0
+- 6,000 trade burstはingest 5.994ms、overlay draw p95 0.138ms、eviction 0
+- 実Edge Canvas p95 0.5ms、overflow 0、browser error 0
+- deterministic EdgeでBUY→ASK、SELL→BID、level削除後の保持、406.4ms消去を確認
+- 実WebSocketでLIVE SELL trade ID `7941933073`をBID側、
+  LIVE BUY trade ID `7941935464`をASK側へ描画したことを照合
+- LIVE Bookは`SYNCED`、Tape gap／drop 0
+
+完成済みFlow Price Response、3段チャート、8パターン、OI、Footprint計算、
+Hook、Strategy、executionは変更していない。
+
+runtime containerは再起動していない。検証中、root `FileResponse`が断続的にtimeoutし、
+既存runtime logへ`OSError: [Errno 9] Bad file descriptor`が一度記録されたが、
+その後`/api/health`はHTTP 200、pipeline／Tape GREEN、direct `/ws`実約定検証はPASSした。
+root response安定化のためのrestartは別承認境界である。
+
+正本:
+
+- `ArchitectureRepository/00_Master/ハイライト/指示書_TimeAndSales_DOM約定価格ハイライト_v1_20260731.md`
+- `ArchitectureRepository/00_Master/ハイライト/実装_CHECKPOINT_TimeAndSales_DOM約定価格ハイライト_v1_20260731.md`
+- `ArchitectureRepository/00_Master/ハイライト/実装報告_TimeAndSales_DOM約定価格ハイライト_v1_20260731.md`

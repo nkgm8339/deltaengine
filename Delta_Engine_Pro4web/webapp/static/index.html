@@ -2,6 +2,7 @@
 <html lang="en" translate="no">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:,">
 <meta name="google" content="notranslate">
 <link rel="icon" href="data:,">
 
@@ -175,6 +176,22 @@ body{
 #tabs button{color:#D3DBFF;border-radius:5px}#tabs button.on{color:#161004;font-weight:900;background:linear-gradient(105deg,#1375B5,#16B6D8 52%,#A66BFF);box-shadow:inset 0 1px #FFFFFF66,0 0 13px #23DFFF88}
 #chartwrap{background:repeating-linear-gradient(0deg,transparent 0 29px,#2D356020 30px),repeating-linear-gradient(90deg,transparent 0 72px,#2D356020 73px)}
 .toast,#devov,#hpop{border-color:#56629B!important;background:linear-gradient(145deg,#1B2146F5,#0E1230F5)!important;box-shadow:0 13px 32px #0008}
+.mode-switch{display:inline-flex;gap:3px;margin-left:8px}.mode-btn{background:#10172A;border:1px solid var(--line);color:var(--sub);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:800;cursor:pointer}.mode-btn.on{background:#26365F;color:#fff;border-color:#6C82D8}.mode-btn:disabled{opacity:.45;cursor:not-allowed}#heatmapcanvas{display:block;width:100%;height:100%;background:#070D18}#heatmapstatus{color:var(--sub);font-size:11px;font-weight:800;letter-spacing:.015em}</style>
+<style id="orderbook-heatmap-v1-correction">
+#fpstage>#fpcanvas,#fpstage>#heatmapcanvas{position:absolute;inset:0;display:block;width:100%;height:100%;outline:none;touch-action:none}
+#fpcanvas[hidden],#heatmapcanvas[hidden],#heatmaptooltip[hidden],#heatmapdetail[hidden],#heatmapstatus[hidden],#fpselection[hidden],#fpstatus[hidden],#fpcontrols[hidden],#heatmapcontrols[hidden],#hmgearpop[hidden],#modeHeatmap[hidden]{display:none!important}
+.heatmap-controls{display:flex;align-items:center;gap:4px;min-width:0}
+.heatmap-controls button,.heatmap-controls select{height:25px;border:1px solid #344562;border-radius:4px;background:#09111F;color:#F1F5FF;font:800 12px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;padding:0 6px}
+.heatmap-controls button.on{border-color:#25B7E8;color:#25B7E8;background:#0B2130}
+#heatmapcanvas{cursor:crosshair;background:#070D18}
+#heatmapcanvas:focus-visible{box-shadow:inset 0 0 0 1px #25B7E8}
+#heatmaptooltip{position:absolute;z-index:7;width:min(360px,calc(100% - 12px));padding:8px 10px;border:1px solid #6A7895;border-radius:5px;background:#07101CF2;color:#F1F5FF;font:800 14px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;line-height:1.38;white-space:pre-line;pointer-events:none;box-shadow:0 8px 24px #0009}
+#heatmapdetail{height:27px;min-height:27px;padding:5px 8px;border-top:1px solid #1D2A43;background:#09111F;color:#F1F5FF;font:800 12px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#heatmapstatus{height:22px;min-height:22px;padding:4px 8px;border-top:1px solid #1D2A43;background:#070D18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#heatmapstatus.warning{color:#FFE35D}
+#hmgearpop{position:absolute;z-index:60;right:8px;top:36px;width:292px;padding:9px 10px;border:1px solid #526482;border-radius:6px;background:#09111FF5;color:#DCE5F7;font:800 12px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;box-shadow:0 8px 24px #0009}
+#hmgearpop label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}
+#hmgearpop input[type="number"]{width:120px;background:#070D18;color:#F1F5FF;border:1px solid #344562;border-radius:4px;padding:3px 5px;font-size:12px}
 </style>
 <style id="visual-mock-override">
 /* Visual Mock implementation: high-energy hierarchy, clear state colors. */
@@ -320,7 +337,7 @@ body{background:radial-gradient(circle at 15% 4%,#3A167D55,transparent 25%),radi
 #charthint{position:absolute;left:15px;bottom:10px;z-index:4;pointer-events:none;color:#FFFFFF;font-size:9px;font-weight:850;letter-spacing:.06em}
 @media(max-width:700px){#bottom.market-chart-panel{height:534px;min-height:534px;flex-basis:534px}#chartwrap{grid-template-columns:minmax(0,1fr) 245px}#chartlegend,#charthint{display:none}}
 @media(max-width:700px){.flow-window-steps{grid-template-columns:1fr}}
-</style>
+.mode-switch{display:inline-flex;gap:3px;margin-left:8px}.mode-btn{background:#10172A;border:1px solid var(--line);color:var(--sub);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:800;cursor:pointer}.mode-btn.on{background:#26365F;color:#fff;border-color:#6C82D8}.mode-btn:disabled{opacity:.45;cursor:not-allowed}#heatmapcanvas{display:block;width:100%;height:100%;background:#070D18}#heatmapstatus{position:absolute;left:10px;top:8px;color:var(--sub);font-size:11px;font-weight:800;letter-spacing:.04em;pointer-events:none}</style>
 <style id="ui-refresh-v2">
 /* DeltaEngine UI Refresh v2.0 — presentation only. */
 :root{
@@ -526,7 +543,7 @@ body{
 @media(max-width:1279px){
   #appgrid{min-width:1280px}
 }
-</style>
+.mode-switch{display:inline-flex;gap:3px;margin-left:8px}.mode-btn{background:#10172A;border:1px solid var(--line);color:var(--sub);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:800;cursor:pointer}.mode-btn.on{background:#26365F;color:#fff;border-color:#6C82D8}.mode-btn:disabled{opacity:.45;cursor:not-allowed}#heatmapcanvas{display:block;width:100%;height:100%;background:#070D18}#heatmapstatus{position:absolute;left:10px;top:8px;color:var(--sub);font-size:11px;font-weight:800;letter-spacing:.04em;pointer-events:none}</style>
 <style id="footprint-canvas-v1">
 /* Phase 4: multi-bar Footprint stays isolated from the completed three-stage chart. */
 #main{grid-template-columns:minmax(0,300fr) minmax(0,660fr) minmax(232px,246fr)!important}
@@ -547,15 +564,15 @@ body{
 #fpselection{height:27px;min-height:27px;padding:6px 8px;border-top:1px solid #1D2A43;background:#09111F;color:#F1F5FF;font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #fpstatus{height:22px;min-height:22px;padding:5px 8px;border-top:1px solid #1D2A43;background:#070D18;color:#AAB7CD;font:800 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #fpgearpop{right:8px;top:34px}
-</style>
+.mode-switch{display:inline-flex;gap:3px;margin-left:8px}.mode-btn{background:#10172A;border:1px solid var(--line);color:var(--sub);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:800;cursor:pointer}.mode-btn.on{background:#26365F;color:#fff;border-color:#6C82D8}.mode-btn:disabled{opacity:.45;cursor:not-allowed}#heatmapcanvas{display:block;width:100%;height:100%;background:#070D18}#heatmapstatus{position:absolute;left:10px;top:8px;color:var(--sub);font-size:11px;font-weight:800;letter-spacing:.04em;pointer-events:none}</style>
 <style id="dom-tape-fusion-v1">
 /* Phase 5: fused LIVE DOM in Canvas and fixed virtualized Time & Sales. */
 body.phase5-fusion #appgrid{grid-template-rows:62px 552px 552px 388px;min-height:1598px}
 body.phase5-fusion #main{grid-template-columns:minmax(0,1fr) 232px!important;grid-template-rows:552px!important;height:552px!important;min-height:552px!important}
-body.phase5-fusion #main>#center{grid-column:1!important;display:block!important;width:auto!important;height:552px!important;min-height:552px!important;min-width:0!important;overflow:hidden!important}
+body.phase5-fusion #main>#center{grid-column:1!important;display:block!important;width:auto!important;height:552px!important;min-height:552px!important;min-width:0!important;overflow:hidden!important;justify-self:stretch!important}
 body.phase5-fusion #center>.panel:first-child{height:552px!important;min-height:552px!important}
 body.phase5-fusion #main>#right{grid-column:2!important;display:block!important;width:auto!important;height:552px!important;min-height:552px!important;min-width:0!important;overflow:hidden!important}
-body.phase5-fusion #right>#left{display:none!important}
+body.phase5-fusion #main>#left{display:none!important}
 body.phase5-fusion #flowtop{grid-column:1 / -1;grid-row:4;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:198px 178px;gap:12px!important;width:auto!important;height:388px!important;min-width:0!important;margin:0!important}
 body.phase5-fusion #flowtop>#flowrow{grid-column:1 / -1;grid-row:1;width:auto!important;height:198px!important;margin:0!important}
 body.phase5-fusion #flowtop>#flowrow>#flowpanel{width:100%!important;height:198px!important;margin:0!important}
@@ -603,6 +620,11 @@ body:not(.phase5-fusion) #tape{display:none!important}
 .tape-row .tape-time{text-align:left;color:#DCE5F7}.tape-row .tape-side{font-weight:950}.tape-row[hidden]{display:none}
 #tapedetail{height:46px;min-height:46px;font-size:10px;white-space:normal;line-height:1.35;overflow:auto;color:#DCE5F7}
 #tapecount{height:22px;min-height:22px;border-bottom:0;border-top:1px solid #1D2A43}
+.mode-switch{display:inline-flex;gap:3px;margin-left:8px}.mode-btn{background:#10172A;border:1px solid var(--line);color:var(--sub);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:800;cursor:pointer}.mode-btn.on{background:#26365F;color:#fff;border-color:#6C82D8}.mode-btn:disabled{opacity:.45;cursor:not-allowed}#heatmapcanvas{display:block;width:100%;height:100%;background:#070D18}#heatmapstatus{position:absolute;left:10px;top:8px;color:var(--sub);font-size:11px;font-weight:800;letter-spacing:.04em;pointer-events:none}</style>
+<style id="orderbook-heatmap-v1-final-override">
+#fpstage>#fpcanvas,#fpstage>#heatmapcanvas{position:absolute!important;inset:0!important;display:block;width:100%;height:100%;outline:none;touch-action:none}
+#fpcanvas[hidden],#heatmapcanvas[hidden],#heatmaptooltip[hidden],#heatmapdetail[hidden],#heatmapstatus[hidden],#fpselection[hidden],#fpstatus[hidden],#fpcontrols[hidden],#heatmapcontrols[hidden],#hmgearpop[hidden],#modeHeatmap[hidden],#fptitle[hidden]{display:none!important}
+#heatmapstatus{position:static!important;left:auto!important;top:auto!important;pointer-events:auto!important;height:22px;min-height:22px;padding:4px 8px;border-top:1px solid #1D2A43;background:#070D18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body class="notranslate">
@@ -729,8 +751,8 @@ body:not(.phase5-fusion) #tape{display:none!important}
     <div id="center">
       <div class="panel" style="flex:1;position:relative">
         <div class="phead">
-          <span class="ptitle" id="fptitle">FOOTPRINT CHART</span>
-          <span class="ctl">
+          <span class="ptitle" id="fptitle">FOOTPRINT CHART</span><span class="mode-switch" role="group" aria-label="Central chart mode"><button id="modeFootprint" class="mode-btn on" type="button">FOOTPRINT</button><button id="modeHeatmap" class="mode-btn" type="button">HEATMAP</button></span>
+          <span class="ctl" id="fpcontrols">
             <span class="fp-control-label">JST</span>
             <span id="fpdomstatus" class="fp-control-label">DOM NO_SNAPSHOT · BID — · ASK — · SPREAD —</span>
             <span id="fpva" class="fp-control-label">VA 70%</span>
@@ -741,13 +763,22 @@ body:not(.phase5-fusion) #tape{display:none!important}
             <button id="fp3" class="fp-bars-btn" title="Detailed 3-bar view">3</button><button id="fp10" class="fp-bars-btn on" title="Standard 10-bar view">10</button><button id="fp20" class="fp-bars-btn" title="Overview 20-bar view">20</button>
             <button id="plock" class="lock" title="Return to forming bar">LIVE LOCK</button>
           </span>
+          <span class="ctl heatmap-controls" id="heatmapcontrols" hidden>
+            <button id="hm1m" type="button">1M</button><button id="hm5m" class="on" type="button">5M</button><button id="hm15m" type="button">15M</button>
+            <label class="fp-control-label" for="hmstep">STEP</label><select id="hmstep"><option value="AUTO">AUTO</option><option value="1">1 TICK</option><option value="2">2 TICKS</option><option value="5">5 TICKS</option><option value="10">10 TICKS</option></select>
+            <button id="hmintensityminus" type="button" title="INTENSITY −" aria-label="Lower heat intensity">−</button><button id="hmintensityplus" type="button" title="INTENSITY +" aria-label="Raise heat intensity">+</button>
+            <button id="hmbubbles" class="on" type="button">BUBBLES ON</button><button id="hmlock" class="on" type="button">LIVE LOCK</button><button id="hmgear" type="button" aria-expanded="false" aria-controls="hmgearpop">⚙</button>
+          </span>
         </div>
         <div id="fpgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
           <div>VA% <input id="fpvapct" type="number" min="30" max="95" value="70" style="width:56px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
         </div>
-        <div id="fpstage"><canvas id="fpcanvas" tabindex="0" role="img" aria-label="Multi-bar Footprint Chart. BID is aggressive sell volume and ASK is aggressive buy volume."></canvas><div id="fptooltip" hidden></div></div>
+        <div id="hmgearpop" hidden><label>MINIMUM BUBBLE NOTIONAL <input id="hmminnotional" type="number" min="0" step="100" value="0"></label><label>BEST BID / ASK LINES <input id="hmbidask" type="checkbox" checked></label><label>LAST PRICE LINE <input id="hmlast" type="checkbox" checked></label></div>
+        <div id="fpstage"><canvas id="fpcanvas" tabindex="0" role="img" aria-label="Multi-bar Footprint Chart. BID is aggressive sell volume and ASK is aggressive buy volume."></canvas><canvas id="heatmapcanvas" tabindex="0" role="img" aria-label="Bookmap-style time by price resting-liquidity heatmap with aggressive trade bubbles" hidden></canvas><div id="fptooltip" hidden></div><div id="heatmaptooltip" role="tooltip" hidden></div></div>
         <div id="fpselection" role="status" aria-live="polite">SELECT A PRICE CELL · ARROW KEYS MOVE · ESC CLEAR</div>
         <div id="fpstatus">DISPLAY STEP AUTO · 20–40 PRICE ROWS · DPR — · RENDER P95 —</div>
+        <div id="heatmapdetail" role="status" aria-live="polite" hidden>HOVER A HEAT CELL OR BUBBLE · CLICK TO PIN · ESC CLEAR</div>
+        <div id="heatmapstatus" role="status" aria-live="polite" hidden>HEATMAP WAITING FOR BOOK PAYLOAD v1.4 · SESSION ONLY</div>
       </div>
 
       <div id="flowrow" style="display:block;width:100%;flex-shrink:0">
@@ -925,6 +956,7 @@ body:not(.phase5-fusion) #tape{display:none!important}
 
 <script src="/static/footprint_canvas.js"></script>
 <script src="/static/time_sales.js"></script>
+<script src="/static/orderbook_heatmap.js"></script>
 <script>
 "use strict";
 // ============================================================
@@ -933,6 +965,11 @@ body:not(.phase5-fusion) #tape{display:none!important}
 const UI_PAYLOAD_VERSION = 1;
 // Phase 5 presentation rollback boundary. Backend collection/storage stays active.
 const PHASE5_FUSION_ENABLED = true;
+// GO-H3 presentation gate. Keep false until GO-H6 operational activation.
+const ORDER_BOOK_HEATMAP_ENABLED = false;
+// Accepted Time & Sales trade -> passive LIVE DOM half-cell pulse.
+const DOM_TRADE_PULSE_ENABLED = true;
+const DOM_TRADE_PULSE_DURATION_MS = 400;
 document.body.classList.toggle("phase5-fusion",PHASE5_FUSION_ENABLED);
 // FLOWカテゴリ色（イベント一覧とチャートマーカーで共有）
 const CAT={LARGE_TRADE:"#FF4FA3",SWEEP:"#23DFFF",EXHAUSTION:"#FFE35D",
@@ -942,6 +979,7 @@ const $=id=>document.getElementById(id);
 const N=s=>s==null?null:Number(s);           // 表示専用変換
 const fmt=(s,d=2)=>s==null?"—":Number(s).toFixed(d);
 const FP_ROW_H=22;                           // base footprint row height (px) @ zoom 1
+const HEATMAP_BOOK_ID=typeof DeltaOrderBookHeatmap!=="undefined"?DeltaOrderBookHeatmap:null;
 function fpTfSeconds(tf){                     // timeframe string → seconds (for elapsed)
   const m=/^(\d+)([smhd])$/.exec(tf||""); if(!m)return 60;
   return (+m[1])*({s:1,m:60,h:3600,d:86400}[m[2]]||60);
@@ -979,6 +1017,7 @@ function setLive(on){
   el.style.background=on?"rgba(0,230,118,.08)":"transparent";
   el.style.borderColor=on?"rgba(0,230,118,.25)":LINE;
   if(TAPE_UI)TAPE_UI.setConnected(on);
+  if(window.HEATMAP_UI)window.HEATMAP_UI.setConnected(on,S.marketTime||Date.now());
   if(!on&&PHASE5_FUSION_ENABLED){S.liveBook={sync_state:"NO_CONNECTION",bids:[],asks:[]};renderFootprint("liveDom");}
 }
 
@@ -989,7 +1028,9 @@ function versionWarn(serverV){
 function handle(m){
   // §6.2 段階的縮退: 不一致でもWarningのみ表示し描画継続。全面停止しない。
   if(m.v!=null&&m.v!==UI_PAYLOAD_VERSION)versionWarn(m.v);
+  const previousSymbol=S.symbol;
   S.symbol=m.symbol||S.symbol;
+  if(previousSymbol!=="—"&&S.symbol!==previousSymbol&&FP.chart)FP.chart.clearDomTradePulses("SYMBOL_CHANGE");
   const messageTime=Date.parse(m.time);
   if(Number.isFinite(messageTime))S.marketTime=S.marketTime==null?messageTime:Math.max(S.marketTime,messageTime);
   const p=m.payload||{};
@@ -1037,11 +1078,29 @@ function onTick(m,p){
 }
 function onBookUpdate(p){
   S.liveBook=p&&typeof p==="object"?p:{sync_state:"INVALID",bids:[],asks:[]};
+  if(window.HEATMAP_UI)window.HEATMAP_UI.ingestBook(S.liveBook);
   renderFootprint("liveDom");
 }
 function onTapeUpdate(m,p){
   if(!TAPE_UI)return;
-  TAPE_UI.ingestBatch(p,m.symbol||S.symbol);
+  const result=TAPE_UI.ingestBatch(p,m.symbol||S.symbol);
+  if(window.HEATMAP_UI)window.HEATMAP_UI.recordTapeContinuity(result,TAPE_UI.store.streamId);
+}
+function onAcceptedTapeTrades(trades,result){
+  const streamId=TAPE_UI&&TAPE_UI.store?TAPE_UI.store.streamId:null;
+  if(FP.chart&&result&&result.restart)FP.chart.clearDomTradePulses("TAPE_STREAM_RESTART");
+  if(DOM_TRADE_PULSE_ENABLED&&FP.chart){
+    try{
+      FP.chart.ingestDomTradePulses(trades,{
+        symbol:trades&&trades[0]&&trades[0].symbol||S.symbol,
+        streamId,
+      });
+    }catch(_){/* DOM pulse is optional presentation; Tape acceptance remains authoritative. */}
+  }
+  if(window.HEATMAP_UI){
+    try{window.HEATMAP_UI.ingestTrades(trades,{streamId:TAPE_UI.store.streamId,result});}
+    catch(_){/* Heatmap is an independent optional consumer. */}
+  }
 }
 function rememberVwap(p){
   const time=Date.parse(p.bar_time),value=N(p.vwap);
@@ -2261,6 +2320,56 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
   document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!backdrop.hidden)setOpen(false);});
 })();
 
+// Bookmap-style Heatmap presentation gate. Existing Footprint state is never reset.
+(function setupHeatmapMode(){
+  const footprintButton=$("modeFootprint"),heatmapButton=$("modeHeatmap"),fpCanvas=$("fpcanvas"),heatCanvas=$("heatmapcanvas");
+  const fpControls=$("fpcontrols"),heatControls=$("heatmapcontrols"),fpSelection=$("fpselection"),fpStatus=$("fpstatus");
+  const heatDetail=$("heatmapdetail"),heatStatus=$("heatmapstatus"),heatTooltip=$("heatmaptooltip");
+  if(!footprintButton||!heatmapButton||!heatCanvas||!HEATMAP_BOOK_ID)return;
+  if(!ORDER_BOOK_HEATMAP_ENABLED){
+    heatmapButton.hidden=true;heatCanvas.hidden=true;heatControls.hidden=true;heatDetail.hidden=true;heatStatus.hidden=true;
+    fpCanvas.hidden=false;fpControls.hidden=false;fpSelection.hidden=false;fpStatus.hidden=false;
+    return;
+  }
+  const bookStore=new HEATMAP_BOOK_ID.HeatmapBookStore({maxAgeMs:900000,maxFrames:9000,maxGaps:2048});
+  const tradeStore=new HEATMAP_BOOK_ID.HeatmapTradeStore({maxAgeMs:900000,capacity:100000,maxMarkers:1024});
+  const chart=new HEATMAP_BOOK_ID.OrderBookHeatmapCanvas({
+    canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.price,
+    onTradeSelect:trade=>{if(!TAPE_UI||!trade)return;const hit=TAPE_UI.store.trades.find(item=>String(item.tradeId)===String(trade.tradeId));if(hit)TAPE_UI.selectTrade(hit,true);else TAPE_UI.markSelectionError("TRADE OUTSIDE TAPE RETENTION");},
+  });
+  const api={enabled:true,bookStore,tradeStore,store:bookStore,chart,mode:"FOOTPRINT",
+    ingest(payload){return chart.ingestBook(payload,S.marketTime||Date.now());},
+    ingestBook(payload){return chart.ingestBook(payload,S.marketTime||Date.now());},
+    ingestTrades(trades,context){return chart.ingestTrades(trades,S.marketTime||Date.now(),context);},
+    recordTapeContinuity(result,streamId){chart.recordTapeContinuity(result,streamId,S.marketTime||Date.now());},
+    setConnected(value,atMs){chart.setConnected(value,atMs);},
+    focusTrade(trade){return chart.focusTrade(trade);},
+    metrics(){return chart.metrics();},
+    setMode,
+  };
+  window.HEATMAP_UI=api;
+  function setMode(mode){
+    const heat=mode==="HEATMAP";api.mode=heat?"HEATMAP":"FOOTPRINT";
+    footprintButton.classList.toggle("on",!heat);heatmapButton.classList.toggle("on",heat);
+    fpCanvas.hidden=heat;heatCanvas.hidden=!heat;fpControls.hidden=heat;heatControls.hidden=!heat;
+    fpSelection.hidden=heat;fpStatus.hidden=heat;heatDetail.hidden=!heat;heatStatus.hidden=!heat;
+    $("fptitle").hidden=heat;$("fptitle").textContent="FOOTPRINT CHART";
+    chart.setVisible(heat);if(heat)heatCanvas.focus({preventScroll:true});
+  }
+  footprintButton.onclick=()=>setMode("FOOTPRINT");heatmapButton.onclick=()=>setMode("HEATMAP");
+  for(const [id,duration] of [["hm1m",60000],["hm5m",300000],["hm15m",900000]])$(id).onclick=()=>{
+    chart.setViewMs(duration);for(const key of ["hm1m","hm5m","hm15m"])$(key).classList.toggle("on",key===id);$("hmlock").textContent="LIVE LOCK";$("hmlock").classList.add("on");
+  };
+  $("hmstep").onchange=event=>chart.setStep(event.target.value);
+  $("hmintensityminus").onclick=()=>chart.adjustIntensity(-.25);$("hmintensityplus").onclick=()=>chart.adjustIntensity(.25);
+  $("hmbubbles").onclick=()=>{const on=chart.toggleBubbles();$("hmbubbles").textContent=on?"BUBBLES ON":"BUBBLES OFF";$("hmbubbles").classList.toggle("on",on);};
+  $("hmlock").onclick=()=>{chart.returnLive();$("hmlock").textContent="LIVE LOCK";$("hmlock").classList.add("on");};
+  $("hmgear").onclick=()=>{const open=$("hmgearpop").hidden;$("hmgearpop").hidden=!open;$("hmgear").setAttribute("aria-expanded",open?"true":"false");};
+  $("hmminnotional").onchange=event=>{chart.minimumNotional=Math.max(0,Number(event.target.value)||0);chart.requestDraw(true);};
+  $("hmbidask").onchange=event=>{chart.showBidAsk=event.target.checked;chart.requestDraw(true);};
+  $("hmlast").onchange=event=>{chart.showLast=event.target.checked;chart.requestDraw(true);};
+  setMode("FOOTPRINT");
+})();
 // footprint controls
 function updateFootprintControls(view){
   for(const count of [3,10,20])$("fp"+count).classList.toggle("on",view.visibleBars===count);
@@ -2272,7 +2381,7 @@ if(PHASE5_FUSION_ENABLED){
   TAPE_UI=new DeltaTimeSales.TimeSalesView({
     viewport:$("tapeviewport"),rowsElement:$("taperows"),spacer:$("tapespacer"),detail:$("tapedetail"),
     stateElement:$("tapestate"),gapElement:$("tapegap"),countElement:$("tapecount"),filterElement:$("tapefilterstate"),
-    capacity:500,poolSize:32,rowHeight:28,onSelect:selectTapeTrade,onStreamRestart:()=>loadTimeSalesHistory(),
+    capacity:500,poolSize:32,rowHeight:28,onSelect:trade=>{selectTapeTrade(trade);if(window.HEATMAP_UI)window.HEATMAP_UI.focusTrade(trade);},onStreamRestart:()=>loadTimeSalesHistory(),onAcceptedTrades:onAcceptedTapeTrades,
   });
   const applyTapeFilters=()=>{
     const minimumQuantity=Math.max(0,N($("tapeminqty").value)||0);
@@ -2286,6 +2395,7 @@ FP.chart=new DeltaFootprint.CanvasChart({
   canvas:$("fpcanvas"),tooltip:$("fptooltip"),detail:$("fpselection"),status:$("fpstatus"),domStatus:$("fpdomstatus"),
   showDom:PHASE5_FUSION_ENABLED,onNeedHistory:()=>loadFootprintHistory(FP.cursor),onViewport:updateFootprintControls,
   onSelection:selection=>{if(TAPE_UI)TAPE_UI.highlightBucket(selection);},
+  domTradePulseEnabled:DOM_TRADE_PULSE_ENABLED,domTradePulseDurationMs:DOM_TRADE_PULSE_DURATION_MS,
 });
 updateFootprintControls({visibleBars:10,offset:0,lock:true});
 // --- Footprint VA% gear (immediate, no reload; display-only) ---
@@ -2396,3 +2506,10 @@ fetch("/api/version").then(r=>r.json())
 
 </body>
 </html>
+
+
+
+
+
+
+

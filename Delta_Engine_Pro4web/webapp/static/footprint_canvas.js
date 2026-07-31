@@ -23,6 +23,9 @@
   const DENSE_CELL_FONT_PX = 11;
   const NICE = [1, 2, 5];
   const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const DOM_TRADE_PULSE_COLOR = "#FFD54A";
+  const DEFAULT_DOM_TRADE_PULSE_DURATION_MS = 400;
+  const DEFAULT_DOM_TRADE_PULSE_MAX_ACTIVE = 256;
 
   const finite = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
   const number = value => finite(value) ? Number(value) : 0;
@@ -253,6 +256,197 @@
     return Number(match[1]) * ({ s: 1000, m: 60000, h: 3600000, d: 86400000 }[match[2].toLowerCase()] || 60000);
   }
 
+  function passiveSideForAggressor(side) {
+    const normalized = String(side || "").toUpperCase();
+    if (normalized === "BUY") return "ASK";
+    if (normalized === "SELL") return "BID";
+    return null;
+  }
+
+  function monotonicNow() {
+    return typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now() : Date.now();
+  }
+
+  class DomTradePulseStore {
+    constructor(options) {
+      const config = options || {};
+      this.durationMs = clamp(
+        Number(config.durationMs) || DEFAULT_DOM_TRADE_PULSE_DURATION_MS,
+        300,
+        500
+      );
+      this.maxActive = clamp(
+        Math.round(Number(config.maxActive) || DEFAULT_DOM_TRADE_PULSE_MAX_ACTIVE),
+        1,
+        DEFAULT_DOM_TRADE_PULSE_MAX_ACTIVE
+      );
+      this.now = typeof config.now === "function" ? config.now : monotonicNow;
+      this.entries = new Map();
+      this.lastClearReason = null;
+      this.stats = {
+        tradesReceived: 0,
+        pulsesStarted: 0,
+        pulsesCoalesced: 0,
+        skippedUnsynced: 0,
+        skippedInvalid: 0,
+        skippedOffscreen: 0,
+        clearedOnBoundary: 0,
+        evictedCapacity: 0,
+        maxActiveEntries: 0,
+      };
+    }
+
+    prune(atMs) {
+      const now = Number.isFinite(Number(atMs)) ? Number(atMs) : this.now();
+      for (const [key, entry] of this.entries) {
+        if (entry.expiresAt <= now) this.entries.delete(key);
+      }
+      return this.entries.size;
+    }
+
+    evictOldest() {
+      let oldestKey = null;
+      let oldestStartedAt = Infinity;
+      for (const [key, entry] of this.entries) {
+        if (entry.startedAt < oldestStartedAt) {
+          oldestKey = key;
+          oldestStartedAt = entry.startedAt;
+        }
+      }
+      if (oldestKey !== null) {
+        this.entries.delete(oldestKey);
+        this.stats.evictedCapacity += 1;
+      }
+    }
+
+    ingest(trades, context) {
+      const rows = Array.isArray(trades) ? trades : [];
+      const frame = context || {};
+      const now = Number.isFinite(Number(frame.now)) ? Number(frame.now) : this.now();
+      const tick = Number(frame.tick);
+      const multiplier = Math.max(1, Math.round(Number(frame.multiplier) || 1));
+      const rowIndexes = frame.rowIndexes instanceof Set
+        ? frame.rowIndexes
+        : new Set(Array.isArray(frame.rowIndexes) ? frame.rowIndexes : []);
+      const synced = frame.synced === true;
+      const result = { started: 0, coalesced: 0, skippedUnsynced: 0, skippedInvalid: 0, skippedOffscreen: 0 };
+      this.prune(now);
+
+      for (const trade of rows) {
+        this.stats.tradesReceived += 1;
+        if (!synced || !Number.isFinite(tick) || tick <= 0) {
+          this.stats.skippedUnsynced += 1;
+          result.skippedUnsynced += 1;
+          continue;
+        }
+        const passiveSide = passiveSideForAggressor(trade && trade.side);
+        const price = Number(trade && trade.price);
+        if (!passiveSide || !Number.isFinite(price) || price <= 0) {
+          this.stats.skippedInvalid += 1;
+          result.skippedInvalid += 1;
+          continue;
+        }
+        const nativeTickIndex = Math.round(price / tick);
+        const displayBucketIndex = Math.floor(nativeTickIndex / multiplier) * multiplier;
+        if (!Number.isSafeInteger(nativeTickIndex)) {
+          this.stats.skippedInvalid += 1;
+          result.skippedInvalid += 1;
+          continue;
+        }
+        if (rowIndexes.size && !rowIndexes.has(displayBucketIndex)) {
+          this.stats.skippedOffscreen += 1;
+          result.skippedOffscreen += 1;
+          continue;
+        }
+        const key = `${passiveSide}:${nativeTickIndex}`;
+        const existing = this.entries.get(key);
+        if (existing) {
+          existing.startedAt = now;
+          existing.expiresAt = now + this.durationMs;
+          existing.hitCount += 1;
+          existing.lastTradeId = trade.tradeId ?? trade.trade_id ?? null;
+          existing.lastSequence = trade.sequence ?? null;
+          this.stats.pulsesCoalesced += 1;
+          result.coalesced += 1;
+          continue;
+        }
+        if (this.entries.size >= this.maxActive) this.evictOldest();
+        this.entries.set(key, {
+          key,
+          passiveSide,
+          nativeTickIndex,
+          price,
+          startedAt: now,
+          expiresAt: now + this.durationMs,
+          hitCount: 1,
+          lastTradeId: trade.tradeId ?? trade.trade_id ?? null,
+          lastSequence: trade.sequence ?? null,
+        });
+        this.stats.pulsesStarted += 1;
+        result.started += 1;
+        this.stats.maxActiveEntries = Math.max(this.stats.maxActiveEntries, this.entries.size);
+      }
+      return result;
+    }
+
+    activeCells(frame, atMs) {
+      const view = frame || {};
+      const now = Number.isFinite(Number(atMs)) ? Number(atMs) : this.now();
+      this.prune(now);
+      if (!view.book || view.book.synced !== true || !Number.isFinite(Number(view.tick))) return [];
+      const multiplier = Math.max(1, Math.round(Number(view.multiplier) || 1));
+      const rowByIndex = new Map((view.rows || []).map((row, rowIndex) => [row.index, rowIndex]));
+      const grouped = new Map();
+      const holdMs = this.durationMs * 0.7;
+      for (const entry of this.entries.values()) {
+        const displayBucketIndex = Math.floor(entry.nativeTickIndex / multiplier) * multiplier;
+        const rowIndex = rowByIndex.get(displayBucketIndex);
+        if (rowIndex === undefined) continue;
+        const ageMs = Math.max(0, now - entry.startedAt);
+        const remainingMs = Math.max(0, entry.expiresAt - now);
+        const opacity = ageMs <= holdMs
+          ? 1
+          : clamp(remainingMs / Math.max(1, this.durationMs - holdMs), 0, 1);
+        const key = `${entry.passiveSide}:${displayBucketIndex}`;
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.opacity = Math.max(existing.opacity, opacity);
+          existing.hitCount += entry.hitCount;
+          existing.expiresAt = Math.max(existing.expiresAt, entry.expiresAt);
+        } else {
+          grouped.set(key, {
+            passiveSide: entry.passiveSide,
+            displayBucketIndex,
+            rowIndex,
+            opacity,
+            hitCount: entry.hitCount,
+            expiresAt: entry.expiresAt,
+          });
+        }
+      }
+      return [...grouped.values()];
+    }
+
+    clear(reason) {
+      const cleared = this.entries.size;
+      this.entries.clear();
+      this.lastClearReason = String(reason || "CLEAR");
+      if (cleared) this.stats.clearedOnBoundary += 1;
+      return cleared;
+    }
+
+    snapshot(atMs) {
+      this.prune(atMs);
+      return Object.assign({}, this.stats, {
+        activeEntries: this.entries.size,
+        durationMs: this.durationMs,
+        maxActive: this.maxActive,
+        lastClearReason: this.lastClearReason,
+      });
+    }
+  }
+
   class CanvasChart {
     constructor(options) {
       this.canvas = options.canvas;
@@ -277,6 +471,15 @@
       this.selection = null;
       this.keyboardCell = null;
       this.drag = null;
+      this.domTradePulseEnabled = options.domTradePulseEnabled !== false;
+      this.domTradePulses = new DomTradePulseStore({
+        durationMs: options.domTradePulseDurationMs,
+        maxActive: options.domTradePulseMaxActive,
+        now: options.domTradePulseNow,
+      });
+      this.domTradePulseFrameHandle = null;
+      this.domTradePulseFrameKind = null;
+      this.domTradePulseIdentity = { symbol: null, streamId: null, mode: null, bookStreamId: null };
       this.dirty = new Set(["viewport", "history", "selection"]);
       this.drawPending = false;
       this.renderTimes = [];
@@ -288,6 +491,17 @@
     }
 
     setData(data, layer) {
+      if (data && Object.prototype.hasOwnProperty.call(data, "book")) {
+        const nextBook = data.book;
+        const nextBookStreamId = nextBook && typeof nextBook.book_stream_id === "string"
+          ? nextBook.book_stream_id : null;
+        if (this.domTradePulseIdentity.bookStreamId && nextBookStreamId &&
+            this.domTradePulseIdentity.bookStreamId !== nextBookStreamId) {
+          this.clearDomTradePulses("BOOK_STREAM_RESTART");
+        }
+        if (nextBookStreamId) this.domTradePulseIdentity.bookStreamId = nextBookStreamId;
+        if (!nextBook || nextBook.sync_state !== "SYNCED") this.clearDomTradePulses("BOOK_FAIL_CLOSED");
+      }
       this.data = Object.assign({}, this.data, data || {});
       if (this.lock) this.offset = 0;
       let dirtyLayer = layer || "liveFootprint";
@@ -298,6 +512,82 @@
       }
       if (dirtyLayer === "liveDom" && this.bookOutsideFrame()) dirtyLayer = "viewport";
       this.invalidate(dirtyLayer);
+    }
+
+    setDomTradePulseEnabled(enabled) {
+      const next = Boolean(enabled);
+      if (next === this.domTradePulseEnabled) return;
+      this.domTradePulseEnabled = next;
+      if (!next) this.clearDomTradePulses("FEATURE_DISABLED");
+    }
+
+    ingestDomTradePulses(trades, meta) {
+      if (!this.domTradePulseEnabled) return { disabled: true, started: 0, coalesced: 0 };
+      const context = meta || {};
+      for (const field of ["symbol", "streamId", "mode"]) {
+        const next = context[field] === null || context[field] === undefined
+          ? null : String(context[field]);
+        const current = this.domTradePulseIdentity[field];
+        if (next && current && next !== current) this.clearDomTradePulses(`${field.toUpperCase()}_CHANGE`);
+        if (next) this.domTradePulseIdentity[field] = next;
+      }
+      const frame = this.frame;
+      const result = this.domTradePulses.ingest(trades, {
+        now: this.domTradePulses.now(),
+        synced: Boolean(frame && frame.book && frame.book.synced && this.data.book && this.data.book.sync_state === "SYNCED"),
+        tick: frame && frame.tick,
+        multiplier: frame && frame.multiplier,
+        rowIndexes: frame ? new Set(frame.rows.map(row => row.index)) : new Set(),
+      });
+      if (result.started || result.coalesced) {
+        this.invalidate("domTradePulse");
+        this.scheduleDomTradePulseFrame();
+      }
+      return result;
+    }
+
+    scheduleDomTradePulseFrame() {
+      if (!this.domTradePulseEnabled || this.domTradePulseFrameHandle !== null || !this.domTradePulses.entries.size) return;
+      const schedule = typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame
+        : callback => setTimeout(() => callback(this.domTradePulses.now()), 16);
+      this.domTradePulseFrameKind = typeof requestAnimationFrame === "function" ? "raf" : "timer";
+      this.domTradePulseFrameHandle = schedule(() => {
+        this.domTradePulseFrameHandle = null;
+        this.domTradePulses.prune(this.domTradePulses.now());
+        this.invalidate("domTradePulse");
+        if (this.domTradePulses.entries.size) this.scheduleDomTradePulseFrame();
+      });
+    }
+
+    cancelDomTradePulseFrame() {
+      if (this.domTradePulseFrameHandle === null) return;
+      if (this.domTradePulseFrameKind === "raf" && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(this.domTradePulseFrameHandle);
+      } else {
+        clearTimeout(this.domTradePulseFrameHandle);
+      }
+      this.domTradePulseFrameHandle = null;
+      this.domTradePulseFrameKind = null;
+    }
+
+    clearDomTradePulses(reason) {
+      const cleared = this.domTradePulses.clear(reason);
+      this.cancelDomTradePulseFrame();
+      if (cleared) this.invalidate("domTradePulse");
+      return cleared;
+    }
+
+    getDomTradePulseStats() {
+      return Object.assign(this.domTradePulses.snapshot(this.domTradePulses.now()), {
+        enabled: this.domTradePulseEnabled,
+        schedulerActive: this.domTradePulseFrameHandle !== null,
+      });
+    }
+
+    destroy() {
+      this.clearDomTradePulses("CANVAS_DESTROY");
+      if (this.resizeObserver) this.resizeObserver.disconnect();
     }
 
     setVisibleBars(value, anchorRatio) {
@@ -496,7 +786,9 @@
       const size = this.resizeBackingStore();
       const ctx = this.ctx;
       const overlayOnly = !size.resized && this.baseValid && this.frame && this.geometry &&
-        [...this.dirty].every(layer => layer === "reference" || layer === "selection" || layer === "liveDom");
+        [...this.dirty].every(layer =>
+          layer === "reference" || layer === "selection" || layer === "liveDom" || layer === "domTradePulse"
+        );
       if (!overlayOnly) {
         this.frame = this.buildFrame(size.width, size.height);
         this.geometry = this.buildGeometry(size.width, size.height, this.frame);
@@ -516,6 +808,7 @@
         ctx.drawImage(this.baseCanvas, 0, 0, this.baseCanvas.width, this.baseCanvas.height, 0, 0, g.width, g.height);
       }
       if (this.showDom) this.drawBook(ctx, g, this.frame);
+      if (this.showDom) this.drawDomTradePulses(ctx, g, this.frame);
       this.drawReferences(ctx, g, this.frame);
       this.drawSelection(ctx, g, this.frame);
       this.refreshSelectionDetail();
@@ -627,6 +920,28 @@
           ctx.fillText(level.ask > 0 ? compact(level.ask) : "—", g.domMid + 3, y + g.rowHeight / 2);
         }
       });
+      ctx.restore();
+    }
+
+    drawDomTradePulses(ctx, g, frame) {
+      if (!this.domTradePulseEnabled || !frame || !frame.book || !frame.book.synced) return;
+      const cells = this.domTradePulses.activeCells(frame, this.domTradePulses.now());
+      if (!cells.length) return;
+      const half = g.domWidth / 2;
+      ctx.save();
+      ctx.fillStyle = DOM_TRADE_PULSE_COLOR;
+      ctx.strokeStyle = DOM_TRADE_PULSE_COLOR;
+      ctx.lineWidth = 2;
+      for (const cell of cells) {
+        const y = g.top + cell.rowIndex * g.rowHeight;
+        const x = cell.passiveSide === "ASK" ? g.domMid + 1 : g.domX + 1;
+        const width = Math.max(1, half - 2);
+        const height = Math.max(1, g.rowHeight - 2);
+        ctx.globalAlpha = 0.5 * cell.opacity;
+        ctx.fillRect(x, y + 1, width, height);
+        ctx.globalAlpha = 0.96 * cell.opacity;
+        ctx.strokeRect(x + 0.5, y + 1.5, Math.max(0, width - 1), Math.max(0, height - 1));
+      }
       ctx.restore();
     }
 
@@ -1022,6 +1337,8 @@
 
   return {
     CanvasChart,
+    DomTradePulseStore,
+    passiveSideForAggressor,
     inferTickSize,
     autoMultiplier,
     bucketLevels,
