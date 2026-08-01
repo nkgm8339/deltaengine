@@ -764,7 +764,7 @@ body:not(.phase5-fusion) #tape{display:none!important}
             <button id="plock" class="lock" title="Return to forming bar">LIVE LOCK</button>
           </span>
           <span class="ctl heatmap-controls" id="heatmapcontrols" hidden>
-            <button id="hm1m" type="button">1M</button><button id="hm5m" class="on" type="button">5M</button><button id="hm15m" type="button">15M</button>
+            <button id="hm1m" type="button">1M</button><button id="hm5m" class="on" type="button">5M</button><button id="hm15m" type="button">15M</button><button id="hm30m" type="button">30M</button><button id="hm1h" type="button">1H</button>
             <label class="fp-control-label" for="hmstep">STEP</label><select id="hmstep"><option value="AUTO">AUTO</option><option value="1">1 TICK</option><option value="2">2 TICKS</option><option value="5">5 TICKS</option><option value="10">10 TICKS</option></select>
             <button id="hmintensityminus" type="button" title="INTENSITY −" aria-label="Lower heat intensity">−</button><button id="hmintensityplus" type="button" title="INTENSITY +" aria-label="Raise heat intensity">+</button>
             <button id="hmbubbles" class="on" type="button">BUBBLES ON</button><button id="hmlock" class="on" type="button">LIVE LOCK</button><button id="hmgear" type="button" aria-expanded="false" aria-controls="hmgearpop">⚙</button>
@@ -2378,7 +2378,7 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
     fpCanvas.hidden=false;fpControls.hidden=false;fpSelection.hidden=false;fpStatus.hidden=false;
     return;
   }
-  const bookStore=new HEATMAP_BOOK_ID.HeatmapBookStore({maxAgeMs:900000,maxFrames:9000,maxGaps:2048});
+  const bookStore=new HEATMAP_BOOK_ID.HeatmapBookStore({maxAgeMs:3600000,maxFrames:36000,maxGaps:4096});
   const tradeStore=new HEATMAP_BOOK_ID.HeatmapTradeStore({maxAgeMs:900000,capacity:100000,maxMarkers:1024});
   const chart=new HEATMAP_BOOK_ID.OrderBookHeatmapCanvas({
     canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.price,
@@ -2404,8 +2404,8 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
     chart.setVisible(heat);if(heat)heatCanvas.focus({preventScroll:true});
   }
   footprintButton.onclick=()=>setMode("FOOTPRINT");heatmapButton.onclick=()=>setMode("HEATMAP");
-  for(const [id,duration] of [["hm1m",60000],["hm5m",300000],["hm15m",900000]])$(id).onclick=()=>{
-    chart.setViewMs(duration);for(const key of ["hm1m","hm5m","hm15m"])$(key).classList.toggle("on",key===id);$("hmlock").textContent="LIVE LOCK";$("hmlock").classList.add("on");
+  for(const [id,duration] of [["hm1m",60000],["hm5m",300000],["hm15m",900000],["hm30m",1800000],["hm1h",3600000]])$(id).onclick=()=>{
+    chart.setViewMs(duration);for(const key of ["hm1m","hm5m","hm15m","hm30m","hm1h"])$(key).classList.toggle("on",key===id);$("hmlock").textContent="LIVE LOCK";$("hmlock").classList.add("on");
   };
   $("hmstep").onchange=event=>chart.setStep(event.target.value);
   $("hmintensityminus").onclick=()=>chart.adjustIntensity(-.25);$("hmintensityplus").onclick=()=>chart.adjustIntensity(.25);

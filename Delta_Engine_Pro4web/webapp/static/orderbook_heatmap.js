@@ -692,7 +692,7 @@
       return result;
     }
     recordTapeContinuity(result, streamId, atMs) { this.tradeStore.recordContinuity(result, streamId, atMs); this.baseDirty = true; this.requestDraw(true); }
-    setViewMs(value) { this.viewMs = clamp(Number(value) || 300000, 10000, 900000); this.timeOffsetMs = 0; this.liveLock = true; this.baseDirty = true; this.requestDraw(true); }
+    setViewMs(value) { this.viewMs = clamp(Number(value) || 300000, 10000, 3600000); this.timeOffsetMs = 0; this.liveLock = true; this.lockedEndTime = null; this.baseDirty = true; this.requestDraw(true); }
     setStep(value) { this.stepMode = value === "AUTO" ? "AUTO" : clamp(Number(value) || 1, 1, 10); this.baseDirty = true; this.requestDraw(true); }
     adjustIntensity(delta) { this.intensityMultiplier = clamp(this.intensityMultiplier + Number(delta), 0.5, 4); this.baseDirty = true; this.requestDraw(true); }
     toggleBubbles() { this.showBubbles = !this.showBubbles; this.baseDirty = true; this.requestDraw(true); return this.showBubbles; }
@@ -1051,7 +1051,7 @@
         return;
       }
       const activeGap = this.bookStore.activeGap;
-      const view = this.viewMs >= 900000 ? "15M" : this.viewMs >= 300000 ? "5M" : "1M";
+      const view = this.viewMs >= 3600000 ? "1H" : this.viewMs >= 1800000 ? "30M" : this.viewMs >= 900000 ? "15M" : this.viewMs >= 300000 ? "5M" : "1M";
       const step = this.stepMode === "AUTO" ? `AUTO→${geometry.multiplier}` : String(geometry.multiplier);
       const bookState = activeGap ? activeGap.reason : "BOOK SYNCED";
       const renderP95Value = p95(this.renderTimes);
