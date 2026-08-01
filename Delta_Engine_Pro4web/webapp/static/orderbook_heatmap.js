@@ -252,8 +252,8 @@
       if (this.gaps.length > this.maxGaps) this.gaps.splice(0, this.gaps.length - this.maxGaps);
     }
     visibleFrames(start, end) {
-      const inside = this.frames.filter(frame => frame.eventTime >= start && frame.eventTime <= end);
-      const previous = [...this.frames].reverse().find(frame => frame.eventTime < start);
+      const inside = this.frames.filter(frame => frameRenderTime(frame) >= start && frameRenderTime(frame) <= end);
+      const previous = [...this.frames].reverse().find(frame => frameRenderTime(frame) < start);
       return previous ? [previous, ...inside] : inside;
     }
     visibleGaps(start, end) { return this.gaps.filter(gap => gap.start <= end && (gap.end == null || gap.end >= start)); }
@@ -337,6 +337,13 @@
 
   function frameValue(frame, compactKey, publicKey) {
     return frame && frame[compactKey] !== undefined ? frame[compactKey] : frame && frame[publicKey];
+  }
+
+  // Render against projection time: exchange event time can lag during load.
+  function frameRenderTime(frame) {
+    const projection = Number(frameValue(frame, "projectionTime", "projection_time"));
+    if (Number.isFinite(projection)) return projection;
+    return Number(frameValue(frame, "eventTime", "event_time"));
   }
 
   function inferBookTick(frames, fallback) {
@@ -565,8 +572,8 @@
     const intervals = [];
     for (let index = 0; index < frames.length; index += 1) {
       const frame = frames[index];
-      const frameTime = Number(frameValue(frame, "eventTime", "event_time"));
-      const nextTime = index + 1 < frames.length ? Number(frameValue(frames[index + 1], "eventTime", "event_time")) : Number(staleEnd || end);
+      const frameTime = frameRenderTime(frame);
+      const nextTime = index + 1 < frames.length ? frameRenderTime(frames[index + 1]) : Number(staleEnd || end);
       const left = Math.max(start, frameTime);
       const right = Math.min(end, nextTime);
       if (right > left) intervals.push({ start: left, end: right, frame, cells: bucketBookFrame(frame, tickSize, multiplier) });
@@ -612,6 +619,7 @@
       this.showBidAsk = true;
       this.showLast = true;
       this.liveLock = true;
+      this.lockedEndTime = null;
       this.timeOffsetMs = 0;
       this.pricePan = 0;
       this.priceZoom = 1;
@@ -627,6 +635,7 @@
       this.frameGeometry = null;
       this.baseDirty = true;
       this.drawPending = false;
+      this.liveTicker = null;
       this.baseCanvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
       this.rasterCanvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
       this.rasterImage = null;
@@ -639,7 +648,19 @@
       }
     }
 
-    setVisible(visible) { this.visible = Boolean(visible); if (this.visible) { this.baseDirty = true; this.requestDraw(true); } }
+    setVisible(visible) {
+      this.visible = Boolean(visible);
+      if (this.visible) {
+        this.baseDirty = true;
+        this.requestDraw(true);
+        if (!this.liveTicker) this.liveTicker = setInterval(() => {
+          if (this.visible && this.liveLock) this.requestDraw(true);
+        }, 250);
+      } else if (this.liveTicker) {
+        clearInterval(this.liveTicker);
+        this.liveTicker = null;
+      }
+    }
     setConnected(connected, atMs) {
       this.connected = Boolean(connected);
       if (!this.connected) this.bookStore.markDisconnected(Number(atMs) || Date.now());
@@ -675,7 +696,19 @@
     setStep(value) { this.stepMode = value === "AUTO" ? "AUTO" : clamp(Number(value) || 1, 1, 10); this.baseDirty = true; this.requestDraw(true); }
     adjustIntensity(delta) { this.intensityMultiplier = clamp(this.intensityMultiplier + Number(delta), 0.5, 4); this.baseDirty = true; this.requestDraw(true); }
     toggleBubbles() { this.showBubbles = !this.showBubbles; this.baseDirty = true; this.requestDraw(true); return this.showBubbles; }
-    returnLive() { this.liveLock = true; this.timeOffsetMs = 0; this.pricePan = 0; this.priceZoom = 1; this.baseDirty = true; this.requestDraw(true); }
+    returnLive() { this.liveLock = true; this.lockedEndTime = null; this.timeOffsetMs = 0; this.pricePan = 0; this.priceZoom = 1; this.baseDirty = true; this.requestDraw(true); }
+    toggleLiveLock() {
+      if (this.liveLock) {
+        this.lockedEndTime = this.frameGeometry && Number.isFinite(this.frameGeometry.end) ? this.frameGeometry.end : this.latestEventTime();
+        this.liveLock = false;
+      } else {
+        this.returnLive();
+        return true;
+      }
+      this.baseDirty = true;
+      this.requestDraw(true);
+      return false;
+    }
     focusTrade(trade) {
       if (!trade) return false;
       const eventTime = Number(trade.eventTime != null ? trade.eventTime : parseTime(trade.event_time));
@@ -694,7 +727,7 @@
 
     latestEventTime() {
       const frame = this.bookStore.frames[this.bookStore.frames.length - 1];
-      return frame ? frame.eventTime : Date.now();
+      return frame ? frameRenderTime(frame) : Date.now();
     }
     recordTiming(target, value, limit) { target.push(Number(value) || 0); if (target.length > limit) target.splice(0, target.length - limit); }
     requestDraw(full) {
@@ -764,7 +797,8 @@
       if (this.connected && now > staleBoundary && (!this.bookStore.activeGap || this.bookStore.activeGap.reason !== "LOCAL STALE")) {
         this.bookStore.markLocalStale(staleBoundary);
       }
-      const liveEnd = this.connected ? Math.max(latest.eventTime, now) : latest.eventTime;
+      const latestRenderTime = frameRenderTime(latest);
+      const liveEnd = this.liveLock ? (this.connected ? Math.max(latestRenderTime, now) : latestRenderTime) : (this.lockedEndTime || latestRenderTime);
       const end = liveEnd - Math.max(0, this.timeOffsetMs);
       const start = end - this.viewMs;
       const frames = this.bookStore.visibleFrames(start, end);
@@ -1121,10 +1155,12 @@
         }
         const point = this.pointFromEvent(event);
         this.hover = point;
-        if (point) this.showPoint(point, event); else this.hideTooltip();
+        if (!this.selection) {
+          if (point) this.showPoint(point, event); else this.hideTooltip();
+        }
         this.requestDraw(false);
       });
-      this.canvas.addEventListener("mouseleave", () => { if (!this.drag) { this.hover = null; this.hideTooltip(); this.requestDraw(false); } });
+      this.canvas.addEventListener("mouseleave", () => { if (!this.drag && !this.selection) { this.hover = null; this.hideTooltip(); this.requestDraw(false); } });
       this.canvas.addEventListener("mousedown", event => {
         if (event.button !== 0 || !this.frameGeometry || this.frameGeometry.empty) return;
         this.drag = { x: event.clientX, y: event.clientY, timeOffset: this.timeOffsetMs, pricePan: this.pricePan, plotWidth: this.frameGeometry.plot.width, plotHeight: this.frameGeometry.plot.height, priceSpan: this.frameGeometry.maxPrice - this.frameGeometry.minPrice };
@@ -1161,9 +1197,30 @@
       this.canvas.addEventListener("click", event => {
         const point = this.pointFromEvent(event);
         if (!point) return;
+        if (this.selection && this.frameGeometry) {
+          const selectedX = this.frameGeometry.xOf(this.selection.time);
+          const selectedY = this.frameGeometry.yOf(this.selection.price);
+          if (Math.hypot(point.x - selectedX, point.y - selectedY) <= 8) {
+            this.selection = null;
+            this.hover = point;
+            this.hideTooltip();
+            if (this.detail) this.detail.textContent = "HOVER A HEAT CELL OR BUBBLE · CLICK TO PIN · ESC CLEAR";
+            this.requestDraw(false);
+            return;
+          }
+        }
         const description = this.describePoint(point);
+        if (!description) {
+          this.selection = null;
+          this.hover = point;
+          this.hideTooltip();
+          this.requestDraw(false);
+          return;
+        }
         this.selection = { time: point.time, price: point.price, trade: description && description.bubble ? description.bubble.newest : null };
-        if (this.detail && description) this.detail.textContent = description.lines.join(" · ");
+        this.hover = null;
+        this.showPoint(point, event);
+        if (this.detail) this.detail.textContent = description.lines.join(" · ");
         if (description && description.bubble) this.onTradeSelect(description.bubble.newest);
         this.requestDraw(false);
       });
@@ -1206,7 +1263,7 @@
         build: this.lastBuildTiming || null,
       };
     }
-    destroy() { if (this.resizeObserver) this.resizeObserver.disconnect(); this.visible = false; }
+    destroy() { if (this.resizeObserver) this.resizeObserver.disconnect(); if (this.liveTicker) clearInterval(this.liveTicker); this.liveTicker = null; this.visible = false; }
   }
 
   return {

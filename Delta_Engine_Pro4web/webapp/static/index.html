@@ -2410,7 +2410,7 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
   $("hmstep").onchange=event=>chart.setStep(event.target.value);
   $("hmintensityminus").onclick=()=>chart.adjustIntensity(-.25);$("hmintensityplus").onclick=()=>chart.adjustIntensity(.25);
   $("hmbubbles").onclick=()=>{const on=chart.toggleBubbles();$("hmbubbles").textContent=on?"BUBBLES ON":"BUBBLES OFF";$("hmbubbles").classList.toggle("on",on);};
-  $("hmlock").onclick=()=>{chart.returnLive();$("hmlock").textContent="LIVE LOCK";$("hmlock").classList.add("on");};
+  $("hmlock").onclick=()=>{const locked=chart.toggleLiveLock();$("hmlock").textContent=locked?"LIVE LOCK":"HISTORY LOCK";$("hmlock").classList.toggle("on",locked);};
   $("hmgear").onclick=()=>{const open=$("hmgearpop").hidden;$("hmgearpop").hidden=!open;$("hmgear").setAttribute("aria-expanded",open?"true":"false");};
   $("hmminnotional").onchange=event=>{chart.minimumNotional=Math.max(0,Number(event.target.value)||0);chart.requestDraw(true);};
   $("hmbidask").onchange=event=>{chart.showBidAsk=event.target.checked;chart.requestDraw(true);};

@@ -84,6 +84,22 @@ console.log(JSON.stringify({during,frames:store.frames.length,active:store.activ
     assert result["gap"]["end"] == 3000
 
 
+def test_heatmap_render_window_uses_projection_time_when_event_time_lags():
+    script = r'''
+const h=require("./webapp/static/orderbook_heatmap.js");
+const id="123e4567-e89b-12d3-a456-426614174000";
+const frame=(seq,event,projection)=>({book_stream_id:id,book_sequence:seq,event_time:new Date(event).toISOString(),projection_time:new Date(projection).toISOString(),last_update_id:seq,depth_levels:1,sync_state:"SYNCED",bids:[{price:"100",qty:"2"}],asks:[{price:"101",qty:"3"}],best_bid:"100",best_ask:"101",spread:"1"});
+const store=new h.HeatmapBookStore({maxAgeMs:600000,maxFrames:10});
+store.ingest(frame(1,1000,10000),10000);
+store.ingest(frame(2,2000,11000),11000);
+const visible=store.visibleFrames(9000,12000);
+const intervals=h.buildIntervals(visible,9000,12000,1,1,12000);
+console.log(JSON.stringify({visible:visible.length,intervals:intervals.length,first:intervals[0].start,last:intervals[1].end}));
+'''
+    result = run_node(script)
+    assert result == {"visible": 2, "intervals": 2, "first": 10000, "last": 12000}
+
+
 def test_heatmap_accepts_authoritative_normalized_time_sales_shape():
     script = r'''
 const h=require("./webapp/static/orderbook_heatmap.js");
