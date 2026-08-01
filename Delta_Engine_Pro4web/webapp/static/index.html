@@ -995,7 +995,7 @@ const S={
   series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[], "BTCUSDT 1M":[] },
   oiSamples:[],oiPollIntervalSec:10,hfmQuote:null,
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
-  liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,previousDayLevels:null,domLinkedPrice:null,
+  liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,previousDayLevels:null,domLinkedPrice:null,domLinkedTick:null,
   vwapHistory:new Map(),liveBook:{sync_state:"NO_SNAPSHOT",bids:[],asks:[]},
   };
 const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],currentEventBuckets:new Map(),totalBars:0,selectedTime:null,priceScale:null};
@@ -2182,7 +2182,7 @@ async function loadChartHistory(){
 }
 function refreshDomPriceLink(){
   if(!TAPE_UI||!Number.isFinite(Number(S.domLinkedPrice)))return;
-  const price=Number(S.domLinkedPrice),epsilon=Math.max(1e-10,price*1e-8);
+  const price=Number(S.domLinkedPrice),tick=Math.max(1e-10,Number(S.domLinkedTick)||1e-8),epsilon=tick*0.51;
   TAPE_UI.linkedKeys.clear();
   for(const trade of TAPE_UI.store.trades)if(Math.abs(Number(trade.price)-price)<=epsilon)TAPE_UI.linkedKeys.add(trade.key);
   TAPE_UI.render();
@@ -2190,6 +2190,7 @@ function refreshDomPriceLink(){
 function linkDomPriceToTape(selection){
   if(!selection||!Number.isFinite(Number(selection.price)))return;
   S.domLinkedPrice=Number(selection.price);
+  S.domLinkedTick=Math.max(1e-10,Number(selection.tick)||1e-8);
   refreshDomPriceLink();
 }
 async function loadPreviousDayLevels(){
