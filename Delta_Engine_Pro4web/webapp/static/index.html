@@ -995,7 +995,7 @@ const S={
   series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[], "BTCUSDT 1M":[] },
   oiSamples:[],oiPollIntervalSec:10,hfmQuote:null,
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
-  liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,
+  liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,previousDayLevels:null,
   vwapHistory:new Map(),liveBook:{sync_state:"NO_SNAPSHOT",bids:[],asks:[]},
   };
 const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],currentEventBuckets:new Map(),totalBars:0,selectedTime:null,priceScale:null};
@@ -2179,6 +2179,18 @@ async function loadChartHistory(){
     renderCvdSlope();renderFootprint("staticHistory");renderChart();renderLiveObservation();
   }catch(_){/* live stream continues even when history is unavailable */}
 }
+async function loadPreviousDayLevels(){
+  try{
+    const response=await fetch("/api/history/candles?limit=3&timeframe=1d");
+    if(!response.ok)return;
+    const payload=await response.json(),rows=Array.isArray(payload.candles)?payload.candles:[];
+    const bars=rows.map(raw=>normalizeMarketBar(raw,false)).filter(Boolean).sort((a,b)=>a.time-b.time);
+    if(bars.length<2)return;
+    const previous=bars[bars.length-2];
+    const high=N(previous.high),low=N(previous.low);
+    if(Number.isFinite(high)&&Number.isFinite(low)){S.previousDayLevels={high,low,time:previous.time};if(window.HEATMAP_UI)window.HEATMAP_UI.chart.requestDraw(true);}
+  }catch(_){/* overlay remains unavailable when daily history is unavailable */}
+}
 async function loadOiHistory(){
   try{
     const response=await fetch("/api/history/open-interest?limit=2500");
@@ -2381,7 +2393,7 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
   const bookStore=new HEATMAP_BOOK_ID.HeatmapBookStore({maxAgeMs:3600000,maxFrames:36000,maxGaps:4096});
   const tradeStore=new HEATMAP_BOOK_ID.HeatmapTradeStore({maxAgeMs:900000,capacity:100000,maxMarkers:1024});
   const chart=new HEATMAP_BOOK_ID.OrderBookHeatmapCanvas({
-    canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.price,
+    canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.price,getPreviousDayLevels:()=>S.previousDayLevels,
     onTradeSelect:trade=>{if(!TAPE_UI||!trade)return;const hit=TAPE_UI.store.trades.find(item=>String(item.tradeId)===String(trade.tradeId));if(hit)TAPE_UI.selectTrade(hit,true);else TAPE_UI.markSelectionError("TRADE OUTSIDE TAPE RETENTION");},
   });
   const api={enabled:true,bookStore,tradeStore,store:bookStore,chart,mode:"FOOTPRINT",
@@ -2462,7 +2474,7 @@ for(const count of [3,10,20])$("fp"+count).onclick=()=>FP.chart.setVisibleBars(c
 $("plock").onclick=()=>FP.chart.returnLive();
 renderFootprint("viewport");
 
-initMarketChart(); renderLiveObservation(); loadChartHistory(); loadFootprintHistory(); loadTimeSalesHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
+initMarketChart(); renderLiveObservation(); loadChartHistory(); loadPreviousDayLevels(); loadFootprintHistory(); loadTimeSalesHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
 /* App version — /api/version(正は CHANGELOG.md)。失敗しても UI は阻害しない */
 fetch("/api/version").then(r=>r.json())
   .then(j=>{ $("appver").textContent = j.version || "v?.?.?"; })

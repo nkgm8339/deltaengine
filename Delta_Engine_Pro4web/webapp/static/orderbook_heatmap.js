@@ -612,6 +612,7 @@
       this.tradeStore = config.tradeStore || new HeatmapTradeStore();
       this.onTradeSelect = config.onTradeSelect || function () {};
       this.getLastPrice = config.getLastPrice || (() => null);
+      this.getPreviousDayLevels = config.getPreviousDayLevels || (() => null);
       this.viewMs = 300000;
       this.stepMode = "AUTO";
       this.intensityMultiplier = 1;
@@ -911,6 +912,9 @@
       }
       const lastPrice = Number(this.getLastPrice());
       if (this.showLast && Number.isFinite(lastPrice)) this.drawPriceLine(context, plot, yOf, lastPrice, "#FFFFFF", "LAST", [5, 3]);
+      const previousDay = this.getPreviousDayLevels() || {};
+      if (this.showLast && Number.isFinite(Number(previousDay.high))) this.drawPriceLine(context, plot, yOf, previousDay.high, "#FFE35D", "PDH", [8, 4]);
+      if (this.showLast && Number.isFinite(Number(previousDay.low))) this.drawPriceLine(context, plot, yOf, previousDay.low, "#A66BFF", "PDL", [8, 4]);
       context.restore();
 
       this.drawAxes(context, plot, start, end, minPrice, maxPrice, step);
