@@ -23,6 +23,7 @@
   const parseTime = value => typeof value === "number" ? value : Date.parse(value);
   const uuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   const FRAME_BUDGET_MS = 16;
+  const LOCAL_STALE_FLOOR_MS = 10000;
   const p95 = values => percentile(values, 0.95);
 
   function percentile(values, quantile) {
@@ -792,9 +793,16 @@
         return;
       }
       const latest = allFrames[allFrames.length - 1];
-      const staleBoundary = latest.projectionTime + 2250;
+      const projectionGaps = [];
+      for (let index = Math.max(1, allFrames.length - 24); index < allFrames.length; index += 1) {
+        const gap = frameRenderTime(allFrames[index]) - frameRenderTime(allFrames[index - 1]);
+        if (gap > 0 && Number.isFinite(gap)) projectionGaps.push(gap);
+      }
+      const staleAfter = Math.max(LOCAL_STALE_FLOOR_MS, projectionGaps.length ? p95(projectionGaps) * 3 : LOCAL_STALE_FLOOR_MS);
+      const localAge = Number.isFinite(latest.receivedTime) ? Math.max(0, Date.now() - latest.receivedTime) : staleAfter;
+      const staleBoundary = latest.projectionTime + staleAfter;
       const now = Date.now();
-      if (this.connected && now > staleBoundary && (!this.bookStore.activeGap || this.bookStore.activeGap.reason !== "LOCAL STALE")) {
+      if (this.connected && localAge > staleAfter && (!this.bookStore.activeGap || this.bookStore.activeGap.reason !== "LOCAL STALE")) {
         this.bookStore.markLocalStale(staleBoundary);
       }
       const latestRenderTime = frameRenderTime(latest);

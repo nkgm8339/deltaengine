@@ -2386,7 +2386,7 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
   });
   const api={enabled:true,bookStore,tradeStore,store:bookStore,chart,mode:"FOOTPRINT",
     ingest(payload){return chart.ingestBook(payload,S.marketTime||Date.now());},
-    ingestBook(payload){return chart.ingestBook(payload,S.marketTime||Date.now());},
+    ingestBook(payload){return chart.ingestBook(payload,Date.now());},
     ingestTrades(trades,context){return chart.ingestTrades(trades,S.marketTime||Date.now(),context);},
     recordTapeContinuity(result,streamId){chart.recordTapeContinuity(result,streamId,S.marketTime||Date.now());},
     setConnected(value,atMs){chart.setConnected(value,atMs);},
