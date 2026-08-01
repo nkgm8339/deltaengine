@@ -616,7 +616,7 @@ body:not(.phase5-fusion) #tape{display:none!important}
 #taperows{position:absolute;inset:0 0 auto 0;height:0}
 .tape-row{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:102px minmax(42px,1fr) 47px 15px;align-items:center;gap:3px;width:100%;height:28px;padding:0 5px;border:0;border-bottom:1px solid #1D2A43;background:#07101C;color:#F1F5FF;font:800 14px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;text-align:right;cursor:pointer}
 .tape-row:hover{background:#101B2D}.tape-row.buy{color:#65E8AC}.tape-row.sell{color:#FF7183}
-.tape-row.large{box-shadow:inset 0 0 0 1px #F4C542}.tape-row.selected{box-shadow:inset 0 0 0 2px #F1F5FF}.tape-row.linked{background:#24304A}
+.tape-row.large{box-shadow:inset 0 0 0 1px #F4C542}.tape-row.selected{box-shadow:inset 0 0 0 2px #F1F5FF}.tape-row.linked{background:#123B52;box-shadow:inset 0 0 0 2px #23DFFF}
 .tape-row .tape-time{text-align:left;color:#DCE5F7}.tape-row .tape-side{font-weight:950}.tape-row[hidden]{display:none}
 #tapedetail{height:46px;min-height:46px;font-size:10px;white-space:normal;line-height:1.35;overflow:auto;color:#DCE5F7}
 #tapecount{height:22px;min-height:22px;border-bottom:0;border-top:1px solid #1D2A43}
@@ -2185,6 +2185,8 @@ function linkDomPriceToTape(selection){
   const matches=TAPE_UI.store.trades.filter(trade=>Math.abs(Number(trade.price)-price)<=epsilon);
   const trade=matches[matches.length-1];
   if(!trade){TAPE_UI.markSelectionError(`NO TAPE AT ${price}`);return;}
+  TAPE_UI.linkedKeys.clear();
+  TAPE_UI.linkedKeys.add(trade.key);
   TAPE_UI.selectTrade(trade,true);
   const index=TAPE_UI.currentRows.findIndex(row=>row.key===trade.key);
   if(index>=0&&TAPE_UI.viewport)TAPE_UI.viewport.scrollTop=Math.max(0,index*TAPE_UI.rowHeight);
