@@ -2179,6 +2179,16 @@ async function loadChartHistory(){
     renderCvdSlope();renderFootprint("staticHistory");renderChart();renderLiveObservation();
   }catch(_){/* live stream continues even when history is unavailable */}
 }
+function linkDomPriceToTape(selection){
+  if(!TAPE_UI||!selection||!Number.isFinite(Number(selection.price)))return;
+  const price=Number(selection.price),tick=Math.max(1e-10,Number(selection.tick)||1e-8),epsilon=tick*0.51;
+  const matches=TAPE_UI.store.trades.filter(trade=>Math.abs(Number(trade.price)-price)<=epsilon);
+  const trade=matches[matches.length-1];
+  if(!trade){TAPE_UI.markSelectionError(`NO TAPE AT ${price}`);return;}
+  TAPE_UI.selectTrade(trade,true);
+  const index=TAPE_UI.currentRows.findIndex(row=>row.key===trade.key);
+  if(index>=0&&TAPE_UI.viewport)TAPE_UI.viewport.scrollTop=Math.max(0,index*TAPE_UI.rowHeight);
+}
 async function loadPreviousDayLevels(){
   try{
     const response=await fetch("/api/history/candles?limit=3&timeframe=1d");
@@ -2453,7 +2463,7 @@ if(PHASE5_FUSION_ENABLED){
 FP.chart=new DeltaFootprint.CanvasChart({
   canvas:$("fpcanvas"),tooltip:$("fptooltip"),detail:$("fpselection"),status:$("fpstatus"),domStatus:$("fpdomstatus"),
   showDom:PHASE5_FUSION_ENABLED,onNeedHistory:()=>loadFootprintHistory(FP.cursor),onViewport:updateFootprintControls,
-  onSelection:selection=>{if(TAPE_UI)TAPE_UI.highlightBucket(selection);},
+  onSelection:selection=>{if(!TAPE_UI)return;if(selection&&selection.source==="DOM")linkDomPriceToTape(selection);else TAPE_UI.highlightBucket(selection);},
   domTradePulseEnabled:DOM_TRADE_PULSE_ENABLED,domTradePulseDurationMs:DOM_TRADE_PULSE_DURATION_MS,
 });
 updateFootprintControls({visibleBars:10,offset:0,lock:true});
