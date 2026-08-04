@@ -100,6 +100,8 @@ _IMBALANCE_MIN_VOLUME_DEFAULT = Decimal("0.5")
 # Task-A: same-direction webapp IMBALANCE flow-event cooldown, in confirmed bars.
 _IMBALANCE_COOLDOWN_BARS = 3
 _DEC_ZERO = Decimal("0")
+DEFAULT_PIPELINE_CHUNK_MAX_EVENTS = 32
+DEFAULT_PIPELINE_CHUNK_MAX_WALL_MS = 50
 
 
 class _RecorderFanout:
@@ -963,6 +965,8 @@ class LivePipeline:
         tick_size: Decimal = Decimal("0.1"),
         queue_depth: int = 10000,
         overflow_policy: str = "drop_oldest_log",
+        pipeline_chunk_max_events: int = DEFAULT_PIPELINE_CHUNK_MAX_EVENTS,
+        pipeline_chunk_max_wall_ms: int = DEFAULT_PIPELINE_CHUNK_MAX_WALL_MS,
         depth_sync_max_buffered_diffs: int = _DEPTH_SYNC_MAX_BUFFERED_DIFFS,
         depth_sync_max_attempts: int = _DEPTH_SYNC_MAX_ATTEMPTS,
         reconnect: bool = True,
@@ -1040,6 +1044,21 @@ class LivePipeline:
         self.tick_size = tick_size
         self.queue_depth = queue_depth
         self.overflow_policy = overflow_policy
+        if (
+            not isinstance(pipeline_chunk_max_events, int)
+            or isinstance(pipeline_chunk_max_events, bool)
+            or pipeline_chunk_max_events < 1
+        ):
+            raise ValueError("pipeline_chunk_max_events must be an integer >= 1")
+        if (
+            not isinstance(pipeline_chunk_max_wall_ms, int)
+            or isinstance(pipeline_chunk_max_wall_ms, bool)
+            or pipeline_chunk_max_wall_ms < 1
+        ):
+            raise ValueError("pipeline_chunk_max_wall_ms must be an integer >= 1")
+        self.pipeline_chunk_max_events = pipeline_chunk_max_events
+        self.pipeline_chunk_max_wall_ms = pipeline_chunk_max_wall_ms
+        self.backlog_chunk_yields = 0
         self.depth_sync_max_buffered_diffs = depth_sync_max_buffered_diffs
         self.depth_sync_max_attempts = depth_sync_max_attempts
         self.reconnect = reconnect
@@ -1138,6 +1157,8 @@ class LivePipeline:
             tick_size=Decimal(str(config.market.tick_size)),
             queue_depth=config.queue.default_depth,
             overflow_policy=config.queue.overflow_policy,
+            pipeline_chunk_max_events=config.queue.pipeline_chunk_max_events,
+            pipeline_chunk_max_wall_ms=config.queue.pipeline_chunk_max_wall_ms,
             reconnect=ws.reconnect,
             reconnect_delay_sec=ws.reconnect_delay_sec,
             reconnect_max_retries=ws.reconnect_max_retries,
@@ -1367,38 +1388,17 @@ class LivePipeline:
         depth_sync: Optional[DepthSyncCoordinator] = None
         snapshot_requests: asyncio.Queue[SnapshotRequest] = asyncio.Queue()
         snapshot_results: asyncio.Queue[_DepthSnapshotFetchResult] = asyncio.Queue()
-        depth_sync_actions: asyncio.Queue[DepthSyncAction] = asyncio.Queue()
-        prebuffered_depth_events: dict[int, dict[str, Any]] = {}
         if fetch_snapshot is not None:
             depth_sync = DepthSyncCoordinator(
                 max_buffered_diffs=self.depth_sync_max_buffered_diffs,
                 max_attempts=self.depth_sync_max_attempts,
             )
 
-        def notify_depth_sync(message: dict[str, Any]) -> None:
-            """Buffer valid pre-sync depth after raw recording and before forward."""
-            if (
-                depth_sync is None
-                or not depth_sync.is_valid_depth_update(message)
-                or depth_sync.state
-                in {DepthSyncState.SYNCED, DepthSyncState.SYNC_FAILED}
-            ):
-                return
-            action = depth_sync.observe_depth(message)
-            prebuffered_depth_events[id(message)] = message
-            if (
-                action.request is not None
-                or action.is_verified
-                or action.state is DepthSyncState.SYNC_FAILED
-            ):
-                depth_sync_actions.put_nowait(action)
-
         receiver = DataReceiver(
             out_q,
             norm_q,
             recorder=recorder,
             validate=lambda m: default_validate(m) and event_filter(m),
-            on_valid_message=notify_depth_sync,
         )
         normalizer = DataNormalizer(self.profile, self.dedup_window, self.reorder_tolerance_ms)
         cvd = CvdCalculator(self.symbol, self.timeframe)
@@ -1806,17 +1806,6 @@ class LivePipeline:
                             failed.failure_reason,
                         )
 
-        def drain_depth_sync_actions() -> None:
-            while True:
-                try:
-                    action = depth_sync_actions.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-                try:
-                    handle_depth_sync_action(action)
-                finally:
-                    depth_sync_actions.task_done()
-
         def drain_snapshot_results() -> None:
             if depth_sync is None:
                 return
@@ -1870,21 +1859,6 @@ class LivePipeline:
                     )
                 return
 
-            buffered_raw = prebuffered_depth_events.get(id(raw_depth))
-            if buffered_raw is raw_depth:
-                del prebuffered_depth_events[id(raw_depth)]
-                return
-            if (
-                prebuffered_depth_events
-                and depth_sync.state
-                in {DepthSyncState.SYNCED, DepthSyncState.SYNC_FAILED}
-            ):
-                # This unmarked depth arrived after synchronization. Any older
-                # pre-sync events not seen by the main queue were explicitly
-                # dropped by that queue, but remain covered by the coordinator's
-                # verified raw batch. Release their identity guards now.
-                prebuffered_depth_events.clear()
-
             if not depth_sync.is_valid_depth_update(raw_depth):
                 # Invalid depth cannot open or participate in a strict bridge.
                 normalizer.process_depth(raw_depth)
@@ -1917,15 +1891,22 @@ class LivePipeline:
                     handle_depth_sync_action(depth_sync.start_resync(raw_depth))
                 return
 
+            if depth_sync.state is DepthSyncState.SYNC_FAILED:
+                # A terminal epoch is never reused.  The next valid depth is
+                # the first event of a fresh recovery epoch owned by this main
+                # consumer; the failed buffer was cleared by the coordinator.
+                handle_depth_sync_action(depth_sync.rearm_after_failure(raw_depth))
+                return
+
             handle_depth_sync_action(depth_sync.observe_depth(raw_depth))
 
         loop = asyncio.get_event_loop()
         connector_task = asyncio.create_task(connector.run())
         receiver_task = asyncio.create_task(receiver.run())
 
-        # The worker starts idle. The receiver tap enqueues the first request
-        # only after recording the first valid depthUpdate. It fetches and records
-        # candidates but never touches the mutable order book (ADR-003).
+        # The worker starts idle. The main consumer enqueues the first request
+        # after receiving the first valid depthUpdate in norm_q. It fetches and
+        # records candidates but never touches mutable book/coordinator state.
         book_supervisor_task: Optional[asyncio.Task] = None
         if fetch_snapshot is not None:
             book_supervisor_task = asyncio.create_task(_book_resync_supervisor(
@@ -1939,9 +1920,14 @@ class LivePipeline:
         deadline = (loop.time() + duration_sec) if duration_sec is not None else None
         trades_in = 0
 
+        # A chunk covers only consecutive processing while receiver_out remains
+        # ready. Queue-idle waits already yield naturally and reset both budgets.
+        backlog_chunk_events = 0
+        backlog_chunk_started_at: Optional[float] = None
+        self.backlog_chunk_yields = 0
+
         try:
             while True:
-                drain_depth_sync_actions()
                 drain_snapshot_results()
                 now = loop.time()
                 if deadline is not None and now >= deadline:
@@ -1976,16 +1962,18 @@ class LivePipeline:
                 timeout = poll_interval
                 if deadline is not None:
                     timeout = min(poll_interval, max(0.0, deadline - now))
+                backlog_was_ready = not norm_q.empty()
                 try:
                     raw = await asyncio.wait_for(norm_q.get(), timeout=timeout)
                 except asyncio.TimeoutError:
-                    drain_depth_sync_actions()
                     drain_snapshot_results()
                     storage.tick()  # time-based flush while idle
                     continue
                 if raw is STOP:
                     break
-                drain_depth_sync_actions()
+                if not backlog_was_ready or backlog_chunk_started_at is None:
+                    backlog_chunk_events = 0
+                    backlog_chunk_started_at = loop.time()
                 drain_snapshot_results()
                 kind = normalizer.classify_raw(raw)
                 if kind == "liquidation":
@@ -2015,6 +2003,24 @@ class LivePipeline:
                 storage.tick()
                 if max_trades is not None and trades_in >= max_trades:
                     break
+                backlog_chunk_events += 1
+                if norm_q.empty():
+                    backlog_chunk_events = 0
+                    backlog_chunk_started_at = None
+                else:
+                    wall_budget_reached = (
+                        backlog_chunk_started_at is not None
+                        and (loop.time() - backlog_chunk_started_at) * 1000
+                        >= self.pipeline_chunk_max_wall_ms
+                    )
+                    if (
+                        backlog_chunk_events >= self.pipeline_chunk_max_events
+                        or wall_budget_reached
+                    ):
+                        self.backlog_chunk_yields += 1
+                        await asyncio.sleep(0)
+                        backlog_chunk_events = 0
+                        backlog_chunk_started_at = None
         finally:
             connector.stop()
             if book_supervisor_task is not None:
@@ -2025,7 +2031,6 @@ class LivePipeline:
             await out_q.put(STOP)
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(receiver_task, timeout=5)
-            drain_depth_sync_actions()
             drain_snapshot_results()
             # Drain any events the receiver forwarded after the consumer stopped.
             while not norm_q.empty():
@@ -2056,7 +2061,6 @@ class LivePipeline:
                     )
                     for normalized in normalizer.process(pending):
                         handle(normalized)
-            drain_depth_sync_actions()
             drain_snapshot_results()
             for normalized in normalizer.flush():
                 handle(normalized)

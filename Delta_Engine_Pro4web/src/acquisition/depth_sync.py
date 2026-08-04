@@ -244,6 +244,31 @@ class DepthSyncCoordinator:
         self.state = DepthSyncState.FETCHING_RESYNC_SNAPSHOT
         return self._action(request=self._current_request())
 
+    def rearm_after_failure(
+        self, first_depth: Mapping[str, Any]
+    ) -> DepthSyncAction:
+        """Start a fresh recovery epoch after a terminal sync failure.
+
+        This method is intentionally separate from :meth:`observe_depth` so
+        offline reconstruction can keep its existing contract of discarding
+        depth after ``SYNC_FAILED``.  LivePipeline calls it only for the next
+        valid depth received after the terminal failure; the failed epoch's
+        buffer is never reused.
+        """
+
+        _depth_ids(first_depth)
+        if self.state is not DepthSyncState.SYNC_FAILED:
+            raise RuntimeError(f"cannot rearm from {self.state.value}")
+
+        self.epoch += 1
+        self.attempt = 1
+        self._reason = BOOK_RESYNC
+        self.failure_reason = None
+        self._snapshot = None
+        self._buffer = [dict(first_depth)]
+        self.state = DepthSyncState.FETCHING_RESYNC_SNAPSHOT
+        return self._action(request=self._current_request())
+
     def fail(self, reason: str) -> DepthSyncAction:
         """Fail explicitly when a caller cannot complete synchronization."""
 
@@ -283,7 +308,8 @@ class DepthSyncCoordinator:
                 return self._reject_candidate(
                     "depth pu chain discontinuity after bridge "
                     f"(buffer_index={offset}, previous_u={previous_u}, "
-                    f"current_pu={current_pu})"
+                    f"current_pu={current_pu})",
+                    discard_buffer=True,
                 )
             previous_u = current_u
 
@@ -294,8 +320,12 @@ class DepthSyncCoordinator:
         self.state = DepthSyncState.SYNCED
         return self._action(snapshot=snapshot, diffs=diffs)
 
-    def _reject_candidate(self, reason: str) -> DepthSyncAction:
+    def _reject_candidate(
+        self, reason: str, *, discard_buffer: bool = False
+    ) -> DepthSyncAction:
         self._snapshot = None
+        if discard_buffer:
+            self._buffer = []
         if self.attempt >= self.max_attempts:
             return self._fail(
                 f"depth sync attempt limit reached ({self.attempt}/"
@@ -314,6 +344,7 @@ class DepthSyncCoordinator:
         self.state = DepthSyncState.SYNC_FAILED
         self.failure_reason = reason
         self._snapshot = None
+        self._buffer = []
         return self._action()
 
     def _current_request(self) -> SnapshotRequest:

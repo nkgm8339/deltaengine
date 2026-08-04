@@ -158,6 +158,40 @@ def test_pu_discontinuity_after_bridge_is_never_verified(
     assert rejected.request is not None
     assert rejected.request.attempt == 2
     assert "pu chain discontinuity" not in (rejected.failure_reason or "")
+    assert coordinator.buffered_count == 0
+
+    # The next attempt starts from a fresh diff, not the contaminated buffer.
+    coordinator.observe_depth(depth_update(104, 105, 103))
+    verified = coordinator.observe_snapshot(
+        rejected.request, depth_snapshot(104)
+    )
+    assert verified.is_verified is True
+    assert [diff["u"] for diff in verified.diffs] == [105]
+
+
+def test_terminal_failure_clears_buffer_and_can_rearm_on_fresh_depth(
+    depth_update, depth_snapshot
+) -> None:
+    coordinator = _coordinator(max_attempts=1)
+    first = coordinator.observe_depth(depth_update(105, 106, 104))
+    failed = coordinator.observe_snapshot(first.request, depth_snapshot(100))
+
+    assert failed.state is DepthSyncState.SYNC_FAILED
+    assert coordinator.buffered_count == 0
+
+    rearmed = coordinator.rearm_after_failure(depth_update(200, 201, 199))
+    assert rearmed.request is not None
+    assert rearmed.request.epoch == 2
+    assert rearmed.request.attempt == 1
+    assert rearmed.request.reason == BOOK_RESYNC
+    assert coordinator.buffered_count == 1
+
+    recovered = coordinator.observe_snapshot(
+        rearmed.request, depth_snapshot(200)
+    )
+    assert recovered.is_verified is True
+    assert recovered.epoch == 2
+    assert [diff["u"] for diff in recovered.diffs] == [201]
 
 
 def test_candidate_waits_while_latest_buffer_u_is_before_target(

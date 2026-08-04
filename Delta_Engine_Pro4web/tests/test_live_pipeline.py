@@ -9,6 +9,8 @@ ReplayPipeline to the identical CVD result (deterministic replay reuse, M6).
 
 from __future__ import annotations
 
+import asyncio
+import time
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -16,6 +18,8 @@ from unittest.mock import MagicMock, patch
 from decimal import Decimal as _Decimal
 
 from src.acquisition.replay import ListTransport, ReplaySource
+from src.acquisition.depth_sync import DepthSyncCoordinator
+from src.config import load_config
 from src.normalization.normalizer import ExchangeProfile
 from src.pipeline import LivePipeline, ReplayPipeline, _RecorderFanout, load_profile
 
@@ -116,7 +120,7 @@ class HookObserverSpy:
         self.flow_batches += int(bool(tuple(snapshots)))
 
 
-def _live(tmp_path: Path, sub: str, record_path=None) -> LivePipeline:
+def _live(tmp_path: Path, sub: str, record_path=None, **kwargs) -> LivePipeline:
     return LivePipeline(
         symbol="BTCUSDT",
         timeframe="1m",
@@ -128,6 +132,7 @@ def _live(tmp_path: Path, sub: str, record_path=None) -> LivePipeline:
         batch_size=10,
         flush_interval_sec=1,
         reconnect=False,   # finite injected source: connector ends cleanly
+        **kwargs,
     )
 
 
@@ -152,6 +157,79 @@ def test_live_pipeline_filters_normalizes_and_stores(tmp_path: Path) -> None:
     assert pipeline._last_bar_close.module_scores["cvd"] is None
     assert pipeline._last_bar_close.module_scores["footprint"] is None
     assert pipeline._last_bar_close.module_scores["imbalance"] is None
+
+
+def test_live_pipeline_from_config_receives_shipped_chunk_budgets() -> None:
+    config = load_config(PROJECT_ROOT / "config" / "config.yaml")
+    pipeline = LivePipeline.from_config(config, DEPTH_PROFILE)
+
+    assert pipeline.pipeline_chunk_max_events == 32
+    assert pipeline.pipeline_chunk_max_wall_ms == 50
+
+
+def test_live_ready_backlog_yields_at_event_budget_without_reordering(
+    tmp_path: Path,
+) -> None:
+    messages = [_agg(index, m=False, q="1", epoch_ms=_T0) for index in range(1, 66)]
+    pipeline = _live(
+        tmp_path,
+        "backlog_event_budget",
+        reorder_tolerance_ms=0,
+        pipeline_chunk_max_events=32,
+        pipeline_chunk_max_wall_ms=60_000,
+    )
+    observed_ids: list[int] = []
+    canary_positions: list[int] = []
+    pipeline.on_accepted_trade = lambda trade: observed_ids.append(trade.trade_id)
+
+    async def run():
+        pipeline_task = asyncio.create_task(
+            pipeline.run_async(
+                connect=FakeConnect(messages),
+                poll_interval=0.001,
+                fetch_snapshot=None,
+            )
+        )
+        while not pipeline_task.done():
+            canary_positions.append(len(observed_ids))
+            await asyncio.sleep(0)
+        return await pipeline_task
+
+    stats = asyncio.run(run())
+
+    assert stats.normalized == 65
+    assert observed_ids == list(range(1, 66))
+    assert pipeline.backlog_chunk_yields == 2
+    assert any(0 < position <= 32 for position in canary_positions)
+
+
+def test_live_ready_backlog_yields_at_wall_budget(tmp_path: Path) -> None:
+    messages = [_agg(index, m=False, q="1", epoch_ms=_T0) for index in range(1, 66)]
+    pipeline = _live(
+        tmp_path,
+        "backlog_wall_budget",
+        reorder_tolerance_ms=0,
+        pipeline_chunk_max_events=1_000,
+        pipeline_chunk_max_wall_ms=1,
+    )
+    observed_ids: list[int] = []
+
+    def consume_wall_budget(trade) -> None:
+        observed_ids.append(trade.trade_id)
+        deadline = time.perf_counter() + 0.003
+        while time.perf_counter() < deadline:
+            pass
+
+    pipeline.on_accepted_trade = consume_wall_budget
+    stats = pipeline.run(
+        connect=FakeConnect(messages),
+        poll_interval=0.001,
+        fetch_snapshot=None,
+    )
+
+    assert stats.normalized == 65
+    assert observed_ids == list(range(1, 66))
+    assert pipeline.backlog_chunk_yields >= 1
 
 
 def test_live_accepted_trade_observer_receives_only_normalizer_output(
@@ -646,7 +724,12 @@ def test_live_depth_fetch_starts_after_raw_buffer_and_applies_verified_batch(
             "asks": [["100.2", "1.0"]],
         }
 
-    pipeline = _depth_live(tmp_path, "strict_depth")
+    pipeline = _depth_live(
+        tmp_path,
+        "strict_depth",
+        pipeline_chunk_max_events=1,
+        pipeline_chunk_max_wall_ms=60_000,
+    )
     stats = pipeline.run(
         connect=FakeConnect([_depth(100, 101, 99), _depth(102, 103, 101)]),
         poll_interval=0.01,
@@ -669,6 +752,45 @@ def test_live_depth_fetch_starts_after_raw_buffer_and_applies_verified_batch(
     assert raw_capture.sync_actions[0].is_verified is True
     assert raw_capture.sync_actions[0].epoch == 1
     assert hook_observer.depth_types == ["SNAPSHOT", "DIFF", "DIFF"]
+    assert pipeline.backlog_chunk_yields >= 1
+
+
+def test_live_depth_sync_mutable_state_has_one_async_owner(
+    tmp_path: Path,
+) -> None:
+    owners: set[int] = set()
+
+    class OwnerProbe(DepthSyncCoordinator):
+        def _mark_owner(self) -> None:
+            task = asyncio.current_task()
+            assert task is not None
+            owners.add(id(task))
+
+        def observe_depth(self, raw):
+            self._mark_owner()
+            return super().observe_depth(raw)
+
+        def observe_snapshot(self, request, snapshot):
+            self._mark_owner()
+            return super().observe_snapshot(request, snapshot)
+
+    async def fetch(symbol: str) -> dict:
+        return {
+            "lastUpdateId": 100,
+            "E": _T0,
+            "bids": [["99.8", "1.0"]],
+            "asks": [["100.2", "1.0"]],
+        }
+
+    with patch("src.pipeline.DepthSyncCoordinator", OwnerProbe):
+        pipeline = _depth_live(tmp_path, "single_owner")
+        pipeline.run(
+            connect=FakeConnect([_depth(100, 101, 99), _depth(102, 103, 101)]),
+            poll_interval=0.01,
+            fetch_snapshot=fetch,
+        )
+
+    assert len(owners) == 1
 
 
 def test_live_depth_attempt_limit_is_fail_closed_while_trade_path_continues(
