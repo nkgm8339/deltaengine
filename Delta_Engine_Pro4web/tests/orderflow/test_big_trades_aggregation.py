@@ -52,14 +52,16 @@ def test_exact_40ms_gap_joins_cluster() -> None:
     assert aggregator.flush()[0].fill_count == 2
 
 
-def test_settings_change_flushes_before_new_cluster() -> None:
+def test_settings_change_does_not_force_split_and_next_natural_cluster_uses_new_snapshot() -> None:
     aggregator = ExecutionClusterAggregator()
     first = settings(settings_id="one")
     second = settings(settings_id="two")
     aggregator.process(fill(0, trade_id=1), first)
-    closed = aggregator.process(fill(1, trade_id=2), second)
+    assert aggregator.process(fill(1, trade_id=2), second) == ()
+    closed = aggregator.process(fill(2, side="SELL", trade_id=3), second)
     assert closed[0].settings.settings_id == "one"
-    assert closed[0].close_reason is ClusterCloseReason.SETTINGS_FORCED_FLUSH
+    assert closed[0].close_reason is ClusterCloseReason.SIDE_CHANGED
+    assert closed[0].fill_count == 2
     assert aggregator.flush()[0].settings.settings_id == "two"
 
 
@@ -72,6 +74,9 @@ def test_max_fill_limit_flushes_without_losing_trigger_trade() -> None:
     assert closed[0].fill_count == 2
     assert closed[0].close_reason is ClusterCloseReason.MAX_FILLS_EXCEEDED
     assert aggregator.flush()[0].first_trade_id == 3
+    decision = ManualSizeFilter(Decimal("0")).decide(closed[0].aggregate_quantity)
+    with pytest.raises(ValueError, match="invalid max-fills"):
+        create_big_trade_event(closed[0], decision)
 
 
 def test_utc_minute_boundary_closes_even_within_40ms() -> None:

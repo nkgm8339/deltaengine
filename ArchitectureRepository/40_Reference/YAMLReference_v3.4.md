@@ -95,6 +95,33 @@ replay:
 
 calibration:
   cvd_slope_ref: null
+
+big_trades:
+  enabled: false
+  input_mode: AGGREGATE_TRADES
+  filter_mode: MANUAL
+  manual_min_quantity: "5.000"
+  manual_max_quantity: "0"
+  automatic_intensity: MEDIUM
+  side_filter: BOTH
+  marker_price_mode: LAST_PRICE
+  calibration_schedule: MANUAL
+  calibration_activation_policy: SCHEDULED_SESSION_BOUNDARY
+  replay_calibration_mode: HISTORICAL_ACTIVATION
+  quantity_step: "0.001"
+  reaction_zones_enabled: true
+  reaction_zone_match_tolerance_ticks: 1
+  reaction_observation_mode: UTC_SESSION
+  result_horizons_seconds: [1, 5, 15, 30, 60, 180, 300, 600]
+  result_snapshot_max_staleness_ms: 1000
+  active_zone_capacity: 5000
+  recent_event_capacity: 5000
+  recent_interaction_capacity: 20000
+  history_api_max_limit: 5000
+  batch_interval_ms: 100
+  batch_max_records: 200
+  batch_pending_capacity: 10000
+  max_fills_per_cluster: 10000
 ```
 
 ### subscribe_streams notes
@@ -209,6 +236,35 @@ are handled by the `event_type_diff` path directly.
 # 5. Replay Mode
 
 When `replay.enabled` is true, the WebSocket module is replaced by a file reader that reads recorded trade events (one JSON object per line, conforming to JSONSchema Trade Event) from `replay.data_path`. The `replay.speed` multiplier controls playback rate (1.0 = real-time, 0 = as fast as possible). All downstream processing is identical to live mode, enabling deterministic replay.
+
+## 5.1 Big Trades V2
+
+`big_trades.enabled` remains `false` until the production activation gate. The
+sample Manual quantities are inactive defaults and do not select a production
+threshold.
+
+- `input_mode` accepts only `AGGREGATE_TRADES` in BTLOGIC-2.0.
+- `filter_mode`: `MANUAL | AUTOMATIC`.
+- `automatic_intensity`: `LOW | MEDIUM | STRONG`.
+- `side_filter`: `BOTH | BUY | SELL`.
+- `marker_price_mode`: `START_PRICE | LAST_PRICE | VWAP_PRICE`.
+- `calibration_schedule`: `MANUAL | WEEKLY | MONTHLY`.
+- `calibration_activation_policy`: `SCHEDULED_SESSION_BOUNDARY | MANUAL_ONLY`.
+- `replay_calibration_mode`: `HISTORICAL_ACTIVATION | FIXED_RESEARCH`.
+- `reaction_observation_mode` accepts only `UTC_SESSION`.
+- quantity values must be finite non-negative Decimal strings; `quantity_step`
+  must be positive. A nonzero Max must be greater than or equal to Min.
+- horizons must be a nonempty, strictly ascending list of unique positive
+  integers no greater than 600.
+- tolerance, capacity, batch, staleness, and max-fill values reject booleans
+  and must be positive integers.
+- unknown keys and unsupported enum values fail startup with E1002. No fallback
+  to Manual or another input mode is permitted.
+- `HISTORICAL_ACTIVATION` uses committed activation source keys. It does not use
+  artifact creation time, file mtime, or the current active pointer to infer
+  historical state.
+- `FIXED_RESEARCH` writes only below `research/big_trades/<run_id>/`; it cannot
+  update production event/history/activation namespaces.
 
 ---
 

@@ -100,6 +100,28 @@ def test_missing_volatility_uses_explicit_fallback() -> None:
     assert result.volatility_status == "VOLATILITY_FALLBACK_1"
 
 
+def test_nineteen_volatility_sessions_use_explicit_fallback() -> None:
+    sessions = list(distributions())
+    sessions[0] = SessionQuantityDistribution(
+        sessions[0].session_id,
+        sessions[0].cluster_quantities,
+        None,
+    )
+    result = calibrate(tuple(sessions), quantity_step=Decimal("0.001"))
+    assert result.volatility_factor == Decimal("1")
+    assert result.volatility_status == "VOLATILITY_FALLBACK_1"
+    assert result.baseline_volatility is None
+    assert result.recent_volatility is None
+
+
+def test_zero_volatility_baseline_uses_explicit_fallback() -> None:
+    result = calibrate(distributions(volatility="0"), quantity_step=Decimal("0.001"))
+    assert result.volatility_factor == Decimal("1")
+    assert result.volatility_status == "VOLATILITY_FALLBACK_1"
+    assert result.baseline_volatility == Decimal("0")
+    assert result.recent_volatility == Decimal("0")
+
+
 def test_normalized_true_range() -> None:
     assert normalized_true_range(
         Decimal("105"), Decimal("99"), Decimal("100"), Decimal("102")

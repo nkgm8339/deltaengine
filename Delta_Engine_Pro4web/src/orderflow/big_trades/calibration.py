@@ -41,6 +41,8 @@ class CalibrationResult:
     base_thresholds: Optional[Mapping[AutomaticIntensity, Decimal]]
     volatility_factor: Decimal
     volatility_status: str
+    baseline_volatility: Optional[Decimal]
+    recent_volatility: Optional[Decimal]
     valid_session_counts: Mapping[AutomaticIntensity, int]
     history_session_ids: tuple[str, ...]
 
@@ -126,6 +128,8 @@ def calibrate(
             base_thresholds=None,
             volatility_factor=ONE,
             volatility_status="VOLATILITY_FALLBACK_1",
+            baseline_volatility=None,
+            recent_volatility=None,
             valid_session_counts=counts,
             history_session_ids=tuple(session.session_id for session in history),
         )
@@ -136,9 +140,11 @@ def calibrate(
         for session in history
         if session.session_volatility is not None
     ]
-    if len(volatility_values) < minimum_valid_sessions:
+    if len(volatility_values) < 20:
         factor = ONE
         volatility_status = "VOLATILITY_FALLBACK_1"
+        baseline = None
+        recent = None
     else:
         baseline = decimal_median(volatility_values[-20:])
         recent = decimal_median(volatility_values[-5:])
@@ -172,6 +178,8 @@ def calibrate(
         base_thresholds=base,
         volatility_factor=factor,
         volatility_status=volatility_status,
+        baseline_volatility=baseline,
+        recent_volatility=recent,
         valid_session_counts=counts,
         history_session_ids=tuple(session.session_id for session in history),
     )

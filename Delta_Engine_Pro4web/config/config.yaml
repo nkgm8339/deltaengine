@@ -143,6 +143,36 @@ flow_response:
   opposite_bps: "1.0"
   min_trades: 20
   outcome_horizons_sec: [60, 180, 300, 600]
+
+# Big Trades V2 remains disconnected until the production activation gate.
+# Manual quantities below are inactive defaults, not a production selection.
+big_trades:
+  enabled: false
+  input_mode: AGGREGATE_TRADES
+  filter_mode: MANUAL
+  manual_min_quantity: "5.000"
+  manual_max_quantity: "0"
+  automatic_intensity: MEDIUM
+  side_filter: BOTH
+  marker_price_mode: LAST_PRICE
+  calibration_schedule: MANUAL
+  calibration_activation_policy: SCHEDULED_SESSION_BOUNDARY
+  replay_calibration_mode: HISTORICAL_ACTIVATION
+  quantity_step: "0.001"
+  reaction_zones_enabled: true
+  reaction_zone_match_tolerance_ticks: 1
+  reaction_observation_mode: UTC_SESSION
+  result_horizons_seconds: [1, 5, 15, 30, 60, 180, 300, 600]
+  result_snapshot_max_staleness_ms: 1000
+  active_zone_capacity: 5000
+  recent_event_capacity: 5000
+  recent_interaction_capacity: 20000
+  history_api_max_limit: 5000
+  batch_interval_ms: 100
+  batch_max_records: 200
+  batch_pending_capacity: 10000
+  max_fills_per_cluster: 10000
+
 monitor:
   enabled: true
   interval_sec: 5

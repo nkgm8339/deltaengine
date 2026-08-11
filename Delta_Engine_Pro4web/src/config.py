@@ -142,7 +142,11 @@ def v_decimal_string(lo: Decimal = Decimal("0")) -> Validator:
 
 def v_enum(allowed: frozenset[str]) -> Validator:
     def check(value: Any) -> Optional[str]:
-        return None if value in allowed else f"must be one of {sorted(allowed)}"
+        return (
+            None
+            if isinstance(value, str) and value in allowed
+            else f"must be one of {sorted(allowed)}"
+        )
     return check
 
 
@@ -164,6 +168,16 @@ def v_list_of(inner: Validator, nonempty: bool = False) -> Validator:
                 return f"[{idx}] {err}"
         return None
     return check
+
+
+def v_big_trades_horizons(value: Any) -> Optional[str]:
+    error = v_list_of(v_int(lo=1, hi=600), nonempty=True)(value)
+    if error:
+        return error
+    assert isinstance(value, list)
+    if value != sorted(set(value)):
+        return "must be strictly ascending with no duplicates"
+    return None
 
 
 def v_confluence(value: Any) -> Optional[str]:
@@ -367,6 +381,51 @@ SCHEMA: dict[str, dict[str, Field]] = {
             [60, 180, 300, 600],
         ),
     },
+    "big_trades": {
+        "enabled": Field(v_bool, False),
+        "input_mode": Field(v_enum(frozenset({"AGGREGATE_TRADES"})), "AGGREGATE_TRADES"),
+        "filter_mode": Field(v_enum(frozenset({"MANUAL", "AUTOMATIC"})), "MANUAL"),
+        "manual_min_quantity": Field(v_decimal_string(), "5.000"),
+        "manual_max_quantity": Field(v_decimal_string(), "0"),
+        "automatic_intensity": Field(
+            v_enum(frozenset({"LOW", "MEDIUM", "STRONG"})), "MEDIUM"
+        ),
+        "side_filter": Field(v_enum(frozenset({"BOTH", "BUY", "SELL"})), "BOTH"),
+        "marker_price_mode": Field(
+            v_enum(frozenset({"START_PRICE", "LAST_PRICE", "VWAP_PRICE"})),
+            "LAST_PRICE",
+        ),
+        "calibration_schedule": Field(
+            v_enum(frozenset({"MANUAL", "WEEKLY", "MONTHLY"})), "MANUAL"
+        ),
+        "calibration_activation_policy": Field(
+            v_enum(frozenset({"SCHEDULED_SESSION_BOUNDARY", "MANUAL_ONLY"})),
+            "SCHEDULED_SESSION_BOUNDARY",
+        ),
+        "replay_calibration_mode": Field(
+            v_enum(frozenset({"HISTORICAL_ACTIVATION", "FIXED_RESEARCH"})),
+            "HISTORICAL_ACTIVATION",
+        ),
+        "quantity_step": Field(v_positive_decimal_string, "0.001"),
+        "reaction_zones_enabled": Field(v_bool, True),
+        "reaction_zone_match_tolerance_ticks": Field(v_int(lo=1), 1),
+        "reaction_observation_mode": Field(
+            v_enum(frozenset({"UTC_SESSION"})), "UTC_SESSION"
+        ),
+        "result_horizons_seconds": Field(
+            v_big_trades_horizons,
+            [1, 5, 15, 30, 60, 180, 300, 600],
+        ),
+        "result_snapshot_max_staleness_ms": Field(v_int(lo=1), 1000),
+        "active_zone_capacity": Field(v_int(lo=1), 5000),
+        "recent_event_capacity": Field(v_int(lo=1), 5000),
+        "recent_interaction_capacity": Field(v_int(lo=1), 20000),
+        "history_api_max_limit": Field(v_int(lo=1), 5000),
+        "batch_interval_ms": Field(v_int(lo=1), 100),
+        "batch_max_records": Field(v_int(lo=1), 200),
+        "batch_pending_capacity": Field(v_int(lo=1), 10000),
+        "max_fills_per_cluster": Field(v_int(lo=1), 10000),
+    },
     "monitor": {
         "enabled": Field(v_bool, True),
         "interval_sec": Field(v_int(lo=1), 5),
@@ -475,6 +534,27 @@ def _validate(raw: Any) -> ConfigNode:
             "webapp.market_heartbeat_timeout_ms must be >= "
             "webapp.market_heartbeat_interval_ms * 3"
         )
+
+    big_trades = result.get("big_trades", {})
+    minimum = big_trades.get("manual_min_quantity")
+    maximum = big_trades.get("manual_max_quantity")
+    if isinstance(minimum, str) and isinstance(maximum, str):
+        try:
+            parsed_minimum = Decimal(minimum)
+            parsed_maximum = Decimal(maximum)
+        except InvalidOperation:
+            pass
+        else:
+            if (
+                parsed_minimum.is_finite()
+                and parsed_maximum.is_finite()
+                and parsed_maximum > 0
+                and parsed_maximum < parsed_minimum
+            ):
+                problems.append(
+                    "big_trades.manual_max_quantity must be zero or >= "
+                    "big_trades.manual_min_quantity"
+                )
 
     if problems:
         raise ConfigValidationError(problems)

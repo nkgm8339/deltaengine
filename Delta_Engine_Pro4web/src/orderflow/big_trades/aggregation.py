@@ -82,8 +82,6 @@ class ExecutionClusterAggregator:
         previous = self._fills[-1]
         first = self._fills[0]
         assert self._settings is not None
-        if settings.settings_id != self._settings.settings_id:
-            return ClusterCloseReason.SETTINGS_FORCED_FLUSH
         if trade.symbol != first.symbol or trade.venue != first.venue:
             return ClusterCloseReason.SYMBOL_CHANGED
         if trade.side != first.side:
@@ -112,6 +110,8 @@ def create_big_trade_event(
     cluster: ExecutionCluster,
     decision: FilterDecision,
 ) -> BigTradeEvent:
+    if cluster.close_reason is ClusterCloseReason.MAX_FILLS_EXCEEDED:
+        raise ValueError("cannot create BigTradeEvent from an invalid max-fills cluster")
     if not decision.accepted:
         raise ValueError("cannot create BigTradeEvent from a rejected cluster")
     mode = cluster.settings.marker_price_mode
