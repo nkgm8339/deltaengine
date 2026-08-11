@@ -1,6 +1,6 @@
 # Big Trades実装前 baseline復元点 CHECKPOINT
 
-- 更新時刻: 2026-08-11 22:22:23 JST
+- 更新時刻: 2026-08-11 22:36:01 JST
 - user承認: 現在の主要状態を即時復元できるcheckpoint commit／tagの作成
 - 作業branch: `feature/footprint-dom-tape`
 - 開始HEAD: `778289d63f744adbe452186845d3709bbbdcfa0b`
@@ -117,3 +117,18 @@
 - blocker: なし。
 - 未完了: checkpoint commit、annotated tag、Big Trades作業branch、復元検証。
 - 次の再開位置: 本checkpoint更新をstageし、同一監査を再確認してcheckpoint commitを作成する。
+
+## Baseline snapshot commit検証 — 2026-08-11 22:36:01 JST
+
+- baseline snapshot commit: `ba0cc4476f60d0bcae2a3bfe5ba190df08cfde0c`。
+- parent: `778289d63f744adbe452186845d3709bbbdcfa0b`。
+- tree object: `07801cc9c444da4beee45887431d6f8485fed6d9`。
+- commit subject: `checkpoint: preserve pre-Big-Trades baseline`。
+- commit直後の状態: staged 0、unstaged tracked 0、untracked 23。
+- `git fsck --no-dangling --no-progress`: pass。
+- 除外manifest全23 fileを再計算し、missing 0、size／SHA-256不一致0を確認した。
+- 最終記録commitの次に作成する固定復元tag: `pre-big-trades-20260811`。
+- 同tagから分離する実装用branch: `feature/big-trades-v1`。
+- Big Trades source実装: 未着手。
+- 残作業: 本最終記録をcommitし、そのcommitへannotated tagを作成、同じcommitから実装用branchを作成して参照一致を検証する。
+- 復元境界: tagはtracked source／config／tests／文書を復元する。除外manifestの23 local生成物はtag管理外で、現在pathに保持する。
