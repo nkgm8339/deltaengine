@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Big Trades V2 Static UI Mock</title>
+<style>
+:root{
+  --bg:#050912;--panel:#091322;--panel2:#0b1728;--line:#263a56;--line2:#182940;
+  --text:#eef6ff;--muted:#7f98b8;--cyan:#23dfff;--green:#21f0a2;--red:#ff436b;
+  --amber:#ffd45a;--violet:#a879ff;--blue:#4c90ff
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Consolas,"Courier New",monospace}
+body{width:1280px;min-height:900px;padding:10px;overflow:hidden}
+.top-alert{height:26px;margin:-10px -10px 10px;background:#4d0b19;color:#fff;text-align:center;font:700 12px/26px Arial,sans-serif;letter-spacing:.05em}
+.panel{border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,#0b1628,#07111e);box-shadow:0 10px 28px #0004}
+.topbar{height:62px;padding:11px 16px;display:grid;grid-template-columns:1.25fr .62fr .62fr 40px .48fr .42fr .42fr;gap:18px;align-items:center}
+.symbol{font-size:17px;font-weight:900;letter-spacing:.04em}.sub{font-size:8px;color:var(--muted);margin-top:3px}.label{font-size:8px;color:#7890b0;letter-spacing:.08em}.value{font-size:13px;font-weight:900;margin-top:4px}.cyan{color:var(--cyan)}.green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}.violet{color:var(--violet)}
+.help{width:24px;height:24px;border:1px solid #3f5f88;border-radius:50%;display:grid;place-items:center;color:#fff}
+.status{justify-self:end;border:1px solid #a98a19;color:var(--amber);padding:7px 10px;border-radius:5px;font-size:10px;font-weight:900}
+.workspace{margin-top:10px;display:grid;grid-template-columns:1010px 238px;gap:12px;height:780px}
+.leftstack{grid-column:1;grid-row:1;display:grid;grid-template-rows:250px 518px;gap:12px}.live{grid-column:2;grid-row:1;padding:12px;display:flex;flex-direction:column;gap:10px}.section-title{font-size:11px;font-weight:900;letter-spacing:.05em}.head{height:38px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line2)}
+.chip,.btn{border:1px solid #365170;background:#0c1a2c;border-radius:4px;padding:5px 8px;color:#b9cce2;font-size:9px;font-weight:800}.btn.active{border-color:var(--cyan);color:var(--cyan);box-shadow:inset 0 0 0 1px #23dfff22}.btn.big.active{border-color:var(--violet);color:#cdb6ff;background:#20143b}.protected{margin-left:auto;color:#7c93ad;font-size:8px;letter-spacing:.06em}
+.flow-chart{overflow:hidden}.flow-body{height:210px;display:grid;grid-template-columns:670px 1fr;gap:10px;padding:4px 12px}.mini-facts{border-left:1px solid var(--line2);padding:4px 10px;display:grid;grid-template-columns:repeat(2,1fr);align-content:start;gap:8px}.metric{border:1px solid #1c304a;background:#07101c;padding:8px;border-radius:5px}.metric b{display:block;font-size:11px;margin-top:4px}.metric span{font-size:8px;color:var(--muted)}
+.lower{display:grid;grid-template-columns:770px 228px;gap:12px}.big-panel,.tape{overflow:hidden}.mode-head{height:44px;display:flex;align-items:center;gap:5px;padding:0 10px;border-bottom:1px solid var(--line2)}.mode-title{font-size:11px;font-weight:900;margin-right:8px}.spacer{flex:1}.setting{font-size:8px;color:#849ab4}.setting b{color:#fff}.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}
+.big-content{height:472px;display:grid;grid-template-columns:500px 270px}.zone-chart{position:relative;border-right:1px solid var(--line2);overflow:hidden;background:repeating-linear-gradient(0deg,transparent 0 47px,#17273c 48px),repeating-linear-gradient(90deg,transparent 0 82px,#12243a 83px)}
+.axis{position:absolute;right:5px;color:#7189a6;font-size:8px}.axis.a1{top:27px}.axis.a2{top:106px}.axis.a3{top:185px}.axis.a4{top:264px}.axis.a5{top:343px}.axis.a6{top:422px}
+.zone{position:absolute;left:58px;right:10px;border-top:1px solid;border-bottom:1px solid;opacity:.95}.zone::after{content:attr(data-label);position:absolute;left:5px;top:-15px;font-size:8px;font-weight:900;white-space:nowrap}.zone.sell{top:105px;height:27px;border-color:#ff436b;background:#ff436b18}.zone.sell::after{color:#ff7f99}.zone.buy{top:280px;height:30px;border-color:#21f0a2;background:#21f0a218}.zone.buy::after{color:#60ffc3}.zone.selected{top:188px;height:34px;border-color:var(--amber);background:#ffd45a21;box-shadow:0 0 18px #ffd45a1e}.zone.selected::after{color:var(--amber)}
+.price-path{position:absolute;inset:0;width:100%;height:100%}.marker{position:absolute;border-radius:50%;display:grid;place-items:center;font-size:8px;font-weight:900;border:2px solid #050912;box-shadow:0 0 0 1px currentColor}.marker.m1{left:132px;top:94px;width:34px;height:34px;color:#fff;background:var(--red)}.marker.m2{left:246px;top:180px;width:40px;height:40px;color:#171000;background:var(--amber)}.marker.m3{left:345px;top:194px;width:32px;height:32px;color:#171000;background:#f6bb36}.marker.m4{left:392px;top:270px;width:36px;height:36px;color:#00140c;background:var(--green)}
+.time{position:absolute;bottom:8px;color:#6f88a6;font-size:8px}.t1{left:50px}.t2{left:155px}.t3{left:260px}.t4{left:365px}.legend{position:absolute;left:12px;top:10px;font-size:8px;color:#8aa0bb}.gap{position:absolute;left:312px;top:0;bottom:0;border-left:1px dashed #ff436b77}.gap span{position:absolute;top:10px;left:5px;color:#ff7d98;font-size:8px;white-space:nowrap}
+.detail{padding:10px;background:#081321;overflow:hidden}.selected-label{color:var(--amber);font-size:9px;font-weight:900}.event-title{font-size:14px;font-weight:900;margin:5px 0 2px}.kv{display:grid;grid-template-columns:110px 1fr;gap:4px;font-size:9px;margin-top:8px}.kv span:nth-child(odd){color:#748dab}.timeline{margin-top:10px;border-top:1px solid var(--line2);padding-top:8px}.timeline-row{display:grid;grid-template-columns:44px 12px 1fr;gap:4px;font-size:8px;margin:6px 0;color:#b8c9dc}.timeline-row i{width:7px;height:7px;border-radius:50%;background:var(--cyan);margin-top:1px}.system{margin-top:9px;border:1px solid #274263;background:#0a192a;border-radius:5px;padding:7px;font-size:8px;color:#a9bed5}.assessment{margin-top:8px;border:1px solid #56427f;background:#18112c;border-radius:5px;padding:7px;font-size:8px}.assessment b{color:#c8aeff}
+.tape .head{justify-content:space-between}.filters{padding:8px;border-bottom:1px solid var(--line2);display:grid;grid-template-columns:repeat(2,1fr);gap:5px}.field{border:1px solid #344b68;padding:5px;font-size:8px;color:#8ba0bb}.field b{float:right;color:#fff}.tape-gap{background:#2c2104;color:var(--amber);font-size:8px;padding:5px 8px}.trade{height:27px;padding:7px 8px;border-bottom:1px solid #16263b;font-size:9px;display:grid;grid-template-columns:70px 55px 1fr}.trade .s{color:var(--red)}.trade .b{color:var(--green)}
+.live-card{border:1px solid #2a405e;border-radius:7px;padding:10px}.live-card h3{font-size:9px;color:#8da3bd;margin:0 0 10px}.big-number{font-size:17px;font-weight:900}.bar{height:5px;background:#16263d;margin-top:5px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--cyan))}.fact{font-size:9px;padding:7px 0;border-bottom:1px solid #182b43}.fact:last-child{border:0}.notice{margin-top:auto;border:1px solid #62501d;background:#251e07;color:#ffe28a;padding:9px;border-radius:6px;font-size:8px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="top-alert">STATIC DESIGN MOCK — NOT CONNECTED TO RUNTIME — BIG TRADES FEATURE REMAINS OFF</div>
+<header class="panel topbar">
+  <div><div class="symbol">BTCUSDT</div><div class="sub">BINANCE · USD-M · 05M</div></div>
+  <div><div class="label">BINANCE SPOT</div><div class="value cyan">63,579.98</div></div>
+  <div><div class="label">BINANCE OI</div><div class="value violet">106.9K</div></div>
+  <div class="help">?</div>
+  <div><div class="label">MARKET TIME</div><div class="value">01:16:10</div></div>
+  <div><div class="label">LATENCY</div><div class="value">57 ms</div></div>
+  <div class="status">BIG TRADES OFF</div>
+</header>
+
+<main class="workspace">
+  <div class="leftstack">
+    <section class="panel flow-chart">
+      <div class="head"><span class="section-title">PRICE × FLOW RESPONSE</span><span class="chip">30s</span><span class="chip">80 bars</span><span class="chip green">LIVE</span><span class="protected">PROTECTED · GEOMETRY UNCHANGED</span></div>
+      <div class="flow-body">
+        <svg viewBox="0 0 670 210" width="670" height="210" aria-label="protected three-stage chart mock">
+          <rect width="670" height="210" fill="#07111e"/>
+          <g stroke="#172940" stroke-width="1"><path d="M0 40H670M0 80H670M0 120H670M0 160H670"/><path d="M80 0V210M160 0V210M240 0V210M320 0V210M400 0V210M480 0V210M560 0V210M640 0V210"/></g>
+          <g opacity=".2"><rect x="20" width="24" height="130" fill="#805eff"/><rect x="82" width="18" height="130" fill="#ffe052"/><rect x="144" width="31" height="130" fill="#805eff"/><rect x="245" width="20" height="130" fill="#ffe052"/><rect x="332" width="27" height="130" fill="#805eff"/><rect x="469" width="23" height="130" fill="#ffe052"/></g>
+          <polyline points="12,75 42,61 72,70 102,47 132,54 162,41 192,65 222,95 252,103 282,91 312,110 342,83 372,94 402,72 432,80 462,60 492,70 522,57 552,76 582,69 612,88 652,72" fill="none" stroke="#ecf5ff" stroke-width="2"/>
+          <g fill="#21f0a2"><rect x="35" y="55" width="5" height="19"/><rect x="95" y="45" width="5" height="23"/><rect x="155" y="37" width="5" height="20"/><rect x="275" y="88" width="5" height="20"/><rect x="395" y="67" width="5" height="20"/><rect x="515" y="54" width="5" height="18"/></g>
+          <g fill="#ff436b"><rect x="65" y="62" width="5" height="20"/><rect x="185" y="54" width="5" height="22"/><rect x="215" y="78" width="5" height="25"/><rect x="305" y="97" width="5" height="20"/><rect x="425" y="74" width="5" height="22"/><rect x="605" y="70" width="5" height="24"/></g>
+          <line x1="0" y1="132" x2="670" y2="132" stroke="#2b405d"/>
+          <polyline points="10,169 50,162 90,174 130,151 170,156 210,147 250,175 290,183 330,165 370,171 410,153 450,160 490,151 530,166 570,157 610,163 660,152" fill="none" stroke="#23dfff" stroke-width="2"/>
+          <line x1="0" y1="184" x2="670" y2="184" stroke="#2b405d"/>
+          <g fill="#52658f"><rect x="20" y="198" width="7" height="8"/><rect x="50" y="194" width="7" height="12"/><rect x="80" y="200" width="7" height="6"/><rect x="110" y="188" width="7" height="18"/><rect x="140" y="196" width="7" height="10"/><rect x="170" y="190" width="7" height="16"/><rect x="200" y="201" width="7" height="5"/><rect x="230" y="185" width="7" height="21"/><rect x="260" y="194" width="7" height="12"/><rect x="290" y="198" width="7" height="8"/><rect x="320" y="190" width="7" height="16"/><rect x="350" y="183" width="7" height="23"/><rect x="380" y="194" width="7" height="12"/></g>
+          <text x="6" y="12" fill="#7f98b8" font-size="8">PRICE</text><text x="6" y="144" fill="#23dfff" font-size="8">CVD + Δ</text><text x="6" y="196" fill="#7f98b8" font-size="8">VOLUME</text>
+        </svg>
+        <div class="mini-facts">
+          <div class="metric"><span>FLOW RESPONSE</span><b>UNCLEAR</b></div><div class="metric"><span>WINDOW</span><b>30s</b></div>
+          <div class="metric"><span>PRESSURE</span><b>+41%</b></div><div class="metric"><span>PERSISTENCE</span><b>55%</b></div>
+          <div class="metric"><span>CVD</span><b class="cyan">−7.4K</b></div><div class="metric"><span>DELTA</span><b class="red">−0.09</b></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="lower">
+      <section class="panel big-panel">
+        <div class="mode-head"><span class="mode-title">ORDER FLOW VIEW</span><span class="btn">FOOTPRINT</span><span class="btn">HEATMAP</span><span class="btn big active">BIG TRADES</span><span class="spacer"></span><span class="setting">MODE <b>MANUAL</b></span><span class="setting">MIN <b>20.000</b></span><span class="setting">MAX <b>∞</b></span><span class="setting">SIDE <b>BOTH</b></span></div>
+        <div class="big-content">
+          <div class="zone-chart">
+            <span class="legend"><span class="dot" style="background:var(--red)"></span>SELL EVENT&nbsp;&nbsp;<span class="dot" style="background:var(--green)"></span>BUY EVENT&nbsp;&nbsp;<span class="dot" style="background:var(--amber)"></span>SELECTED ZONE</span>
+            <span class="axis a1">63,660</span><span class="axis a2">63,640</span><span class="axis a3">63,620</span><span class="axis a4">63,600</span><span class="axis a5">63,580</span><span class="axis a6">63,560</span>
+            <div class="zone sell" data-label="SELL 75.086 · PRICE BELOW ZONE"></div>
+            <div class="zone selected" data-label="SELL 57.349 · FIRST EXIT UP · REENTERED"></div>
+            <div class="zone buy" data-label="BUY 26.486 · FIRST EXIT DOWN"></div>
+            <svg class="price-path" viewBox="0 0 500 480" preserveAspectRatio="none">
+              <polyline points="20,130 55,116 85,125 115,106 145,118 175,145 205,176 235,204 265,171 295,198 325,230 355,205 385,254 415,288 445,269 480,322" fill="none" stroke="#e8f4ff" stroke-width="2"/>
+              <line x1="20" y1="212" x2="480" y2="212" stroke="#ffd45a" stroke-dasharray="4 4" opacity=".6"/>
+            </svg>
+            <div class="gap"><span>SOURCE GAP</span></div>
+            <div class="marker m1">75.1</div><div class="marker m2">57.3</div><div class="marker m3">31.6</div><div class="marker m4">26.5</div>
+            <span class="time t1">01:08</span><span class="time t2">01:10</span><span class="time t3">01:12</span><span class="time t4">01:14</span>
+          </div>
+          <aside class="detail">
+            <div class="selected-label">SELECTED REACTION ZONE</div>
+            <div class="event-title">SELL · 57.349 BTC</div>
+            <div class="sub">EVENT bt2_…9f2a · 01:10:42.118 JST</div>
+            <div class="kv"><span>EXECUTION RANGE</span><b>63,612.4–63,620.1</b><span>VWAP</span><b>63,616.8</b><span>FILLS</span><b>184</b><span>CURRENT</span><b class="red">BELOW</b><span>FIRST EXIT</span><b class="green">UP · 284ms</b><span>MAX ABOVE</span><b>42 ticks</b><span>MAX BELOW</span><b>188 ticks</b><span>LINKED EVENTS</span><b>2</b></div>
+            <div class="timeline">
+              <div class="timeline-row"><span>+284ms</span><i></i><b>FIRST EXIT UP</b></div>
+              <div class="timeline-row"><span>+15s</span><i style="background:var(--amber)"></i><b>REENTER FROM ABOVE</b></div>
+              <div class="timeline-row"><span>+48s</span><i style="background:var(--red)"></i><b>SELL 31.604 LINKED</b></div>
+              <div class="timeline-row"><span>+60s</span><i style="background:var(--red)"></i><b>PRICE BELOW · −74 ticks</b></div>
+              <div class="timeline-row"><span>+3m</span><i style="background:var(--violet)"></i><b>CLOSE BELOW</b></div>
+            </div>
+            <div class="system"><b>SYSTEM FACTS</b><br>Repeated effort · Returned to zone · Current price below zone</div>
+            <div class="assessment"><b>USER ASSESSMENT</b><br>Not set · system has not declared a winner</div>
+          </aside>
+        </div>
+      </section>
+
+      <aside class="panel tape">
+        <div class="head"><span class="section-title">TIME &amp; SALES</span><span class="red">TAPE GAP</span></div>
+        <div class="filters"><div class="field">SIDE <b>ALL</b></div><div class="field">MIN QTY <b>0</b></div><div class="field">NOTIONAL <b>0</b></div><div class="field">LARGE <b>10000</b></div></div>
+        <div class="tape-gap">EXISTING TAPE · UNCHANGED</div>
+        <div class="trade"><span>01:16:00</span><span>63.6K</span><b class="s">0.047 S</b></div><div class="trade"><span>01:16:00</span><span>63.6K</span><b class="s">0.004 S</b></div><div class="trade"><span>01:15:59</span><span>63.6K</span><b class="b">0.302 B</b></div><div class="trade"><span>01:15:59</span><span>63.6K</span><b class="s">0.006 S</b></div><div class="trade"><span>01:15:58</span><span>63.6K</span><b class="b">0.081 B</b></div><div class="trade"><span>01:15:58</span><span>63.6K</span><b class="b">0.053 B</b></div><div class="trade"><span>01:15:57</span><span>63.6K</span><b class="s">0.117 S</b></div><div class="trade"><span>01:15:57</span><span>63.6K</span><b class="s">0.019 S</b></div><div class="trade"><span>01:15:56</span><span>63.6K</span><b class="b">0.231 B</b></div><div class="trade"><span>01:15:55</span><span>63.6K</span><b class="s">0.064 S</b></div><div class="trade"><span>01:15:55</span><span>63.6K</span><b class="b">0.028 B</b></div>
+      </aside>
+    </div>
+  </div>
+
+  <aside class="panel live">
+    <div class="section-title cyan">BIG TRADES OBSERVATION</div>
+    <div class="sub">SYSTEM FACTS · NO TRADE SIGNALS</div>
+    <div class="live-card"><h3>SELECTED EFFORT</h3><div class="big-number red">SELL 57.349 BTC</div><div class="bar"><i style="width:76%"></i></div></div>
+    <div class="live-card"><h3>PRICE RESULT</h3><div class="fact">FIRST EXIT <b class="green" style="float:right">UP</b></div><div class="fact">CURRENT <b class="red" style="float:right">BELOW</b></div><div class="fact">REENTRIES <b style="float:right">1</b></div><div class="fact">LINKED BIG TRADES <b style="float:right">2</b></div></div>
+    <div class="live-card"><h3>HORIZON FACTS</h3><div class="fact">1s <b class="green" style="float:right">ABOVE +8t</b></div><div class="fact">15s <b class="amber" style="float:right">INSIDE</b></div><div class="fact">60s <b class="red" style="float:right">BELOW −74t</b></div><div class="fact">180s <b class="red" style="float:right">BELOW −188t</b></div></div>
+    <div class="live-card"><h3>READ-ONLY CONTEXT</h3><div class="fact">CVD <b class="cyan" style="float:right">−7.4K</b></div><div class="fact">DELTA <b class="red" style="float:right">−0.09</b></div><div class="fact">FLOW RESPONSE <b style="float:right">UNCLEAR</b></div><div class="fact">CANDLE <b class="violet" style="float:right">CLOSE BELOW</b></div></div>
+    <div class="notice">This panel shows effort and subsequent price facts. It does not label absorption, buyer victory, seller victory, entry, or exit.</div>
+  </aside>
+</main>
+</body>
+</html>
