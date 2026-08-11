@@ -146,11 +146,15 @@ class BigTradesBackend:
             else {"stream_id": None, "last_admitted_sequence": 0, "dropped_count": 0}
         )
         assert self.history is not None
+        event_page = self.history.list_events(limit=event_limit)
+        zone_page = self.history.list_zones(limit=zone_limit)
         return {
             "source_identity": self.history.source_identity,
             "continuation": continuation,
-            "events": self.history.list_events(limit=event_limit)["events"],
-            "zones": self.history.list_zones(limit=zone_limit)["zones"],
+            "events": event_page["events"],
+            "zones": zone_page["zones"],
+            "event_cursor": event_page["next_cursor"],
+            "zone_cursor": zone_page["next_cursor"],
         }
 
     def _active_settings(self) -> Optional[SettingsVersion]:

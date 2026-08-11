@@ -2,8 +2,8 @@
 
 ## Current checkpoint
 
-- 更新時刻: 2026-08-12 03:59:35 JST
-- current phase: 工程4 WebSocket／API完了、工程4 commit直前
+- 更新時刻: 2026-08-12 04:38:25 JST
+- current phase: 工程5 UI完了、commit前。次の再開位置は工程6 integration／performance／soak
 - user承認: 2026-08-12「GO」
 - 承認範囲: V2実装指示書§60～§66、工程1～7
 - branch: `feature/big-trades-v1`
@@ -11,6 +11,8 @@
 - 工程1完了commit: `23128fc`
 - 工程2完了commit: `bd7dd38`
 - 工程3完了commit: `20b5c54`
+- 工程4完了commit: `308b757`
+- 工程5完了commit: `ac4f782`
 - restore tag: `pre-big-trades-20260811`
 - restore tag object: `8e81cb389d459afa68bb5a85bbe4e593d7bfe19b`
 - feature flag: `big_trades.enabled: false`、pipelineは明示注入時だけ接続、production生成なし
@@ -116,8 +118,8 @@
 ## 未完了
 
 - 工程3: 完了、commit `20b5c54`。
-- 工程4: 完了、commit待ち。
-- 工程5: 承認済みstatic mockに従うUI。
+- 工程4: 完了、commit `308b757`。
+- 工程5: 完了。第3mode、専用Canvas／stores／continuity、settings／assessment、fixed detail、右観測panel、実browser evidence、既存WebApp回帰を完了した。
 - 工程6: integration／performance／soak。
 - 工程7: production activation。
 - production Manual Min／Maxと初期modeの確定。
@@ -211,6 +213,16 @@
 - `Delta_Engine_Pro4web/tests/webapp/test_big_trades_protocol.py`
 - `Delta_Engine_Pro4web/tests/webapp/test_big_trades_api.py`
 
+### 工程5追加／変更（作業中）
+
+- `Delta_Engine_Pro4web/webapp/static/big_trades.js`
+- `Delta_Engine_Pro4web/webapp/static/index.html`
+- `Delta_Engine_Pro4web/webapp/big_trades_history.py`
+- `Delta_Engine_Pro4web/webapp/big_trades_backend.py`
+- `Delta_Engine_Pro4web/tests/webapp/test_big_trades_ui.py`
+- `Delta_Engine_Pro4web/tests/webapp/test_big_trades_api.py`
+- `ArchitectureRepository/00_Master/BIG_TRADES_V2_IMPLEMENTATION_CHECKPOINT_20260812.md`
+
 ## 検証結果
 
 - `python -m pytest tests/orderflow -k big_trades -q`: `67 passed, 195 deselected in 4.48s`。
@@ -232,6 +244,16 @@
 - WebApp全体: `214 passed, 1 failed in 23.43s`。failureは工程0既知の`test_fixed_fusion_layout_keeps_indicators_and_removes_old_book_presentation` selector不一致だけ。
 - 工程4統合回帰（orderflow、database、pipeline、config、WebApp、既知1件除外）: `679 passed, 1 deselected in 54.15s`。
 - 工程4最終API／protocol target: `14 passed in 7.56s`。
+- 工程5 Big Trades UI＋API target: `51 passed in 11.39s`。
+- 工程5最終Big Trades UI＋API target: `51 passed in 11.12s`。
+- 工程5 WebApp全体: `257 passed, 1 failed in 21.98s`。failureは工程0既知selector mismatchだけ。
+- 工程5 WebApp既知failure除外: `257 passed, 1 deselected in 21.54s`。
+- `big_trades.js` Node構文検査と`index.html` inline script構文検査: PASS。
+- 稼働中static mountは`modeBigTrades`と`/static/big_trades.js`をHTTP 200で返すことを確認。container restart 0件。
+- 1280×900実browserでprotected `#bottom／#chartwrap／#chart／#main／#center／#right／#tape／#liveobservation／#flowtop`のFootprint→Big Trades geometry差は全て0px。
+- browser Console error 0、page error 0、failed request 0、horizontal overflow 0px、warm Canvas render p95 6.4ms。
+- browser evidenceは`ArchitectureRepository/00_Master/BIG_TRADES_V2_PHASE5_EVIDENCE_20260812/`へ逐次保存した。Big Trades dataだけはsynthetic committed-history fixtureでありproduction activationではない。
+- protected source SHA-256: 9／9 baseline一致。
 - `python -m compileall -q webapp src/orderflow/big_trades src/database`: PASS。
 - `git diff --check`: whitespace error 0（既存CRLF変換warningだけ）。
 - Live／Replay同一fixtureでevent／fills／zone／interactionの全row一致: PASS。
@@ -254,11 +276,12 @@
 - 工程2: なし、完了。
 - 工程3: なし、実装・回帰gate完了。
 - 工程4: なし、実装・回帰gate完了。BT2-W219 browser invalid payload rejectionはbackend-only工程4ではUIへ接続せず、工程5のdedicated browser adapter試験で実施する。
+- 工程5: blockerなし、完了。
 - 工程7 activation: production Manual Min／Maxと初期modeの確定が必要。
 - 開始前runtimeのmemory RED、syncing、Tape gapはpure coreのblockerではない。工程6／7でbaselineとの差分判定対象とする。
 
 ## 次の再開位置
 
-1. 工程4対象fileとcheckpointだけをstageし、工程4commitを作成する。
-2. 工程5開始前checkpointへ更新し、承認済みstatic mockをそのままlayout正本として読む。
-3. Big Trades第3modeのUI、browser strict protocol／gap recovery、settings／assessment表示を実装する。feature flagはfalse、production DB migration／container restartは行わない。
+1. 工程5の§38～§40、§54、§64と承認済みstatic mockを再読し、DOM／geometry契約を固定する。
+2. Big Trades第3modeのUI、browser strict protocol／gap recovery、settings／assessment表示を実装する。
+3. Footprint／Heatmapの既存DOM・geometry差分を試験する。feature flagはfalse、production DB migration／container restartは行わない。

@@ -1,0 +1,1002 @@
+{
+  "fixture": "synthetic committed Big Trades history; production feature remains disabled",
+  "url": "http://127.0.0.1:18080",
+  "http_status": 200,
+  "viewport": {
+    "width": 1280,
+    "height": 900,
+    "device_scale_factor": 1
+  },
+  "screenshots": {
+    "before": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE5_EVIDENCE_20260812\\footprint_before_1280x900_full.png",
+    "after": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE5_EVIDENCE_20260812\\big_trades_after_1280x900_full.png"
+  },
+  "screenshot_sha256": {
+    "before": "f25f172bf0d4b8fbd2ce6b885cf89c16d97af6341f426ce44d3b9211ecda81e7",
+    "after": "258081239ebc9f8e0f55feecfa36318a762b983678ac49f383bdc70729277c1b"
+  },
+  "geometry": {
+    "footprint_before": {
+      "#topbar": {
+        "x": 10,
+        "y": 44,
+        "width": 1260,
+        "height": 62,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#bottom": {
+        "x": 10,
+        "y": 118,
+        "width": 1010,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chartwrap": {
+        "x": 11,
+        "y": 273,
+        "width": 1008,
+        "height": 396,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chart": {
+        "x": 15,
+        "y": 273,
+        "width": 658,
+        "height": 392,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#liveobservation": {
+        "x": 1032,
+        "y": 118,
+        "width": 238,
+        "height": 1116,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#main": {
+        "x": 10,
+        "y": 682,
+        "width": 1010,
+        "height": 552,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#center": {
+        "x": 10,
+        "y": 682,
+        "width": 770,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#right": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#fpstage": {
+        "x": 11,
+        "y": 717,
+        "width": 768,
+        "height": 467,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#fpcanvas": {
+        "x": 11,
+        "y": 717,
+        "width": 768,
+        "height": 467,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#heatmapcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#btworkspace": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#btcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btdetail": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tape": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tapeviewport": {
+        "x": 789,
+        "y": 872,
+        "width": 230,
+        "height": 293,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btobservation": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#flowtop": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 388,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowpanel": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 198,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowbody": {
+        "x": 11,
+        "y": 1281,
+        "width": 1258,
+        "height": 162,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      }
+    },
+    "heatmap": {
+      "#topbar": {
+        "x": 10,
+        "y": 44,
+        "width": 1260,
+        "height": 62,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#bottom": {
+        "x": 10,
+        "y": 118,
+        "width": 1010,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chartwrap": {
+        "x": 11,
+        "y": 273,
+        "width": 1008,
+        "height": 396,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chart": {
+        "x": 15,
+        "y": 273,
+        "width": 658,
+        "height": 392,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#liveobservation": {
+        "x": 1032,
+        "y": 118,
+        "width": 238,
+        "height": 1116,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#main": {
+        "x": 10,
+        "y": 682,
+        "width": 1010,
+        "height": 552,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#center": {
+        "x": 10,
+        "y": 682,
+        "width": 770,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#right": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#fpstage": {
+        "x": 11,
+        "y": 717,
+        "width": 768,
+        "height": 467,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#fpcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#heatmapcanvas": {
+        "x": 11,
+        "y": 717,
+        "width": 768,
+        "height": 467,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btworkspace": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#btcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btdetail": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tape": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tapeviewport": {
+        "x": 789,
+        "y": 872,
+        "width": 230,
+        "height": 293,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btobservation": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#flowtop": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 388,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowpanel": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 198,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowbody": {
+        "x": 11,
+        "y": 1281,
+        "width": 1258,
+        "height": 162,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      }
+    },
+    "footprint_return": {
+      "#topbar": {
+        "x": 10,
+        "y": 44,
+        "width": 1260,
+        "height": 62,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#bottom": {
+        "x": 10,
+        "y": 118,
+        "width": 1010,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chartwrap": {
+        "x": 11,
+        "y": 273,
+        "width": 1008,
+        "height": 396,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chart": {
+        "x": 15,
+        "y": 273,
+        "width": 658,
+        "height": 392,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#liveobservation": {
+        "x": 1032,
+        "y": 118,
+        "width": 238,
+        "height": 1116,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#main": {
+        "x": 10,
+        "y": 682,
+        "width": 1010,
+        "height": 552,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#center": {
+        "x": 10,
+        "y": 682,
+        "width": 770,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#right": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#fpstage": {
+        "x": 11,
+        "y": 717,
+        "width": 768,
+        "height": 467,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#fpcanvas": {
+        "x": 11,
+        "y": 717,
+        "width": 768,
+        "height": 467,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#heatmapcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#btworkspace": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#btcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btdetail": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tape": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tapeviewport": {
+        "x": 789,
+        "y": 872,
+        "width": 230,
+        "height": 293,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btobservation": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#flowtop": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 388,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowpanel": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 198,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowbody": {
+        "x": 11,
+        "y": 1281,
+        "width": 1258,
+        "height": 162,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      }
+    },
+    "big_trades": {
+      "#topbar": {
+        "x": 10,
+        "y": 44,
+        "width": 1260,
+        "height": 62,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#bottom": {
+        "x": 10,
+        "y": 118,
+        "width": 1010,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chartwrap": {
+        "x": 11,
+        "y": 273,
+        "width": 1008,
+        "height": 396,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#chart": {
+        "x": 15,
+        "y": 273,
+        "width": 658,
+        "height": 392,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#liveobservation": {
+        "x": 1032,
+        "y": 118,
+        "width": 238,
+        "height": 1116,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#main": {
+        "x": 10,
+        "y": 682,
+        "width": 1010,
+        "height": 552,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#center": {
+        "x": 10,
+        "y": 682,
+        "width": 770,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#right": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#fpstage": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#fpcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#heatmapcanvas": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "visibility": "visible",
+        "hidden": true
+      },
+      "#btworkspace": {
+        "x": 11,
+        "y": 767,
+        "width": 768,
+        "height": 466,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btcanvas": {
+        "x": 11,
+        "y": 767,
+        "width": 481,
+        "height": 422,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btdetail": {
+        "x": 493,
+        "y": 767,
+        "width": 286,
+        "height": 466,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tape": {
+        "x": 788,
+        "y": 682,
+        "width": 232,
+        "height": 552,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#tapeviewport": {
+        "x": 789,
+        "y": 872,
+        "width": 230,
+        "height": 293,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#btobservation": {
+        "x": 1043,
+        "y": 129,
+        "width": 216,
+        "height": 1094,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowtop": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 388,
+        "display": "grid",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowpanel": {
+        "x": 10,
+        "y": 1246,
+        "width": 1260,
+        "height": 198,
+        "display": "flex",
+        "visibility": "visible",
+        "hidden": false
+      },
+      "#flowbody": {
+        "x": 11,
+        "y": 1281,
+        "width": 1258,
+        "height": 162,
+        "display": "block",
+        "visibility": "visible",
+        "hidden": false
+      }
+    }
+  },
+  "protected_geometry_delta_big_minus_footprint": {
+    "#bottom": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#chartwrap": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#chart": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#main": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#center": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#right": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#tape": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#liveobservation": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "#flowtop": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    }
+  },
+  "state": {
+    "bodyClass": "notranslate phase5-fusion big-trades-mode",
+    "scrollWidth": 1280,
+    "clientWidth": 1280,
+    "scrollHeight": 1644,
+    "serverStatus": "MANUAL_READY",
+    "streamStatus": "STREAM 123e4567 · SEQ 0 · DROP 0",
+    "canvasStatus": "LIVE LOCK · EVENTS 2/5000 · ZONES 2/5000 · INTERACTIONS 2/20000 · DPR 1 · RENDER P95 6.40ms",
+    "detailHeadings": [
+      "EFFORT",
+      "RESULT",
+      "REPEATED AREA ACTIVITY",
+      "CANDLE RESULT",
+      "CONTEXT",
+      "SYSTEM FACTS",
+      "USER ASSESSMENT",
+      "LINEAGE"
+    ],
+    "assessmentDisabled": false,
+    "observationChildren": [
+      {
+        "tag": "HEADER",
+        "text": "BIG TRADES OBSERVATIONSYSTEM FACTS · NO TRADE SIGNALS",
+        "display": "flex"
+      },
+      {
+        "tag": "SECTION",
+        "text": "SELECTED EFFORTSELL 57.349",
+        "display": "block"
+      },
+      {
+        "tag": "SECTION",
+        "text": "PRICE RESULTFIRST EXITUPCURRENTINSIDEMAX ABOVE / BELOW42 / 188LINKED1",
+        "display": "block"
+      },
+      {
+        "tag": "SECTION",
+        "text": "HORIZON FACTS60sBELOW",
+        "display": "block"
+      },
+      {
+        "tag": "SECTION",
+        "text": "READ-ONLY CONTEXTCVD-8051.772DELTA-35.569FLOW RESPONSEUNCLEAR",
+        "display": "block"
+      },
+      {
+        "tag": "DIV",
+        "text": "This panel shows executed effort and subsequent price facts. It does not label absorption, buyer vic",
+        "display": "block"
+      }
+    ],
+    "stats": {
+      "status": "MANUAL_READY",
+      "continuity": {
+        "streamId": "123e4567-e89b-42d3-a456-426614174000",
+        "lastSequence": 0,
+        "recovering": false,
+        "gapCount": 0
+      },
+      "events": {
+        "events": 2,
+        "capacity": 5000,
+        "collisions": 0
+      },
+      "zones": {
+        "zones": 2,
+        "zoneCapacity": 5000,
+        "interactions": 2,
+        "interactionCapacity": 20000,
+        "collisions": 0
+      },
+      "canvas": {
+        "renderP95Ms": 6.4000000059604645,
+        "windowMs": 900000,
+        "liveLock": true,
+        "dpr": 1
+      }
+    }
+  },
+  "console": [
+    {
+      "type": "warning",
+      "text": "[LayoutWatchdog] {\"t\":\"2026-08-11T19:36:29.034Z\",\"causes\":[\"INTERNAL_LAYOUT (panel size changed while environment remained constant: fpstage 467x768→0x0)\"],\"prev\":{\"t\":\"2026-08-11T19:36:27.035Z\",\"dpr\":1,\"vvScale\":1,\"innerW\":1280,\"innerH\":900,\"outerW\":1280,\"outerH\":900,\"screenW\":1280,\"screenH\":900,\"panels\":{\"appgrid\":\"1610x1280\",\"main\":\"552x1010\",\"bookbody\":\"308x230\",\"fpstage\":\"467x768\",\"flowbody\":\"162x1258\",\"alertrows\":\"138x410\"}},\"cur\":{\"t\":\"2026-08-11T19:36:29.034Z\",\"dpr\":1,\"vvScale\":1,\"innerW\":1280,\"innerH\":900,\"outerW\":1280,\"outerH\":900,\"screenW\":1280,\"screenH\":900,\"panels\":{\"appgrid\":\"1610x1280\",\"main\":\"552x1010\",\"bookbody\":\"308x230\",\"fpstage\":\"0x0\",\"flowbody\":\"162x1258\",\"alertrows\":\"138x410\"}}}"
+    }
+  ],
+  "console_errors": [],
+  "page_errors": [],
+  "failed_requests": [],
+  "local_responses": [
+    {
+      "url": "http://127.0.0.1:18080/",
+      "status": 200,
+      "resource_type": "document"
+    },
+    {
+      "url": "http://127.0.0.1:18080/static/footprint_canvas.js",
+      "status": 200,
+      "resource_type": "script"
+    },
+    {
+      "url": "http://127.0.0.1:18080/static/time_sales.js",
+      "status": 200,
+      "resource_type": "script"
+    },
+    {
+      "url": "http://127.0.0.1:18080/static/big_trades.js",
+      "status": 200,
+      "resource_type": "script"
+    },
+    {
+      "url": "http://127.0.0.1:18080/static/market_freshness.js",
+      "status": 200,
+      "resource_type": "script"
+    },
+    {
+      "url": "http://127.0.0.1:18080/static/orderbook_heatmap.js",
+      "status": 200,
+      "resource_type": "script"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/time-sales?limit=500",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/candles?limit=3&timeframe=1d",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/footprints?limit=40&timeframe=1m",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/candles?limit=300",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/open-interest?limit=2500",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/flow-response?limit=5000",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/version",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/combined-context?timeframe=5m&limit=1",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/time-sales?limit=500&symbol=BTCUSDT",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/big-trades/snapshot?event_limit=500&zone_limit=500",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/big-trades/settings",
+      "status": 200,
+      "resource_type": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/history/big-trades/zones/btz2_2222222222222222222222222222222222222222222222222222222222222222",
+      "status": 200,
+      "resource_type": "fetch"
+    }
+  ],
+  "websocket_frame_counts": {
+    "ABSORPTION_STATE": 2,
+    "ANALYSIS": 1,
+    "BAR_UPDATE": 11,
+    "BOOK_UPDATE": 24,
+    "CANDLE": 1,
+    "FLOW": 3,
+    "FLOW_RESPONSE": 5,
+    "HEALTH": 1,
+    "HELLO": 2,
+    "HFM_QUOTE": 2,
+    "MARKET_HEARTBEAT": 6,
+    "OI": 1,
+    "SPOT_PRICE": 16,
+    "STATS": 1,
+    "TAPE_UPDATE": 10,
+    "TICK": 14
+  }
+}

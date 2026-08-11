@@ -250,10 +250,16 @@ class BigTradesHistoryService:
 
     def _zone_state_map(
         self, zone_ids: Iterable[str]
-    ) -> dict[str, tuple[str, Optional[str]]]:
+    ) -> dict[str, dict[str, Any]]:
         identifiers = tuple(dict.fromkeys(zone_ids))
         states = {
-            zone_id: (ZoneLifecycle.ACTIVE.value, None) for zone_id in identifiers
+            zone_id: {
+                "lifecycle": ZoneLifecycle.ACTIVE.value,
+                "relation": None,
+                "source_end": None,
+                "gap_segments": [],
+            }
+            for zone_id in identifiers
         }
         if not identifiers:
             return states
@@ -264,18 +270,35 @@ class BigTradesHistoryService:
             parameters=identifiers,
             order_by="zone_id ASC, source_event_time ASC, ordinal ASC, interaction_id ASC",
         )
+        open_gaps: dict[tuple[str, str], dict[str, Any]] = {}
         for row in interactions:
-            lifecycle, relation = states[row["zone_id"]]
+            state = states[row["zone_id"]]
             kind = row["interaction_type"]
             if kind == "SOURCE_GAP_STARTED":
-                lifecycle = ZoneLifecycle.ACTIVE_WITH_GAP.value
+                state["lifecycle"] = ZoneLifecycle.ACTIVE_WITH_GAP.value
+                if row.get("gap_epoch_id"):
+                    open_gaps[(row["zone_id"], row["gap_epoch_id"])] = {
+                        "gap_epoch_id": row["gap_epoch_id"],
+                        "start_time": row["source_event_time"],
+                        "end_time": None,
+                    }
             elif kind == "SOURCE_GAP_ENDED":
-                lifecycle = ZoneLifecycle.ACTIVE.value
+                state["lifecycle"] = ZoneLifecycle.ACTIVE.value
+                gap_id = row.get("gap_epoch_id")
+                if gap_id:
+                    segment = open_gaps.pop(
+                        (row["zone_id"], gap_id),
+                        {"gap_epoch_id": gap_id, "start_time": None, "end_time": None},
+                    )
+                    segment["end_time"] = row["source_event_time"]
+                    state["gap_segments"].append(segment)
             elif kind == "ZONE_SESSION_CLOSED":
-                lifecycle = ZoneLifecycle.SESSION_CLOSED.value
+                state["lifecycle"] = ZoneLifecycle.SESSION_CLOSED.value
+                state["source_end"] = row["source_event_time"]
             if row.get("current_relation") is not None:
-                relation = row["current_relation"]
-            states[row["zone_id"]] = lifecycle, relation
+                state["relation"] = row["current_relation"]
+        for (zone_id, _), segment in open_gaps.items():
+            states[zone_id]["gap_segments"].append(segment)
         checkpoints = self.store.fetch_rows(
             "big_trade_zone_state_checkpoints",
             where=f"zone_id IN ({placeholders})",
@@ -283,8 +306,7 @@ class BigTradesHistoryService:
             order_by="zone_id ASC, source_bucket_time ASC",
         )
         for row in checkpoints:
-            lifecycle, _ = states[row["zone_id"]]
-            states[row["zone_id"]] = lifecycle, row["current_relation"]
+            states[row["zone_id"]]["relation"] = row["current_relation"]
         return states
 
     def list_events(
@@ -364,7 +386,7 @@ class BigTradesHistoryService:
                     lifecycle is None
                     or (
                         event_zone.get(row["event_id"]) is not None
-                        and states[event_zone[row["event_id"]]][0] == lifecycle
+                        and states[event_zone[row["event_id"]]]["lifecycle"] == lifecycle
                     )
                 )
             ]
@@ -385,34 +407,8 @@ class BigTradesHistoryService:
         }
 
     def _lifecycle_and_relation(self, zone_id: str) -> tuple[str, Optional[str]]:
-        interactions = self.store.fetch_rows(
-            "big_trade_zone_interactions",
-            where="zone_id = ?",
-            parameters=(zone_id,),
-            order_by="source_event_time ASC, ordinal ASC, interaction_id ASC",
-        )
-        lifecycle = ZoneLifecycle.ACTIVE.value
-        relation = None
-        for row in interactions:
-            kind = row["interaction_type"]
-            if kind == "SOURCE_GAP_STARTED":
-                lifecycle = ZoneLifecycle.ACTIVE_WITH_GAP.value
-            elif kind == "SOURCE_GAP_ENDED":
-                lifecycle = ZoneLifecycle.ACTIVE.value
-            elif kind == "ZONE_SESSION_CLOSED":
-                lifecycle = ZoneLifecycle.SESSION_CLOSED.value
-            if row.get("current_relation") is not None:
-                relation = row["current_relation"]
-        checkpoints = self.store.fetch_rows(
-            "big_trade_zone_state_checkpoints",
-            where="zone_id = ?",
-            parameters=(zone_id,),
-            order_by="source_bucket_time DESC",
-            limit=1,
-        )
-        if checkpoints:
-            relation = checkpoints[0]["current_relation"]
-        return lifecycle, relation
+        state = self._zone_state_map((zone_id,))[zone_id]
+        return state["lifecycle"], state["relation"]
 
     def list_zones(
         self,
@@ -469,7 +465,9 @@ class BigTradesHistoryService:
                 continue
             if side is not None and row.get("origin_side") != side:
                 continue
-            actual_lifecycle, relation = states[row["zone_id"]]
+            state = states[row["zone_id"]]
+            actual_lifecycle = state["lifecycle"]
+            relation = state["relation"]
             latest = latest_assessments.get(row["zone_id"])
             actual_assessment = (
                 latest["assessment"] if latest else UserAssessmentValue.UNASSESSED.value
@@ -481,6 +479,8 @@ class BigTradesHistoryService:
             enriched = dict(row)
             enriched["lifecycle"] = actual_lifecycle
             enriched["current_relation"] = relation
+            enriched["zone_source_end"] = state["source_end"]
+            enriched["gap_segments"] = state["gap_segments"]
             enriched["latest_user_assessment"] = latest
             rows.append(enriched)
         rows = self._cursor_filter(
@@ -631,7 +631,9 @@ class BigTradesHistoryService:
             parameters=(zone_id,),
             order_by="source_bucket_time ASC",
         )
-        lifecycle, current_relation = self._lifecycle_and_relation(zone_id)
+        zone_state = self._zone_state_map((zone_id,))[zone_id]
+        lifecycle = zone_state["lifecycle"]
+        current_relation = zone_state["relation"]
         first_exit = next(
             (
                 row
@@ -668,6 +670,7 @@ class BigTradesHistoryService:
                 **zone,
                 "lifecycle": lifecycle,
                 "current_relation": current_relation,
+                "zone_source_end": zone_state["source_end"],
                 "final_relation": (
                     current_relation if lifecycle == ZoneLifecycle.SESSION_CLOSED.value else None
                 ),
@@ -694,6 +697,7 @@ class BigTradesHistoryService:
                 ),
             },
             "interaction_counts": dict(interaction_counts),
+            "interactions": interactions,
             "linked_event_summary": links,
             "horizon_snapshots": snapshots,
             "candle_observations": candles,
@@ -702,6 +706,7 @@ class BigTradesHistoryService:
                 key=lambda row: row["start_time"] or datetime.min.replace(tzinfo=UTC),
             ),
             "latest_user_assessment": assessments["latest"],
+            "user_assessment_history": assessments["assessments"],
             "latest_checkpoint": latest_checkpoint,
             "lineage_ids": {
                 "event_id": event["event_id"],

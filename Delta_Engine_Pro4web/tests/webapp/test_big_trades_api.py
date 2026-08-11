@@ -326,6 +326,8 @@ def test_rest_hydration_captures_stream_marker_before_committed_history(backend)
     }
     assert len(body["events"]) == 3
     assert len(body["zones"]) == 3
+    assert body["event_cursor"] is None
+    assert body["zone_cursor"] is None
 
 
 def test_bt2_w223_to_w228_zone_detail_and_lazy_orders(backend):
@@ -343,6 +345,8 @@ def test_bt2_w223_to_w228_zone_detail_and_lazy_orders(backend):
         "activation_id": first.zone["activation_id"],
         "logic_version": "BTLOGIC-2.0",
     }
+    assert [item["ordinal"] for item in body["interactions"]] == [1, 2]
+    assert body["user_assessment_history"] == []
     fills = client.get(
         f"/api/history/big-trades/events/{first.event['event_id']}/fills",
         params={"after_ordinal": 1},

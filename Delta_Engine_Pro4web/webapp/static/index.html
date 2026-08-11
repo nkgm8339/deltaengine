@@ -634,6 +634,52 @@ body:not(.phase5-fusion) #tape{display:none!important}
 #fpcanvas[hidden],#heatmapcanvas[hidden],#heatmaptooltip[hidden],#heatmapdetail[hidden],#heatmapstatus[hidden],#fpselection[hidden],#fpstatus[hidden],#fpcontrols[hidden],#heatmapcontrols[hidden],#hmgearpop[hidden],#modeHeatmap[hidden],#fptitle[hidden]{display:none!important}
 #heatmapstatus{position:static!important;left:auto!important;top:auto!important;pointer-events:auto!important;height:22px;min-height:22px;padding:4px 8px;border-top:1px solid #1D2A43;background:#070D18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
+<style id="big-trades-v2-ui">
+/* Big Trades is an isolated third central mode; protected outer geometry is unchanged. */
+#modeBigTrades[hidden],#btcontrols[hidden],#btworkspace[hidden],#btobservation[hidden]{display:none!important}
+#fpstage[hidden]{display:none!important}
+body.big-trades-mode #center>.panel:first-child>.phead{height:84px!important;min-height:84px!important;flex:0 0 84px!important;flex-wrap:wrap!important;align-content:center!important;padding:4px 10px!important}
+#btcontrols{order:10;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:center;gap:4px 6px;width:100%;min-width:0}
+.bt-control{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:3px;min-width:0;color:#7F8EAD;font:800 8px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;letter-spacing:.04em;white-space:nowrap}
+.bt-control input,.bt-control select,#btapply{width:100%;height:24px;min-width:0;padding:2px 4px;border:1px solid #344562;border-radius:4px;background:#09111F;color:#F1F5FF;font:800 10px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.bt-control input:disabled,.bt-control select:disabled{opacity:.42;color:#7F8EAD}.bt-control input::placeholder{color:#6E7B96}
+.bt-input-fixed{display:flex;align-items:center;height:24px;padding:0 5px;border:1px solid #273654;border-radius:4px;background:#070D18;color:#C9D3EA;overflow:hidden;text-overflow:ellipsis}
+.bt-toggle{height:24px;display:flex;align-items:center;gap:5px;padding:0 5px;border:1px solid #344562;border-radius:4px;background:#09111F;color:#F1F5FF}
+.bt-toggle input{width:auto;height:auto;margin:0;accent-color:#8B63E6}
+#btcal{height:24px;display:flex;align-items:center;color:#BBA6EE;overflow:hidden;text-overflow:ellipsis}
+#btapply{border-color:#8B63E6;background:#21163A;color:#D7C7FA;cursor:pointer}#btapply:disabled{opacity:.45;cursor:not-allowed}
+#btworkspace{display:grid;grid-template-columns:minmax(0,2fr) minmax(286px,1fr);flex:1;min-height:0;overflow:hidden;background:#060C16}
+#btchartarea{position:relative;min-width:0;min-height:0;overflow:hidden;border-right:1px solid #273654;background:#060C16}
+#btcanvas{position:absolute;inset:0 0 44px 0;display:block;width:100%;height:calc(100% - 44px);outline:none;touch-action:none;cursor:crosshair}
+#btcanvas:focus-visible{box-shadow:inset 0 0 0 1px #8B63E6}
+#bttooltip{position:absolute;z-index:7;width:250px;padding:7px 9px;border:1px solid #526482;border-radius:5px;background:#07101CF2;color:#F1F5FF;font:800 11px/1.42 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:pre-line;pointer-events:none;box-shadow:0 8px 24px #0009}
+#bttooltip[hidden]{display:none}
+#btstreamstatus,#btcanvasstatus{position:absolute;left:0;right:0;height:22px;padding:5px 8px;border-top:1px solid #1D2A43;background:#09111F;color:#AAB7CD;font:800 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#btstreamstatus{bottom:22px}#btcanvasstatus{bottom:0;background:#070D18}#btstreamstatus.warning,#btserverstatus.warning{color:#F4C542}
+#btserverstatus{margin-left:auto;color:#19C979;font:900 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#btdetail{min-width:0;min-height:0;padding:8px;overflow-y:auto;background:#08111F;scrollbar-width:thin}
+.bt-selected-title{color:#F4C542;font-size:9px;font-weight:900;letter-spacing:.08em;margin-bottom:6px}
+.bt-detail-section{margin:0 0 7px;padding:6px 7px;border:1px solid #20304B;border-radius:5px;background:#091321}
+.bt-detail-section h3{margin:0 0 4px;color:#8FA0BC;font-size:8px;letter-spacing:.08em}
+.bt-detail-row{display:grid;grid-template-columns:105px minmax(0,1fr);gap:6px;min-height:17px;align-items:start;font:700 9px/1.35 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+.bt-detail-row span{color:#7588A5}.bt-detail-row b{color:#E5ECFA;overflow-wrap:anywhere}
+.bt-system-facts{border-color:#275071;background:#0A192A}.bt-user-assessment{border-color:#594780;background:#18122C}
+#btassessmentcontrols{margin:0 0 7px;padding:7px;border:1px solid #594780;border-radius:5px;background:#18122C}
+#btassessmentcontrols label{display:block;margin-bottom:5px;color:#A891D8;font-size:8px;font-weight:900;letter-spacing:.06em}
+#btassessmentselect,#btassessmentnote{width:100%;margin-top:3px;padding:4px;border:1px solid #58477A;border-radius:4px;background:#0B1020;color:#E9E0FA;font:700 9px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}
+#btassessmentnote{min-height:48px;resize:vertical}#btassessmentsave{width:100%;height:25px;border:1px solid #8B63E6;border-radius:4px;background:#261A40;color:#DACCF7;font-size:9px;font-weight:900;cursor:pointer}
+#btassessmenthistory{max-height:70px;margin-top:6px;padding:5px;border-top:1px solid #463862;color:#AD9ACD;font:700 8px/1.45 "Cascadia Mono","JetBrains Mono",ui-monospace,monospace;white-space:pre-wrap;overflow:auto}
+body:not(.big-trades-mode) #btworkspace,body:not(.big-trades-mode) #btcontrols,body:not(.big-trades-mode) #btserverstatus{display:none!important}
+body.big-trades-mode #liveobservation{display:block!important}
+body.big-trades-mode #liveobservation>:not(#btobservation){display:none!important}
+#btobservation{display:flex;flex-direction:column;gap:8px;min-height:0;height:100%;overflow-y:auto}
+#btobservation header{display:flex;flex-direction:column;gap:3px;padding:4px;border-bottom:1px solid #20304B;color:#25B7E8;font-size:11px;letter-spacing:.04em}#btobservation header span{color:#70809D;font-size:8px}
+#btobservation section{padding:10px;border:1px solid #22324E;border-radius:7px;background:linear-gradient(145deg,#0D1729,#09111F)}
+#btobservation h3{margin:0 0 8px;color:#8D9BB7;font-size:9px;letter-spacing:.08em}#btobservation strong{font:900 17px "Cascadia Mono","JetBrains Mono",ui-monospace,monospace}#btobservation strong.buy{color:#19C979}#btobservation strong.sell{color:#FF4058}
+.bt-ob-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #182B43;color:#91A0BC;font-size:9px}.bt-ob-row:last-child{border-bottom:0}.bt-ob-row b{color:#E5ECFA;text-align:right;overflow-wrap:anywhere}
+.bt-ob-notice{margin-top:auto;padding:9px;border:1px solid #62501D;border-radius:6px;background:#251E07;color:#FFE28A;font-size:8px;line-height:1.5}
+@media(max-width:1450px){.bt-control input,.bt-control select,#btapply{font-size:9px;padding-left:2px;padding-right:2px}}
+</style>
 </head>
 <body class="notranslate">
 <div id="banner"></div>
@@ -764,7 +810,7 @@ body:not(.phase5-fusion) #tape{display:none!important}
     <div id="center">
       <div class="panel" style="flex:1;position:relative">
         <div class="phead">
-          <span class="ptitle" id="fptitle">FOOTPRINT CHART</span><span class="mode-switch" role="group" aria-label="Central chart mode"><button id="modeFootprint" class="mode-btn on" type="button">FOOTPRINT</button><button id="modeHeatmap" class="mode-btn" type="button">HEATMAP</button></span>
+          <span class="ptitle" id="fptitle">FOOTPRINT CHART</span><span class="mode-switch" role="group" aria-label="Central chart mode"><button id="modeFootprint" class="mode-btn on" type="button">FOOTPRINT</button><button id="modeHeatmap" class="mode-btn" type="button">HEATMAP</button><button id="modeBigTrades" class="mode-btn" type="button">BIG TRADES</button></span>
           <span class="ctl" id="fpcontrols">
             <span class="fp-control-label">JST</span>
             <span id="fpdomstatus" class="fp-control-label">DOM NO_SNAPSHOT · BID — · ASK — · SPREAD —</span>
@@ -782,11 +828,42 @@ body:not(.phase5-fusion) #tape{display:none!important}
             <button id="hmintensityminus" type="button" title="INTENSITY −" aria-label="Lower heat intensity">−</button><button id="hmintensityplus" type="button" title="INTENSITY +" aria-label="Raise heat intensity">+</button>
             <button id="hmbubbles" class="on" type="button">BUBBLES ON</button><button id="hmlock" class="on" type="button">LIVE LOCK</button><button id="hmgear" type="button" aria-expanded="false" aria-controls="hmgearpop">⚙</button>
           </span>
+          <span id="btserverstatus">DISABLED</span>
+          <span class="ctl" id="btcontrols" hidden>
+            <label class="bt-control">MODE<select id="btmode"><option value="MANUAL">MANUAL</option><option value="AUTOMATIC">AUTO</option></select></label>
+            <span class="bt-control">INPUT<span class="bt-input-fixed">AGGREGATE TRADES</span></span>
+            <label class="bt-control">SIDE<select id="btside"><option value="BOTH">BOTH</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
+            <label class="bt-control">MIN<input id="btmin" type="text" inputmode="decimal" maxlength="32" placeholder="—"></label>
+            <label class="bt-control">MAX · 0=OFF<input id="btmax" type="text" inputmode="decimal" maxlength="32" placeholder="—"></label>
+            <label class="bt-control">INTENSITY<select id="btintensity"><option>LOW</option><option selected>MEDIUM</option><option>STRONG</option></select></label>
+            <label class="bt-control">MARK AT<select id="btmark"><option value="START_PRICE">START</option><option value="LAST_PRICE">LAST</option><option value="VWAP_PRICE">VWAP</option></select></label>
+            <label class="bt-control">ZONES<select id="btzones"><option value="ON">ON</option><option value="OFF">OFF</option></select></label>
+            <label class="bt-control">STATE<select id="btstate"><option value="ACTIVE">ACTIVE</option><option value="ALL">ALL</option></select></label>
+            <span class="bt-control">CAL<span id="btcal">—</span></span>
+            <button id="btapply" type="button">APPLY</button>
+          </span>
         </div>
         <div id="fpgearpop" style="display:none;position:absolute;z-index:50;margin:4px 12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--sub)">
           <div>VA% <input id="fpvapct" type="number" min="30" max="95" value="70" style="width:56px;background:#0A0D12;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px"></div>
         </div>
         <div id="hmgearpop" hidden><label>MINIMUM BUBBLE NOTIONAL <input id="hmminnotional" type="number" min="0" step="100" value="0"></label><label>BEST BID / ASK LINES <input id="hmbidask" type="checkbox" checked></label><label>LAST PRICE LINE <input id="hmlast" type="checkbox" checked></label></div>
+        <div id="btworkspace" hidden>
+          <div id="btchartarea">
+            <canvas id="btcanvas" tabindex="0" role="img" aria-label="Big Trades aggregate events and reaction zones"></canvas>
+            <div id="bttooltip" role="tooltip" hidden></div>
+            <div id="btstreamstatus" role="status" aria-live="polite">STREAM — · SEQ 0 · DROP 0</div>
+            <div id="btcanvasstatus">LIVE LOCK · EVENTS 0/5000 · ZONES 0/5000 · INTERACTIONS 0/20000 · DPR — · RENDER P95 —</div>
+          </div>
+          <aside id="btdetail" aria-label="Selected Big Trades reaction zone detail">
+            <div id="btdetailfacts"><div class="bt-selected-title">SELECTED REACTION ZONE</div><section class="bt-detail-section"><h3>EFFORT</h3><div class="bt-detail-row"><span>VALUE</span><b>—</b></div></section><section class="bt-detail-section"><h3>RESULT</h3><div class="bt-detail-row"><span>VALUE</span><b>—</b></div></section></div>
+            <div id="btassessmentcontrols">
+              <label>USER ASSESSMENT<select id="btassessmentselect" disabled></select></label>
+              <label>NOTE · MAX 2000<textarea id="btassessmentnote" maxlength="2000" disabled></textarea></label>
+              <button id="btassessmentsave" type="button" disabled>APPEND ASSESSMENT</button>
+              <div id="btassessmenthistory">—</div>
+            </div>
+          </aside>
+        </div>
         <div id="fpstage"><canvas id="fpcanvas" tabindex="0" role="img" aria-label="Multi-bar Footprint Chart. BID is aggressive sell volume and ASK is aggressive buy volume."></canvas><canvas id="heatmapcanvas" tabindex="0" role="img" aria-label="Bookmap-style time by price resting-liquidity heatmap with aggressive trade bubbles" hidden></canvas><div id="fptooltip" hidden></div><div id="heatmaptooltip" role="tooltip" hidden></div></div>
         <div id="fpselection" role="status" aria-live="polite">SELECT A PRICE CELL · ARROW KEYS MOVE · ESC CLEAR</div>
         <div id="fpstatus">DISPLAY STEP AUTO · 20–40 PRICE ROWS · DPR — · RENDER P95 —</div>
@@ -907,6 +984,7 @@ body:not(.phase5-fusion) #tape{display:none!important}
     </div>
   </div>
   <aside id="liveobservation" class="panel" aria-label="Latest live market observation">
+    <div id="btobservation" hidden></div>
     <header class="lo-head">
       <span id="lotime">—</span>
       <span class="lo-label">LIVE OBSERVATION</span>
@@ -971,6 +1049,7 @@ body:not(.phase5-fusion) #tape{display:none!important}
 <script src="/static/time_sales.js"></script>
 <script src="/static/orderbook_heatmap.js"></script>
 <script src="/static/market_freshness.js"></script>
+<script src="/static/big_trades.js"></script>
 <script>
 "use strict";
 // ============================================================
@@ -995,6 +1074,7 @@ const fmt=(s,d=2)=>s==null?"—":Number(s).toFixed(d);
 const FP_ROW_H=22;                           // base footprint row height (px) @ zoom 1
 const HEATMAP_BOOK_ID=typeof DeltaOrderBookHeatmap!=="undefined"?DeltaOrderBookHeatmap:null;
 const MARKET_FRESHNESS_ID=typeof DeltaMarketFreshness!=="undefined"?DeltaMarketFreshness:null;
+const BIG_TRADES_ID=typeof DeltaBigTradesV2!=="undefined"?DeltaBigTradesV2:null;
 function fpTfSeconds(tf){                     // timeframe string → seconds (for elapsed)
   const m=/^(\d+)([smhd])$/.exec(tf||""); if(!m)return 60;
   return (+m[1])*({s:1,m:60,h:3600,d:86400}[m[2]]||60);
@@ -1017,7 +1097,7 @@ const S={
   vwapHistory:new Map(),liveBook:{sync_state:"NO_SNAPSHOT",bids:[],asks:[]},
   };
 const CHART={visible:80,offset:0,windowSec:30,drag:null,currentBars:[],currentFlows:[],currentEventBuckets:new Map(),totalBars:0,selectedTime:null,priceScale:null};
-let TAPE_UI=null,tapeHistoryLoading=false;
+let TAPE_UI=null,BIG_TRADES_UI=null,tapeHistoryLoading=false;
 
 // ---------------- WebSocket ----------------
 let ws=null, backoff=1000;
@@ -1136,6 +1216,8 @@ function handle(m){
       case "BAR_UPDATE": onBarUpdate(p); break;
       case "BOOK_UPDATE": if(PHASE5_FUSION_ENABLED)onBookUpdate(p); break;
       case "TAPE_UPDATE": if(PHASE5_FUSION_ENABLED)onTapeUpdate(m,p); break;
+      case "BIG_TRADES_STATUS": if(BIG_TRADES_UI)BIG_TRADES_UI.ingestStatus(m); break;
+      case "BIG_TRADES_UPDATE": if(BIG_TRADES_UI)BIG_TRADES_UI.ingestUpdate(m); break;
       default: break; // 未知typeは破棄（前方互換）
     }
     expireAbsorptionState();
@@ -2510,54 +2592,76 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
   document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!backdrop.hidden)setOpen(false);});
 })();
 
-// Bookmap-style Heatmap presentation gate. Existing Footprint state is never reset.
-(function setupHeatmapMode(){
-  const footprintButton=$("modeFootprint"),heatmapButton=$("modeHeatmap"),fpCanvas=$("fpcanvas"),heatCanvas=$("heatmapcanvas");
-  const fpControls=$("fpcontrols"),heatControls=$("heatmapcontrols"),fpSelection=$("fpselection"),fpStatus=$("fpstatus");
-  const heatDetail=$("heatmapdetail"),heatStatus=$("heatmapstatus"),heatTooltip=$("heatmaptooltip");
-  if(!footprintButton||!heatmapButton||!heatCanvas||!HEATMAP_BOOK_ID)return;
-  if(!ORDER_BOOK_HEATMAP_ENABLED){
-    heatmapButton.hidden=true;heatCanvas.hidden=true;heatControls.hidden=true;heatDetail.hidden=true;heatStatus.hidden=true;
-    fpCanvas.hidden=false;fpControls.hidden=false;fpSelection.hidden=false;fpStatus.hidden=false;
-    return;
+// Three independent central views. Switching does not reset another view's state.
+(function setupCentralModes(){
+  const footprintButton=$("modeFootprint"),heatmapButton=$("modeHeatmap"),bigButton=$("modeBigTrades");
+  const fpStage=$("fpstage"),fpCanvas=$("fpcanvas"),heatCanvas=$("heatmapcanvas"),btWorkspace=$("btworkspace");
+  const fpControls=$("fpcontrols"),heatControls=$("heatmapcontrols"),btControls=$("btcontrols"),fpSelection=$("fpselection"),fpStatus=$("fpstatus");
+  const heatDetail=$("heatmapdetail"),heatStatus=$("heatmapstatus"),heatTooltip=$("heatmaptooltip"),btObservation=$("btobservation");
+  if(!footprintButton||!heatmapButton||!bigButton||!fpCanvas||!heatCanvas||!btWorkspace)return;
+
+  if(!ORDER_BOOK_HEATMAP_ENABLED)heatmapButton.hidden=true;
+  const heatEnabled=!!(ORDER_BOOK_HEATMAP_ENABLED&&HEATMAP_BOOK_ID);
+  heatmapButton.hidden=!heatEnabled;
+  let bookStore=null,tradeStore=null,chart=null;
+  if(heatEnabled){
+    bookStore=new HEATMAP_BOOK_ID.HeatmapBookStore({maxAgeMs:3600000,maxFrames:36000,maxGaps:4096});
+    tradeStore=new HEATMAP_BOOK_ID.HeatmapTradeStore({maxAgeMs:900000,capacity:100000,maxMarkers:1024});
+    chart=new HEATMAP_BOOK_ID.OrderBookHeatmapCanvas({
+      canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.marketFresh?S.price:null,getPreviousDayLevels:()=>S.previousDayLevels,
+      onTradeSelect:trade=>{if(!TAPE_UI||!trade)return;const hit=TAPE_UI.store.trades.find(item=>String(item.tradeId)===String(trade.tradeId));if(hit)TAPE_UI.selectTrade(hit,true);else TAPE_UI.markSelectionError("TRADE OUTSIDE TAPE RETENTION");},
+    });
   }
-  const bookStore=new HEATMAP_BOOK_ID.HeatmapBookStore({maxAgeMs:3600000,maxFrames:36000,maxGaps:4096});
-  const tradeStore=new HEATMAP_BOOK_ID.HeatmapTradeStore({maxAgeMs:900000,capacity:100000,maxMarkers:1024});
-  const chart=new HEATMAP_BOOK_ID.OrderBookHeatmapCanvas({
-    canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.marketFresh?S.price:null,getPreviousDayLevels:()=>S.previousDayLevels,
-    onTradeSelect:trade=>{if(!TAPE_UI||!trade)return;const hit=TAPE_UI.store.trades.find(item=>String(item.tradeId)===String(trade.tradeId));if(hit)TAPE_UI.selectTrade(hit,true);else TAPE_UI.markSelectionError("TRADE OUTSIDE TAPE RETENTION");},
-  });
-  const api={enabled:true,bookStore,tradeStore,store:bookStore,chart,mode:"FOOTPRINT",
-    ingest(payload){return chart.ingestBook(payload,S.marketTime||Date.now());},
-    ingestBook(payload){return chart.ingestBook(payload,Date.now());},
-    ingestTrades(trades,context){return chart.ingestTrades(trades,S.marketTime||Date.now(),context);},
-    recordTapeContinuity(result,streamId){chart.recordTapeContinuity(result,streamId,S.marketTime||Date.now());},
-    setConnected(value,atMs){chart.setConnected(value,atMs);},
-    focusTrade(trade){return chart.focusTrade(trade);},
-    metrics(){return chart.metrics();},
+  const api={enabled:heatEnabled,bookStore,tradeStore,store:bookStore,chart,mode:"FOOTPRINT",
+    ingest(payload){return chart?chart.ingestBook(payload,S.marketTime||Date.now()):null;},
+    ingestBook(payload){return chart?chart.ingestBook(payload,Date.now()):null;},
+    ingestTrades(trades,context){return chart?chart.ingestTrades(trades,S.marketTime||Date.now(),context):null;},
+    recordTapeContinuity(result,streamId){if(chart)chart.recordTapeContinuity(result,streamId,S.marketTime||Date.now());},
+    setConnected(value,atMs){if(chart)chart.setConnected(value,atMs);},
+    focusTrade(trade){return chart?chart.focusTrade(trade):false;},
+    metrics(){return chart?chart.metrics():{};},
     setMode,
   };
   window.HEATMAP_UI=api;
-  function setMode(mode){
-    const heat=mode==="HEATMAP";api.mode=heat?"HEATMAP":"FOOTPRINT";
-    footprintButton.classList.toggle("on",!heat);heatmapButton.classList.toggle("on",heat);
-    fpCanvas.hidden=heat;heatCanvas.hidden=!heat;fpControls.hidden=heat;heatControls.hidden=!heat;
-    fpSelection.hidden=heat;fpStatus.hidden=heat;heatDetail.hidden=!heat;heatStatus.hidden=!heat;
-    $("fptitle").hidden=heat;$("fptitle").textContent="FOOTPRINT CHART";
-    chart.setVisible(heat);if(heat)heatCanvas.focus({preventScroll:true});
+
+  const bigEnabled=!!BIG_TRADES_ID;
+  bigButton.hidden=!bigEnabled;
+  if(bigEnabled){
+    BIG_TRADES_UI=new BIG_TRADES_ID.BigTradesUI({
+      canvas:$("btcanvas"),tooltip:$("bttooltip"),detail:$("btdetailfacts"),observation:btObservation,
+      streamStatus:$("btstreamstatus"),serverStatus:$("btserverstatus"),canvasStatus:$("btcanvasstatus"),
+      controls:{mode:$("btmode"),side:$("btside"),min:$("btmin"),max:$("btmax"),intensity:$("btintensity"),mark:$("btmark"),zones:$("btzones"),state:$("btstate"),cal:$("btcal"),apply:$("btapply")},
+      assessmentSelect:$("btassessmentselect"),assessmentNote:$("btassessmentnote"),assessmentSave:$("btassessmentsave"),assessmentHistory:$("btassessmenthistory"),
+      candlesProvider:()=>marketBars(),
+      contextProvider:()=>{const bar=marketBars().at(-1)||null,flow=(S.flowResponse||[]).find(row=>Number(row.window_sec)===CHART.windowSec)||null;return {cvd:bar?bar.cvd:null,delta:bar?bar.delta:null,volume:bar?bar.volume:null,flowResponse:flow?flow.state:null,absorption:ABS?ABS.classification:null,imbalance:S.analysis&&S.analysis.imbalance?"AVAILABLE":null};},
+    });
+    window.BIG_TRADES_UI=BIG_TRADES_UI;
   }
-  footprintButton.onclick=()=>setMode("FOOTPRINT");heatmapButton.onclick=()=>setMode("HEATMAP");
-  for(const [id,duration] of [["hm1m",60000],["hm5m",300000],["hm15m",900000],["hm30m",1800000],["hm1h",3600000]])$(id).onclick=()=>{
-    chart.setViewMs(duration);for(const key of ["hm1m","hm5m","hm15m","hm30m","hm1h"])$(key).classList.toggle("on",key===id);$("hmlock").textContent="LIVE LOCK";$("hmlock").classList.add("on");
-  };
-  $("hmstep").onchange=event=>chart.setStep(event.target.value);
-  $("hmintensityminus").onclick=()=>chart.adjustIntensity(-.25);$("hmintensityplus").onclick=()=>chart.adjustIntensity(.25);
-  $("hmbubbles").onclick=()=>{const on=chart.toggleBubbles();$("hmbubbles").textContent=on?"BUBBLES ON":"BUBBLES OFF";$("hmbubbles").classList.toggle("on",on);};
-  $("hmlock").onclick=()=>{const locked=chart.toggleLiveLock();$("hmlock").textContent=locked?"LIVE LOCK":"HISTORY LOCK";$("hmlock").classList.toggle("on",locked);};
-  $("hmgear").onclick=()=>{const open=$("hmgearpop").hidden;$("hmgearpop").hidden=!open;$("hmgear").setAttribute("aria-expanded",open?"true":"false");};
-  $("hmminnotional").onchange=event=>{chart.minimumNotional=Math.max(0,Number(event.target.value)||0);chart.requestDraw(true);};
-  $("hmbidask").onchange=event=>{chart.showBidAsk=event.target.checked;chart.requestDraw(true);};
-  $("hmlast").onchange=event=>{chart.showLast=event.target.checked;chart.requestDraw(true);};
+
+  function setMode(mode){
+    const big=mode==="BIG_TRADES"&&bigEnabled,heat=mode==="HEATMAP"&&heatEnabled;
+    api.mode=big?"BIG_TRADES":heat?"HEATMAP":"FOOTPRINT";
+    footprintButton.classList.toggle("on",!heat&&!big);heatmapButton.classList.toggle("on",heat);bigButton.classList.toggle("on",big);
+    fpStage.hidden=big;fpCanvas.hidden=heat;heatCanvas.hidden=!heat;if(big)fpCanvas.hidden=true;btWorkspace.hidden=!big;
+    fpControls.hidden=heat||big;heatControls.hidden=!heat;btControls.hidden=!big;
+    fpSelection.hidden=heat||big;fpStatus.hidden=heat||big;heatDetail.hidden=!heat;heatStatus.hidden=!heat;
+    $("fptitle").hidden=heat;$("fptitle").textContent=big?"BIG TRADES":"FOOTPRINT CHART";
+    document.body.classList.toggle("big-trades-mode",big);btObservation.hidden=!big;
+    if(chart)chart.setVisible(heat);if(BIG_TRADES_UI)BIG_TRADES_UI.setActive(big);
+    if(heat)heatCanvas.focus({preventScroll:true});else if(big)$("btcanvas").focus({preventScroll:true});
+  }
+  footprintButton.onclick=()=>setMode("FOOTPRINT");heatmapButton.onclick=()=>setMode("HEATMAP");bigButton.onclick=()=>setMode("BIG_TRADES");
+  if(chart){
+    for(const [id,duration] of [["hm1m",60000],["hm5m",300000],["hm15m",900000],["hm30m",1800000],["hm1h",3600000]])$(id).onclick=()=>{chart.setViewMs(duration);for(const key of ["hm1m","hm5m","hm15m","hm30m","hm1h"])$(key).classList.toggle("on",key===id);$("hmlock").textContent="LIVE LOCK";$("hmlock").classList.add("on");};
+    $("hmstep").onchange=event=>chart.setStep(event.target.value);
+    $("hmintensityminus").onclick=()=>chart.adjustIntensity(-.25);$("hmintensityplus").onclick=()=>chart.adjustIntensity(.25);
+    $("hmbubbles").onclick=()=>{const on=chart.toggleBubbles();$("hmbubbles").textContent=on?"BUBBLES ON":"BUBBLES OFF";$("hmbubbles").classList.toggle("on",on);};
+    $("hmlock").onclick=()=>{const locked=chart.toggleLiveLock();$("hmlock").textContent=locked?"LIVE LOCK":"HISTORY LOCK";$("hmlock").classList.toggle("on",locked);};
+    $("hmgear").onclick=()=>{const open=$("hmgearpop").hidden;$("hmgearpop").hidden=!open;$("hmgear").setAttribute("aria-expanded",open?"true":"false");};
+    $("hmminnotional").onchange=event=>{chart.minimumNotional=Math.max(0,Number(event.target.value)||0);chart.requestDraw(true);};
+    $("hmbidask").onchange=event=>{chart.showBidAsk=event.target.checked;chart.requestDraw(true);};
+    $("hmlast").onchange=event=>{chart.showLast=event.target.checked;chart.requestDraw(true);};
+  }
   setMode("FOOTPRINT");
 })();
 // footprint controls
