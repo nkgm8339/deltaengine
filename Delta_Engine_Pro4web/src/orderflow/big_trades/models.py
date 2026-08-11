@@ -10,6 +10,7 @@ from typing import Any, Optional
 from .constants import (
     AGGREGATION_CANDLE_TIMEFRAME,
     AGGREGATION_WINDOW_MS,
+    ASSESSMENT_NOTE_MAX_LENGTH,
     INPUT_MODE_AGGREGATE_TRADES,
     LOGIC_VERSION,
     AutomaticIntensity,
@@ -22,6 +23,7 @@ from .constants import (
     PriceRelation,
     SideFilter,
     SnapshotValidity,
+    UserAssessmentValue,
     ZoneLifecycle,
 )
 from .time_buckets import candle_id, event_time_ms, require_aware_utc, session_id, source_key
@@ -495,3 +497,40 @@ class UserAssessment:
     user_note: Optional[str]
     supersedes_assessment_id: Optional[str]
     content_hash: str
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        zone_id: str,
+        assessment: UserAssessmentValue | str,
+        assessed_at_utc: datetime,
+        assessed_against_source_time: datetime,
+        user_note: Optional[str] = None,
+        supersedes_assessment_id: Optional[str] = None,
+    ) -> "UserAssessment":
+        from .ids import assessment_id_for_payload, content_hash
+
+        if not zone_id:
+            raise ValueError("zone_id must be non-empty")
+        if user_note is not None and len(user_note) > ASSESSMENT_NOTE_MAX_LENGTH:
+            raise ValueError(
+                f"user_note must be <= {ASSESSMENT_NOTE_MAX_LENGTH} characters"
+            )
+        payload = {
+            "zone_id": zone_id,
+            "assessment": UserAssessmentValue(assessment).value,
+            "assessed_at_utc": require_aware_utc(assessed_at_utc, "assessed_at_utc"),
+            "assessed_against_source_time": require_aware_utc(
+                assessed_against_source_time,
+                "assessed_against_source_time",
+            ),
+            "user_note": user_note,
+            "supersedes_assessment_id": supersedes_assessment_id,
+        }
+        identifier = assessment_id_for_payload(payload)
+        return cls(
+            assessment_id=identifier,
+            content_hash=content_hash({"assessment_id": identifier, **payload}),
+            **payload,
+        )

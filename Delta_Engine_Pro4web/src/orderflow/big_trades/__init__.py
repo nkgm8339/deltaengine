@@ -32,6 +32,7 @@ from .constants import (
     PriceRelation,
     SideFilter,
     SnapshotValidity,
+    UserAssessmentValue,
     ZoneLifecycle,
 )
 from .filtering import AutomaticSizeFilter, ManualSizeFilter
@@ -44,6 +45,7 @@ from .models import (
     ExecutionCluster,
     ReactionZone,
     ResultSnapshot,
+    UserAssessment,
     ZoneCandleObservation,
     ZoneEventLink,
     ZoneInteraction,
@@ -87,6 +89,8 @@ __all__ = [
     "SessionStatsBuilder",
     "SourceConfirmedSessionTracker",
     "SnapshotValidity",
+    "UserAssessment",
+    "UserAssessmentValue",
     "ZoneCandleObservation",
     "ZoneCandleObserver",
     "ZoneEventLink",

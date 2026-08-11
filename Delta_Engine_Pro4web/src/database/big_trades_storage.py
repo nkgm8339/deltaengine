@@ -480,6 +480,10 @@ class BigTradesDuckDbStore:
         offered_calibrations = {
             row["calibration_id"] for row in table_rows.get("big_trade_calibrations", ())
         }
+        offered_assessments = {
+            row["assessment_id"]: row
+            for row in table_rows.get("big_trade_user_assessments", ())
+        }
 
         def event_exists(event_id: str) -> bool:
             return event_id in offered_events or self._identity_exists(
@@ -509,6 +513,27 @@ class BigTradesDuckDbStore:
                     raise BigTradesStorageIntegrityError(
                         f"{table_name} references a missing zone"
                     )
+        for row in table_rows.get("big_trade_user_assessments", ()):
+            supersedes = row.get("supersedes_assessment_id")
+            if supersedes is None:
+                continue
+            prior = offered_assessments.get(supersedes)
+            if prior is None:
+                result = self._con.execute(
+                    "SELECT zone_id FROM big_trade_user_assessments WHERE assessment_id = ?",
+                    [supersedes],
+                ).fetchone()
+                prior_zone_id = result[0] if result is not None else None
+            else:
+                prior_zone_id = prior["zone_id"]
+            if prior_zone_id is None:
+                raise BigTradesStorageIntegrityError(
+                    "assessment supersedes a missing assessment"
+                )
+            if prior_zone_id != row["zone_id"]:
+                raise BigTradesStorageIntegrityError(
+                    "assessment supersedes an assessment from another zone"
+                )
         for row in table_rows.get("big_trade_zone_event_links", ()):
             if not zone_exists(row["zone_id"]):
                 raise BigTradesStorageIntegrityError("zone link references a missing zone")
@@ -675,6 +700,7 @@ class BigTradesDuckDbStore:
         where: str = "",
         parameters: Iterable[Any] = (),
         order_by: str = "",
+        limit: Optional[int] = None,
     ) -> tuple[dict[str, Any], ...]:
         if table_name not in BIG_TRADES_ARROW_SCHEMAS and table_name != "big_trades_schema_meta":
             raise ValueError("unknown Big Trades table")
@@ -683,6 +709,11 @@ class BigTradesDuckDbStore:
             sql += f" WHERE {where}"
         if order_by:
             sql += f" ORDER BY {order_by}"
+        if limit is not None:
+            if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+                raise ValueError("limit must be a positive integer")
+            sql += " LIMIT ?"
+            parameters = (*tuple(parameters), limit)
         with self._lock:
             cursor = self._con.execute(sql, list(parameters))
             names = [item[0] for item in cursor.description]

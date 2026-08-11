@@ -192,6 +192,7 @@ class PushBroker:
         self._latest_absorption_message: dict | None = None
         self._latest_tick_message: dict | None = None
         self._latest_spot_message: dict | None = None
+        self._latest_big_trades_status_message: dict | None = None
         self.book_stream_id = str(uuid4())
         self.book_updates_broadcast = 0
         self.tape_batches_broadcast = 0
@@ -208,6 +209,7 @@ class PushBroker:
                 if self._closed or ws in self._clients:
                     return
                 cached = (
+                    self._latest_big_trades_status_message,
                     self._latest_tick_message,
                     self._latest_spot_message,
                     self._latest_hfm_message,
@@ -868,3 +870,35 @@ class PushBroker:
     async def send_stats(self, event_time: datetime, stats: dict) -> None:
         await self._broadcast(envelope("STATS", event_time, self.symbol,
                                        {k: str(v) for k, v in stats.items()}))
+
+    async def on_big_trades_update(self, message: dict[str, Any]) -> None:
+        """Broadcast one strictly validated batch of committed records."""
+
+        from webapp.big_trades_protocol import validate_big_trades_update
+
+        validate_big_trades_update(message)
+        if message["symbol"] != self.symbol:
+            raise ValueError("BIG_TRADES_UPDATE symbol mismatch")
+        await self._broadcast(message)
+
+    async def on_big_trades_status(
+        self,
+        status: str,
+        *,
+        event_time: datetime | None = None,
+        reason: str | None = None,
+        counters: dict[str, Any] | None = None,
+    ) -> None:
+        """Cache status so reconnecting clients receive it before snapshots."""
+
+        from webapp.big_trades_protocol import build_big_trades_status
+
+        message = build_big_trades_status(
+            symbol=self.symbol,
+            status=status,
+            event_time=event_time or datetime.now(timezone.utc),
+            reason=reason,
+            counters=counters,
+        )
+        self._latest_big_trades_status_message = message
+        await self._broadcast(message)

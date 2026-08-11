@@ -2,14 +2,15 @@
 
 ## Current checkpoint
 
-- 更新時刻: 2026-08-12 03:24:38 JST
-- current phase: 工程3 storage／Live／Replay実装・回帰gate完了、commit直前
+- 更新時刻: 2026-08-12 03:59:35 JST
+- current phase: 工程4 WebSocket／API完了、工程4 commit直前
 - user承認: 2026-08-12「GO」
 - 承認範囲: V2実装指示書§60～§66、工程1～7
 - branch: `feature/big-trades-v1`
 - 工程1開始HEAD: `9fd7d6ffbb0eee3be50a7dd89c7e1670233042cb`
 - 工程1完了commit: `23128fc`
 - 工程2完了commit: `bd7dd38`
+- 工程3完了commit: `20b5c54`
 - restore tag: `pre-big-trades-20260811`
 - restore tag object: `8e81cb389d459afa68bb5a85bbe4e593d7bfe19b`
 - feature flag: `big_trades.enabled: false`、pipelineは明示注入時だけ接続、production生成なし
@@ -92,10 +93,30 @@
 - pipeline終了はnormalizer flush後にBig Tradesを`STREAM_ENDED` flushし、専用writerの全ackを回収してから既存storage closeへ進む。
 - production DB、production Parquet、稼働containerへmigration／restart／writeを行っていない。
 
+### 工程4 WebSocket／API
+
+- `BigTradesBatcherV2`を一つのUUID stream、sequence 1開始、100ms／200 records、pending 10,000、drop-oldestで実装した。
+- runtimeのcommitted `RuntimeRecord`だけを受け付け、closed kind、record ID／content hash一致、source key＋record precedenceを検証する。
+- DecimalをJSON string、count／sequence／millisecondsをboolean不可のintegerとしてstrict serialize／validateする。
+- overflow／send failureでsequenceを詰め直さず、次batchのgapと`dropped_count`をbrowserへ明示する。
+- `BIG_TRADES_STATUS`全enumを実装し、PushBroker reconnect cacheの先頭に最新statusを送る。
+- DuckDB＋committed recent ringのevent／zone historyをsame ID／same hash dedup、different hash collisionで実装した。
+- exclusive source time＋ID cursorをDuckDB queryへ反映し、各pageをoldest-firstで返す。
+- zone lifecycle／relation／latest assessmentを一括queryで導出し、最大5,000件でzone単位N+1 queryを発生させない。
+- zone detailへorigin、fill summary、bounds／lifecycle／relation、first exit、excursion、interaction counts、links、horizons、candles、gaps、assessment、checkpoint、全lineage IDを実装した。
+- fill／interaction／link／snapshot／candle／assessment lazy endpointを独立し、指定ordinal／horizon／candle orderを固定した。
+- user assessment closed enum、note 2,000文字上限、timezone-aware source time、same-zone supersedes存在をtransaction内でも再検証し、append／supersedeだけを許可した。
+- assessmentはDuckDB commit成功後だけ`USER_ASSESSMENT`としてstreamへ公開し、idempotent duplicateは再公開しない。
+- settings PUTをstrict body／Decimal stringでimmutable settings＋append-only requestへ保存し、HTTP時点では`PENDING`、activation boundaryは`NEXT_SOURCE_SESSION`とした。
+- calibration list／detail／manual activate、immutable activation list／detailを実装した。calibration activateもactive versionをHTTP時点で変更せずpending settings requestへ変換する。
+- REST hydrationはhistory queryより前にstream markerを取得し、commit済みsnapshotと`stream_id／last_admitted_sequence／dropped_count`を返す。
+- dedicated health endpointと明示4xx／5xx error envelopeを実装した。
+- `main.py`はfeature falseのdisabled backend／statusだけを登録し、production Big Trades storeを生成しない。
+
 ## 未完了
 
-- 工程3: commitだけ未実行。実装・回帰gateは完了。
-- 工程4: WebSocket／API。
+- 工程3: 完了、commit `20b5c54`。
+- 工程4: 完了、commit待ち。
 - 工程5: 承認済みstatic mockに従うUI。
 - 工程6: integration／performance／soak。
 - 工程7: production activation。
@@ -173,6 +194,23 @@
 - `Delta_Engine_Pro4web/tests/orderflow/test_big_trades_runtime.py`
 - `Delta_Engine_Pro4web/tests/test_big_trades_pipeline.py`
 
+### 工程4追加／変更
+
+- `Delta_Engine_Pro4web/webapp/big_trades_protocol.py`
+- `Delta_Engine_Pro4web/webapp/big_trades_history.py`
+- `Delta_Engine_Pro4web/webapp/big_trades_backend.py`
+- `Delta_Engine_Pro4web/webapp/big_trades_api.py`
+- `Delta_Engine_Pro4web/webapp/push_broker.py`
+- `Delta_Engine_Pro4web/webapp/main.py`
+- `Delta_Engine_Pro4web/src/database/big_trades_storage.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/constants.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/ids.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/models.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/artifacts.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/__init__.py`
+- `Delta_Engine_Pro4web/tests/webapp/test_big_trades_protocol.py`
+- `Delta_Engine_Pro4web/tests/webapp/test_big_trades_api.py`
+
 ## 検証結果
 
 - `python -m pytest tests/orderflow -k big_trades -q`: `67 passed, 195 deselected in 4.48s`。
@@ -187,6 +225,15 @@
 - 工程3runtime＋既存Big Trades core: `108 passed, 195 deselected in 14.34s`。
 - 工程3pipeline Live／Replay: `3 passed in 4.44s`。
 - 工程3統合回帰`tests/orderflow tests/database`＋pipeline／config関連: `464 passed in 34.08s`。
+- 工程4 WebSocket protocol＋既存PushBroker: `41 passed in 3.67s`。
+- 工程4 API／history／storage target: `24 passed in 11.90s`。
+- 工程4 API／protocol／storage／artifact target: `46 passed in 13.20s`。
+- 既存API／history／PushBrokerを含むWebApp target: `74 passed in 11.08s`。
+- WebApp全体: `214 passed, 1 failed in 23.43s`。failureは工程0既知の`test_fixed_fusion_layout_keeps_indicators_and_removes_old_book_presentation` selector不一致だけ。
+- 工程4統合回帰（orderflow、database、pipeline、config、WebApp、既知1件除外）: `679 passed, 1 deselected in 54.15s`。
+- 工程4最終API／protocol target: `14 passed in 7.56s`。
+- `python -m compileall -q webapp src/orderflow/big_trades src/database`: PASS。
+- `git diff --check`: whitespace error 0（既存CRLF変換warningだけ）。
 - Live／Replay同一fixtureでevent／fills／zone／interactionの全row一致: PASS。
 - ack前publication 0、ack後`EVENT_CREATED → ZONE_CREATED`: PASS。
 - origin途中failureの全table rollback、queue full明示failed ack、Parquet manifest欠損非正本: PASS。
@@ -206,11 +253,12 @@
 - 工程1: なし、完了。
 - 工程2: なし、完了。
 - 工程3: なし、実装・回帰gate完了。
+- 工程4: なし、実装・回帰gate完了。BT2-W219 browser invalid payload rejectionはbackend-only工程4ではUIへ接続せず、工程5のdedicated browser adapter試験で実施する。
 - 工程7 activation: production Manual Min／Maxと初期modeの確定が必要。
 - 開始前runtimeのmemory RED、syncing、Tape gapはpure coreのblockerではない。工程6／7でbaselineとの差分判定対象とする。
 
 ## 次の再開位置
 
-1. 工程3変更だけを選別してcommitする。user既存untracked fileは含めない。
-2. 工程4 WebSocket／APIへ進み、committed RuntimeRecordだけをunified streamとhistoryへ接続する。
-3. feature flagはfalseのまま維持し、production DBをmigrationしない。
+1. 工程4対象fileとcheckpointだけをstageし、工程4commitを作成する。
+2. 工程5開始前checkpointへ更新し、承認済みstatic mockをそのままlayout正本として読む。
+3. Big Trades第3modeのUI、browser strict protocol／gap recovery、settings／assessment表示を実装する。feature flagはfalse、production DB migration／container restartは行わない。

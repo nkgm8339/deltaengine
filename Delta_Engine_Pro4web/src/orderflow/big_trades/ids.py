@@ -124,3 +124,7 @@ def candle_observation_id(zone_id: str, candle_identifier: int) -> str:
 
 def checkpoint_id(zone_id: str, source_bucket_time: datetime) -> str:
     return "btcp2_" + sha256_hex(f"BTCP2|{zone_id}|{utc_text(source_bucket_time)}")
+
+
+def assessment_id_for_payload(payload: Mapping[str, Any]) -> str:
+    return "btassess2_" + sha256_hex("BTASSESS2|" + canonical_json(payload))

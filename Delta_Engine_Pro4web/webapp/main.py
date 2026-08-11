@@ -65,6 +65,8 @@ from webapp.history import (
     query_time_sales,
 )
 from webapp.version import resolve_version
+from webapp.big_trades_api import install_big_trades_api
+from webapp.big_trades_backend import BigTradesBackend
 
 logger = logging.getLogger("webapp.main")
 
@@ -211,6 +213,22 @@ async def lifespan(app: FastAPI):
     if heatmap_replay_enabled:
         ensure_replay_source(heatmap_replay_dir)
     broker = _build_broker(config, persistent_writer)
+    big_trades_config = getattr(config, "big_trades", None)
+    quantity_step = getattr(big_trades_config, "quantity_step", "0.001")
+    if not isinstance(quantity_step, (str, int, Decimal)):
+        quantity_step = "0.001"
+    # Phase 4 installs the backend surface while the production feature flag
+    # remains false.  No Big Trades store is constructed, so this cannot
+    # migrate or write the production DuckDB.
+    big_trades_backend = BigTradesBackend.disabled(
+        symbol=config.market.symbol,
+        venue="BINANCE",
+        quantity_step=quantity_step,
+    )
+    await broker.on_big_trades_status(
+        "DISABLED",
+        reason="big_trades.enabled is false",
+    )
     context_observer = CombinedContextObserver(config.market.symbol)
     shadow_recorder = ShadowSignalRecorder(Path("data_05M/manual/flow_response_shadow.jsonl"))
     hook_capture = None
@@ -443,6 +461,7 @@ async def lifespan(app: FastAPI):
     app.state.context_observer = context_observer
     app.state.hook_capture = hook_capture
     app.state.hook_capture_error = hook_capture_error
+    app.state.big_trades_backend = big_trades_backend
 
     if config.replay.enabled:
         market_push_task = None
@@ -762,6 +781,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="DeltaEngine05M WebApp", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+install_big_trades_api(app)
 
 
 @app.get("/")

@@ -57,6 +57,7 @@ from .time_buckets import require_aware_utc, session_end, session_id, session_st
 SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]+$")
 SAFE_IDENTIFIERS = {
     "settings": re.compile(r"^bts1_[0-9a-f]{64}$"),
+    "settings_request": re.compile(r"^btsreq1_[0-9a-f]{64}$"),
     "calibration": re.compile(r"^btcal1_[0-9a-f]{64}$"),
     "activation": re.compile(r"^bta1_[0-9a-f]{64}$"),
     "schedule_run": re.compile(r"^btrun1_[0-9a-f]{64}$"),
@@ -856,6 +857,63 @@ class BigTradesArtifactRepository:
         raw = self._read_json(self.settings_root / "versions" / f"{identifier}.json")
         return SettingsVersion.from_artifact(raw)
 
+    def list_settings_versions(self) -> tuple[SettingsVersion, ...]:
+        directory = self.settings_root / "versions"
+        if not directory.exists():
+            return ()
+        versions = []
+        for path in sorted(directory.glob("*.json")):
+            if not SAFE_IDENTIFIERS["settings"].fullmatch(path.stem):
+                raise ArtifactIntegrityError(f"invalid settings artifact filename: {path.name}")
+            version = self.load_settings_version(path.stem)
+            if version.settings_id != path.stem:
+                raise ArtifactIntegrityError("settings filename and ID mismatch")
+            versions.append(version)
+        return tuple(sorted(versions, key=lambda item: item.settings_id))
+
+    def list_settings_requests(self) -> tuple[SettingsRequest, ...]:
+        directory = self.settings_root / "history"
+        if not directory.exists():
+            return ()
+        requests = []
+        for path in sorted(directory.glob("*.json")):
+            if not SAFE_IDENTIFIERS["settings_request"].fullmatch(path.stem):
+                raise ArtifactIntegrityError(
+                    f"invalid settings request artifact filename: {path.name}"
+                )
+            request = SettingsRequest.from_artifact(self._read_json(path))
+            if request.request_id != path.stem:
+                raise ArtifactIntegrityError("settings request filename and ID mismatch")
+            requests.append(request)
+        return tuple(
+            sorted(requests, key=lambda item: (item.requested_at_utc, item.request_id))
+        )
+
+    def load_pending_settings(
+        self,
+        *,
+        symbol: str,
+        venue: str,
+        input_mode: str = INPUT_MODE_AGGREGATE_TRADES,
+    ) -> tuple[SettingsRequest, SettingsVersion] | None:
+        key = "_".join(
+            self._component(value) for value in (symbol, venue, input_mode)
+        )
+        path = self.settings_root / "pending" / f"{key}.json"
+        if not path.exists():
+            return None
+        request = SettingsRequest.from_artifact(self._read_json(path))
+        if request.request_status is not SettingsRequestStatus.PENDING:
+            raise ArtifactIntegrityError("pending settings pointer is not PENDING")
+        version = self.load_settings_version(request.settings_id)
+        if (
+            version.symbol != symbol
+            or version.venue != venue
+            or version.input_mode != input_mode
+        ):
+            raise ArtifactIntegrityError("pending settings identity mismatch")
+        return request, version
+
     def write_pending_settings(self, request: SettingsRequest, version: SettingsVersion) -> Path:
         if request.settings_id != version.settings_id:
             raise ArtifactIntegrityError("pending request settings mismatch")
@@ -879,7 +937,7 @@ class BigTradesArtifactRepository:
         return path
 
     def write_settings_request_history(self, request: SettingsRequest) -> Path:
-        if not re.fullmatch(r"^btsreq1_[0-9a-f]{64}$", request.request_id):
+        if not SAFE_IDENTIFIERS["settings_request"].fullmatch(request.request_id):
             raise ValueError("invalid settings request ID")
         return self._write_immutable(
             self.settings_root / "history" / f"{request.request_id}.json",
@@ -952,6 +1010,27 @@ class BigTradesArtifactRepository:
             self.calibration_root / "calibrations" / f"{identifier}.json"
         )
         return CalibrationArtifact.from_artifact(raw)
+
+    def list_calibrations(self) -> tuple[CalibrationArtifact, ...]:
+        directory = self.calibration_root / "calibrations"
+        if not directory.exists():
+            return ()
+        calibrations = []
+        for path in sorted(directory.glob("*.json")):
+            if not SAFE_IDENTIFIERS["calibration"].fullmatch(path.stem):
+                raise ArtifactIntegrityError(
+                    f"invalid calibration artifact filename: {path.name}"
+                )
+            calibration = self.load_calibration(path.stem)
+            if calibration.calibration_id != path.stem:
+                raise ArtifactIntegrityError("calibration filename and ID mismatch")
+            calibrations.append(calibration)
+        return tuple(
+            sorted(
+                calibrations,
+                key=lambda item: (item.history_end_session, item.calibration_id),
+            )
+        )
 
     def write_schedule_run(self, run: ScheduleRunArtifact) -> Path:
         identifier = self._identifier("schedule_run", run.run_id)
