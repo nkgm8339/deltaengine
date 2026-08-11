@@ -70,6 +70,32 @@ def _query_point(node: Optional[_IntervalNode], price: Decimal, output: set[str]
         output.update(zone.zone_id for zone in node.overlaps_by_low)
 
 
+def _query_interval(
+    node: Optional[_IntervalNode],
+    low: Decimal,
+    high: Decimal,
+    output: set[str],
+) -> None:
+    if node is None:
+        return
+    if high < node.center:
+        for zone in node.overlaps_by_low:
+            if zone.zone_low > high:
+                break
+            output.add(zone.zone_id)
+        _query_interval(node.left, low, high, output)
+    elif low > node.center:
+        for zone in node.overlaps_by_high:
+            if zone.zone_high < low:
+                break
+            output.add(zone.zone_id)
+        _query_interval(node.right, low, high, output)
+    else:
+        output.update(zone.zone_id for zone in node.overlaps_by_low)
+        _query_interval(node.left, low, high, output)
+        _query_interval(node.right, low, high, output)
+
+
 class ReactionZoneBoundaryIndex:
     def __init__(self, zones: Iterable[ReactionZone] = ()) -> None:
         self._zones: dict[str, ReactionZone] = {}
@@ -98,25 +124,57 @@ class ReactionZoneBoundaryIndex:
     def containing(self, price: Decimal) -> tuple[str, ...]:
         self._ensure_built()
         result: set[str] = set()
-        _query_point(self._tree, Decimal(str(price)), result)
+        _query_point(self._tree, price if isinstance(price, Decimal) else Decimal(str(price)), result)
         return tuple(sorted(result))
 
     def crossed_boundaries(self, previous_price: Decimal, current_price: Decimal) -> tuple[str, ...]:
         self._ensure_built()
-        previous = Decimal(str(previous_price))
-        current = Decimal(str(current_price))
+        previous = (
+            previous_price
+            if isinstance(previous_price, Decimal)
+            else Decimal(str(previous_price))
+        )
+        current = current_price if isinstance(current_price, Decimal) else Decimal(str(current_price))
         lower, upper = sorted((previous, current))
         start = bisect_right(self._boundary_prices, lower)
         end = bisect_right(self._boundary_prices, upper)
         return tuple(sorted({zone_id for _, zone_id in self._boundaries[start:end]}))
 
     def candidates(self, previous_price: Decimal, current_price: Decimal) -> tuple[str, ...]:
-        return tuple(
-            sorted(
-                set(self.containing(previous_price))
-                | set(self.containing(current_price))
-                | set(self.crossed_boundaries(previous_price, current_price))
-            )
+        self._ensure_built()
+        previous = (
+            previous_price
+            if isinstance(previous_price, Decimal)
+            else Decimal(str(previous_price))
+        )
+        current = current_price if isinstance(current_price, Decimal) else Decimal(str(current_price))
+        result: set[str] = set()
+        lower, upper = sorted((previous, current))
+        _query_interval(self._tree, lower, upper, result)
+        return tuple(sorted(result))
+
+    def overlapping_or_adjacent(
+        self,
+        low: Decimal,
+        high: Decimal,
+        tolerance: Decimal = Decimal("0"),
+    ) -> tuple[str, ...]:
+        """Return zones intersecting an interval expanded by ``tolerance``.
+
+        The boundary/interval indexes provide O(log N + K) candidate lookup;
+        callers still apply their authoritative exact interval-gap predicate.
+        """
+
+        interval_low = Decimal(str(low))
+        interval_high = Decimal(str(high))
+        resolved_tolerance = Decimal(str(tolerance))
+        if interval_low > interval_high:
+            raise ValueError("interval low must not exceed high")
+        if resolved_tolerance < 0:
+            raise ValueError("interval tolerance must be non-negative")
+        return self.candidates(
+            interval_low - resolved_tolerance,
+            interval_high + resolved_tolerance,
         )
 
     def _ensure_built(self) -> None:

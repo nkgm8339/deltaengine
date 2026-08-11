@@ -14,6 +14,7 @@ from src.orderflow.big_trades.runtime import RuntimeRecord
 from webapp.big_trades_protocol import (
     BigTradesBatcherV2,
     BigTradesProtocolError,
+    build_big_trades_status,
     validate_big_trades_update,
 )
 from webapp.push_broker import PushBroker
@@ -44,6 +45,7 @@ def _record(kind: str, identifier: str, *, trade_id: int = 1) -> RuntimeRecord:
             identity_field: identifier,
             "content_hash": digest,
             "marker_price": Decimal("123.4500"),
+            "marker_price_mode": "LAST_PRICE",
             "aggregate_quantity": Decimal("7.5"),
             "fill_count": 2,
             "duration_ms": 40,
@@ -82,12 +84,23 @@ def test_bt2_w211_to_w214_unified_envelope_precedence_and_strict_types():
         assert [item["sequence"] for item in message["payload"]["records"]] == [1, 2]
         data = message["payload"]["records"][0]["data"]
         assert data["marker_price"] == "123.45"
+        assert data["marker_price_mode"] == "LAST_PRICE"
         assert data["aggregate_quantity"] == "7.5"
         assert type(data["fill_count"]) is int
         assert type(data["duration_ms"]) is int
         assert type(data["same_as_origin_side"]) is bool
 
     asyncio.run(run())
+
+
+def test_status_numeric_price_path_size_is_not_misclassified_as_decimal() -> None:
+    message = build_big_trades_status(
+        symbol="BTCUSDT",
+        status="MANUAL_READY",
+        event_time=datetime(2026, 8, 12, tzinfo=UTC),
+        counters={"price_path_index_size": 25_000},
+    )
+    assert message["payload"]["counters"]["price_path_index_size"] == 25_000
 
 
 def test_bt2_w212_unknown_record_kind_is_rejected():

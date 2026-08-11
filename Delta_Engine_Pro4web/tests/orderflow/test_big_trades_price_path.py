@@ -28,6 +28,10 @@ def test_last_at_or_before_and_exact_range_extrema() -> None:
         Decimal("98"),
         Decimal("105"),
     )
+    assert path.last_observation is not None
+    assert path.last_observation.source_key == trades[-1].source_key
+    assert path.last_observation.price == trades[-1].price
+    assert len(path) == len(trades)
 
 
 def test_range_index_matches_randomized_oracle() -> None:

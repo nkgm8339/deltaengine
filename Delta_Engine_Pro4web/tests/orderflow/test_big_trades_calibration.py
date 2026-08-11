@@ -32,6 +32,7 @@ def test_rank_is_one_based_descending() -> None:
 
 
 def test_decimal_median_never_uses_float() -> None:
+    assert decimal_median((Decimal("1"), Decimal("2"), Decimal("9"))) == Decimal("2")
     assert decimal_median((Decimal("1"), Decimal("2"))) == Decimal("1.5")
 
 
@@ -72,6 +73,22 @@ def test_volatility_factor_is_clamped_and_ceil_to_step() -> None:
     assert result.volatility_factor == Decimal("1.50")
     assert result.thresholds[AutomaticIntensity.LOW] == Decimal("16.5")
     assert ceil_to_step(Decimal("1.001"), Decimal("0.001")) == Decimal("1.001")
+
+
+def test_volatility_factor_uses_decimal_square_root_before_clamp() -> None:
+    sessions = list(distributions(volatility="0.04"))
+    sessions[-5:] = [
+        SessionQuantityDistribution(
+            session_id=session.session_id,
+            cluster_quantities=session.cluster_quantities,
+            session_volatility=Decimal("0.0625"),
+        )
+        for session in sessions[-5:]
+    ]
+    result = calibrate(tuple(sessions), quantity_step=Decimal("0.001"))
+    assert result.baseline_volatility == Decimal("0.04")
+    assert result.recent_volatility == Decimal("0.0625")
+    assert result.volatility_factor == Decimal("1.25")
 
 
 def test_volatility_factor_lower_clamp_and_strict_threshold_correction() -> None:

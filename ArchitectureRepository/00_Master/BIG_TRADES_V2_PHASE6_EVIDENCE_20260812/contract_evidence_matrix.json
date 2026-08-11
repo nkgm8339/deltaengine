@@ -1,0 +1,3310 @@
+{
+  "report_type": "BIG_TRADES_V2_CONTRACT_EVIDENCE_MATRIX",
+  "contract_count": 296,
+  "pass_count": 296,
+  "fail_count": 0,
+  "unmapped_count": 0,
+  "targeted_pytest": {
+    "tests": 497,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "full_repository_pytest": {
+    "tests": 1131,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 1
+  },
+  "known_baseline_failures": [
+    "tests.webapp.test_dom_tape_fusion_ui::test_fixed_fusion_layout_keeps_indicators_and_removes_old_book_presentation"
+  ],
+  "contracts": [
+    {
+      "contract_id": "BT2-C001",
+      "description": "Decimal price／quantity受理",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_decimal_trade_values_are_preserved_exactly"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C002",
+      "description": "price 0／negative拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price--1]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-0]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-Infinity]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-NaN]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity--1]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-0]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-Infinity]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-NaN]"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C003",
+      "description": "quantity 0／negative拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price--1]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-0]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-Infinity]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-NaN]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity--1]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-0]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-Infinity]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-NaN]"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C004",
+      "description": "NaN／Infinity拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price--1]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-0]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-Infinity]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[price-NaN]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity--1]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-0]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-Infinity]",
+        "tests/orderflow/test_big_trades_ordering.py::test_invalid_decimal_trade_values_are_rejected[quantity-NaN]"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C005",
+      "description": "unknown side拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_unknown_side_and_timezone_naive_are_rejected"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C006",
+      "description": "symbol／venue mismatch拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_trade_and_settings_identity_mismatch_is_rejected"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C007",
+      "description": "timezone-naive拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_unknown_side_and_timezone_naive_are_rejected"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C008",
+      "description": "duplicate trade IDがBig Tradesへ来ない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/normalization/test_normalizer.py::test_tv_nrm_02_duplicate_discard"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C009",
+      "description": "same-ms arrival逆順をtrade ID昇順release",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_same_millisecond_bucket_releases_by_integer_trade_id"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C010",
+      "description": "next-msまでbucket保持",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_same_millisecond_bucket_releases_by_integer_trade_id"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C011",
+      "description": "stream endでsort後flush",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_same_millisecond_bucket_releases_by_integer_trade_id"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C012",
+      "description": "disconnectでsort後flush",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_disconnect_closes_cluster_explicitly_and_prevents_rejoin"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C013",
+      "description": "released-msより古いtrade拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ordering.py::test_late_trade_after_release_is_rejected"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C014",
+      "description": "same side 0ms join",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_same_side_same_millisecond_joins_cluster"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C015",
+      "description": "same side 40ms join",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_exact_40ms_gap_joins_cluster"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C016",
+      "description": "41ms split",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_41ms_gap_closes_cluster"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C017",
+      "description": "0→35→70ms one cluster",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_zero_35_70ms_is_one_chain_and_price_does_not_split"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C018",
+      "description": "side変更split",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_fixed_vector_chains_from_previous_fill_and_builds_event"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C019",
+      "description": "price違いjoin",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_zero_35_70ms_is_one_chain_and_price_does_not_split"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C020",
+      "description": "session境界split",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_session_boundary_closes_cluster"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C021",
+      "description": "1m candle境界split",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_utc_minute_boundary_closes_even_within_40ms"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C022",
+      "description": "disconnect前後非結合",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_disconnect_closes_cluster_explicitly_and_prevents_rejoin"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C023",
+      "description": "max fills超過silent splitなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_max_fill_limit_flushes_without_losing_trigger_trade"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C024",
+      "description": "aggregate quantity正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_fixed_vector_chains_from_previous_fill_and_builds_event"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C025",
+      "description": "aggregate notional／VWAP正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_fixed_vector_chains_from_previous_fill_and_builds_event"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C026",
+      "description": "low／high／distinct levels正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_fixed_vector_chains_from_previous_fill_and_builds_event"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C027",
+      "description": "fill ordinal正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_fixed_vector_chains_from_previous_fill_and_builds_event"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C028",
+      "description": "UTC minute floor境界直前／境界上",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_utc_minute_boundary_closes_even_within_40ms"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C029",
+      "description": "offset timestampをUTC同一bucketへ正規化",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_time_buckets.py::test_offset_timestamp_normalizes_to_same_utc_minute_bucket"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C030",
+      "description": "CVD candle boundary parity",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_time_buckets.py::test_big_trades_candle_boundary_matches_cvd_one_minute_boundary"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C031",
+      "description": "q < Min reject",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_filtering.py::test_manual_min_and_max_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C032",
+      "description": "q = Min accept",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_filtering.py::test_manual_min_and_max_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C033",
+      "description": "Max 0 unlimited",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_filtering.py::test_manual_zero_max_is_unbounded"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C034",
+      "description": "q = Max accept",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_filtering.py::test_manual_min_and_max_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C035",
+      "description": "q > Max reject",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_filtering.py::test_manual_rejection_reasons_are_exact"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C036",
+      "description": "side filterはquantity判定後",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_side_filter_is_display_metadata_after_quantity_decision"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C037",
+      "description": "cluster途中settings変更は旧snapshot",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_settings_change_does_not_force_split_and_next_natural_cluster_uses_new_snapshot"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C038",
+      "description": "次clusterは新snapshot",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_settings_change_does_not_force_split_and_next_natural_cluster_uses_new_snapshot"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C039",
+      "description": "invalid settings全体不適用",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_config_big_trades.py::test_big_trades_max_must_be_zero_or_at_least_min"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C040",
+      "description": "settings ID deterministic",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_settings_id_is_deterministic_and_manual_discards_calibration"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C041",
+      "description": "event ID deterministic",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ids.py::test_same_event_input_has_same_ids_and_content_hashes"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C042",
+      "description": "same event ID same content idempotent",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_origin_batch_is_atomic_idempotent_and_decimal_utc_exact"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C043",
+      "description": "same event ID different content collision",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_same_origin_id_with_different_content_is_collision"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C044",
+      "description": "marker START／LAST／VWAP price／time",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_aggregation.py::test_marker_price_modes"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C045",
+      "description": "DecimalをJSON string化",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w211_to_w214_unified_envelope_precedence_and_strict_types"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C046",
+      "description": "session quantity descending rank",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_rank_is_one_based_descending"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C047",
+      "description": "Low 20位",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_calibration_uses_20_9_2_ranks_and_strict_order"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C048",
+      "description": "Medium 9位",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_calibration_uses_20_9_2_ranks_and_strict_order"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C049",
+      "description": "Strong 2位",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_calibration_uses_20_9_2_ranks_and_strict_order"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C050",
+      "description": "odd Decimal median",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_decimal_median_never_uses_float"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C051",
+      "description": "even Decimal median",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_decimal_median_never_uses_float"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C052",
+      "description": "valid sessions 9でinsufficient",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_insufficient_sessions_fail_closed"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C053",
+      "description": "exactly 10でvalid",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_exactly_ten_valid_sessions_is_valid"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C054",
+      "description": "current session除外",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_calibration_excludes_current_and_future_sessions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C055",
+      "description": "future data除外",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_calibration_excludes_current_and_future_sessions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C056",
+      "description": "gap／restart session除外",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_session_stats_require_next_session_source_and_gap_is_excluded"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C057",
+      "description": "TR三候補max",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_normalized_true_range"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C058",
+      "description": "previous session close使用",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_normalized_true_range"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C059",
+      "description": "NTR／session median",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_normalized_true_range"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C060",
+      "description": "95% candle coverage境界",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_session_candle_coverage_boundary_controls_only_volatility"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C061",
+      "description": "20-session baseline",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_volatility_factor_uses_decimal_square_root_before_clamp"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C062",
+      "description": "5-session recent",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_volatility_factor_uses_decimal_square_root_before_clamp"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C063",
+      "description": "Decimal sqrt factor",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_volatility_factor_uses_decimal_square_root_before_clamp"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C064",
+      "description": "factor 0.75 clamp",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_volatility_factor_lower_clamp_and_strict_threshold_correction"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C065",
+      "description": "factor 1.50 clamp",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_volatility_factor_is_clamped_and_ceil_to_step"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C066",
+      "description": "invalid baseline fallback 1.00＋status",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_missing_volatility_uses_explicit_fallback"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C067",
+      "description": "quantity step ceiling",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_volatility_factor_is_clamped_and_ceil_to_step"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C068",
+      "description": "Low < Medium < Strong補正",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_calibration.py::test_volatility_factor_lower_clamp_and_strict_threshold_correction"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C069",
+      "description": "calibration ID deterministic／immutable",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_calibration_artifact_is_deterministic_and_created_time_is_non_identity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C070",
+      "description": "artifact wrong symbol／logic／step拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_calibration_validation_rejects_wrong_symbol_logic_and_step"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C071",
+      "description": "next-session first accepted tradeだけがcompletion trigger",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_activation.py::test_session_completion_is_triggered_only_by_next_session_first_source_trade"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C072",
+      "description": "wall clock midnightで未完了",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_activation.py::test_session_completion_is_triggered_only_by_next_session_first_source_trade"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C073",
+      "description": "shutdownで未完了",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_activation.py::test_session_completion_is_triggered_only_by_next_session_first_source_trade"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C074",
+      "description": "old-session final CVD candleを先に観測",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p197_closed_cvd_candle_precedes_new_trade_in_big_trades"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C075",
+      "description": "session transition authoritative order",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_source_confirmed_next_session_closes_zone_and_saves_stats"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C076",
+      "description": "session stats failureでschedule停止",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_missing_durable_previous_session_stops_schedule_and_keeps_old_activation"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C077",
+      "description": "weekly／monthly boundary dedup",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_same_schedule_boundary_and_manifest_reuses_terminal_run"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C078",
+      "description": "scheduled validation success auto activate",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_scheduled_success_auto_activates_from_same_source_boundary"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C079",
+      "description": "scheduled failureでold calibration維持",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_scheduled_validation_failure_does_not_activate_or_retry"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C080",
+      "description": "MANUAL_ONLY pending維持",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_manual_only_generates_candidate_without_activation"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C081",
+      "description": "manual artifact自動activateなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_manual_only_generates_candidate_without_activation"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C082",
+      "description": "same-boundary user calibration優先",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_activation.py::test_user_calibration_wins_over_scheduled_candidate_at_same_boundary"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C083",
+      "description": "activation row一件だけ",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_activation.py::test_same_source_boundary_cannot_hold_two_activations"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C084",
+      "description": "initial PRODUCTION_INITIAL before first marker",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_activation_artifact_is_commit_point_and_pointer_is_derived_cache",
+        "tests/orderflow/test_big_trades_runtime.py::test_origin_is_not_published_until_duckdb_commit_ack"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C085",
+      "description": "Replay effective key selection",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_activation.py::test_replay_selection_uses_effective_source_key_not_requested_time"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C086",
+      "description": "created_at変更でReplay不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_historical_replay_resolves_committed_activation_and_ignores_created_time"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C087",
+      "description": "activation history missing／invalid fail closed",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_activation.py::test_replay_missing_history_fails_closed"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-C088",
+      "description": "FIXED_RESEARCH production write 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_fixed_research_resolution_has_isolated_output_and_no_activation"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z089",
+      "description": "accepted event exactly one zone",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_delayed_same_area_link_keeps_source_order_and_restart_recovery"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z090",
+      "description": "rejected cluster zone 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_delayed_same_area_link_keeps_source_order_and_restart_recovery"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z091",
+      "description": "zone low == event low",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z092",
+      "description": "zone high == event high",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z093",
+      "description": "anchor == raw VWAP",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z094",
+      "description": "source start == event last time",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z095",
+      "description": "visual start == event first time",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z096",
+      "description": "single-price zone valid",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_single_price_event_creates_zero_height_authoritative_zone"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z097",
+      "description": "visual paddingがauthoritative boundsへ逆流しない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_single_price_event_creates_zero_height_authoritative_zone"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z098",
+      "description": "zone ID deterministic",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_ids.py::test_zone_id_is_deterministic_and_versioned"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z099",
+      "description": "same eventへsecond zone作成なし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_delayed_same_area_link_keeps_source_order_and_restart_recovery"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z100",
+      "description": "zone origin side保存、support／resistance自動化なし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z101",
+      "description": "price < lowはBELOW",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z102",
+      "description": "price == lowはINSIDE",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z103",
+      "description": "low < price < highはINSIDE",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z104",
+      "description": "price == highはINSIDE",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z105",
+      "description": "price > highはABOVE",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_relation_boundaries_are_inclusive"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z106",
+      "description": "origin fillsをpost-resultへ数えない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_origin_and_old_session_trades_are_not_observed"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z107",
+      "description": "first outside upはFIRST_EXIT_UP",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_fixed_vector_first_exit_return_and_excursions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z108",
+      "description": "first outside downはFIRST_EXIT_DOWN",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_down_exit_reentry_continuous_inside_cross_down_and_break_persistence"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z109",
+      "description": "first exit immutable",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_fixed_vector_first_exit_return_and_excursions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z110",
+      "description": "ABOVE→INSIDE touch／reentry一回",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_fixed_vector_first_exit_return_and_excursions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z111",
+      "description": "BELOW→INSIDE touch／reentry一回",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_down_exit_reentry_continuous_inside_cross_down_and_break_persistence"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z112",
+      "description": "INSIDE連続tradeでtouch増加なし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_down_exit_reentry_continuous_inside_cross_down_and_break_persistence"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z113",
+      "description": "BELOW→ABOVE direct CROSS_UP、架空insideなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_direct_cross_has_no_fabricated_inside_interaction"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z114",
+      "description": "ABOVE→BELOW direct CROSS_DOWN、架空insideなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_down_exit_reentry_continuous_inside_cross_down_and_break_persistence"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z115",
+      "description": "price breakでzone deletionなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_fixed_vector_first_exit_return_and_excursions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z116",
+      "description": "break後retest記録",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_fixed_vector_first_exit_return_and_excursions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z117",
+      "description": "session close後new tradeをold zoneへ入れない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_gap_and_source_confirmed_session_close_are_explicit"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z118",
+      "description": "wall clockでzone closeなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_down_exit_reentry_continuous_inside_cross_down_and_break_persistence"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z119",
+      "description": "boundary index queryがbrute-force結果と一致",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_zone_index.py::test_point_and_boundary_queries_match_brute_force_randomized_oracle"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z120",
+      "description": "point queryはcontaining zonesだけ",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_zone_index.py::test_point_and_boundary_queries_match_brute_force_randomized_oracle"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z121",
+      "description": "crossed boundary zonesだけrelation update",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_zone_index.py::test_interval_candidate_query_returns_only_overlap_and_tolerance_neighbors"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z122",
+      "description": "active zone 5000でsilent evictionなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_zone_index.py::test_index_keeps_5000_zones_and_removes_only_explicit_target"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z123",
+      "description": "inside BUY quantity／count正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_fixed_vector_first_exit_return_and_excursions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z124",
+      "description": "inside SELL quantity／count正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_fixed_vector_first_exit_return_and_excursions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z125",
+      "description": "overlapping zonesへ同tradeを各一回",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_overlapping_zones_each_observe_one_trade_once"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z126",
+      "description": "exact overlap later event link",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_later_event_links_by_interval_gap_without_merging_identity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z127",
+      "description": "1 tick adjacent link",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_later_event_links_by_interval_gap_without_merging_identity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z128",
+      "description": ">1 tick gap no link",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_later_event_links_by_interval_gap_without_merging_identity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z129",
+      "description": "different symbol／venue／session no link",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_later_event_links_by_interval_gap_without_merging_identity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z130",
+      "description": "link ordinal source order",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_registered_buy_and_sell_links_update_separate_quantities"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z131",
+      "description": "linked event remains independent origin event／zone",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_later_event_links_by_interval_gap_without_merging_identity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z132",
+      "description": "link payloadにidentity／parent orderなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_later_event_links_by_interval_gap_without_merging_identity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z133",
+      "description": "BUY／SELL linked quantity summary正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_reaction_zones.py::test_registered_buy_and_sell_links_update_separate_quantities"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z134",
+      "description": "horizons exactly 1／5／15／30／60／180／300／600",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_default_horizons_are_exact_contract_values"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z135",
+      "description": "target以下last trade選択",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_uses_last_trade_at_target_not_trigger_trade"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z136",
+      "description": "target後trade価格をsnapshotへ使わない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_uses_last_trade_at_target_not_trigger_trade"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z137",
+      "description": "source age exactly 1000ms valid",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_source_age_exactly_1000ms_is_valid_and_1001ms_is_stale"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z138",
+      "description": "source age 1001ms missing stale",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_source_age_exactly_1000ms_is_valid_and_1001ms_is_stale"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z139",
+      "description": "gap intersectでmissing gap",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_gap_crossing_horizon_is_missing_without_interpolation"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z140",
+      "description": "same-session requirement",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_horizon_crossing_utc_session_is_missing_session"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z141",
+      "description": "return from last／VWAP Decimal正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_uses_last_trade_at_target_not_trigger_trade"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z142",
+      "description": "BUY signed return",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_cuts_off_future_trade_and_preserves_all_metric_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z143",
+      "description": "SELL signed return",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_sell_signed_return_is_inverse_and_replay_speed_independent"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z144",
+      "description": "range min／max query exact",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_price_path.py::test_last_at_or_before_and_exact_range_extrema"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z145",
+      "description": "max above／below ticks正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_cuts_off_future_trade_and_preserves_all_metric_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z146",
+      "description": "touch／cross count horizon cutoff",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_cuts_off_future_trade_and_preserves_all_metric_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z147",
+      "description": "linked event horizon cutoff",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_cuts_off_future_trade_and_preserves_all_metric_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z148",
+      "description": "inside quantities horizon cutoff",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_snapshot_cuts_off_future_trade_and_preserves_all_metric_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z149",
+      "description": "same input Live／Replay snapshot同値",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p201_to_p205_live_replay_match_through_links_and_snapshots"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z150",
+      "description": "Replay speedでsnapshot不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_horizons.py::test_sell_signed_return_is_inverse_and_replay_speed_independent"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z151",
+      "description": "close > highはCLOSE ABOVE",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_candle_observer.py::test_upper_wick_return_and_close_above_are_distinct_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z152",
+      "description": "close < lowはCLOSE BELOW",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_candle_observer.py::test_lower_wick_return_and_exact_boundary_close"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z153",
+      "description": "high > high and close insideはUPPER WICK RETURN",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_candle_observer.py::test_upper_wick_return_and_close_above_are_distinct_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z154",
+      "description": "low < low and close insideはLOWER WICK RETURN",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_candle_observer.py::test_lower_wick_return_and_exact_boundary_close"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z155",
+      "description": "exact-boundary closeはINSIDE",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_candle_observer.py::test_lower_wick_return_and_exact_boundary_close"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z156",
+      "description": "wick returnをabsorption confirmedへ変換しない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_candle_observer.py::test_upper_wick_return_and_close_above_are_distinct_facts"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z157",
+      "description": "candle boundary mismatchでBig TradesだけERROR",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_candle_boundary_mismatch_errors_only_big_trades_runtime"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z158",
+      "description": "disconnect gap start／end interaction",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_source_gap_invalidates_crossing_horizon"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z159",
+      "description": "gap後segmentを連続pathと偽装しない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_source_gap_invalidates_crossing_horizon"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z160",
+      "description": "restart recovery checkpoint＋interactions一致",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_restart_recovers_zone_without_republishing_origin_and_marks_gap"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z161",
+      "description": "incomplete restart segmentはACTIVE_WITH_GAP",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_restart_recovers_zone_without_republishing_origin_and_marks_gap"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z162",
+      "description": "stream endでcurrent zone session closeなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p208_stream_end_flushes_storage_without_closing_session"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z163",
+      "description": "valid assessment append",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w229_w230_assessment_append_supersede_and_no_mutation_routes"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z164",
+      "description": "invalid enum拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w234_w235_explicit_error_semantics_and_disabled_health"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z165",
+      "description": "supersedeはold row保持",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w229_w230_assessment_append_supersede_and_no_mutation_routes"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z166",
+      "description": "assessment保存失敗をsuccess表示しない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w229_w230_assessment_append_supersede_and_no_mutation_routes"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z167",
+      "description": "assessmentでsystem observation不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u275_system_facts_and_user_assessment_are_separate"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z168",
+      "description": "assessmentからorder path 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u275_system_facts_and_user_assessment_are_separate"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z169",
+      "description": "context source ID／time保持",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u254_context_keeps_missing_values_visible"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z170",
+      "description": "missing contextは`—`、0補完なし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u254_context_keeps_missing_values_visible"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-Z171",
+      "description": "existing indicator値不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u274_flow_response_cards_are_not_replaced"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S172",
+      "description": "event＋fills＋zone＋created interaction atomic commit",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_origin_batch_is_atomic_idempotent_and_decimal_utc_exact"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S173",
+      "description": "one component failureでbatch全rollback",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_origin_component_failure_rolls_back_every_table"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S174",
+      "description": "parent duplicateでfill／zone duplicate 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_origin_batch_is_atomic_idempotent_and_decimal_utc_exact"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S175",
+      "description": "content mismatch collision",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_same_origin_id_with_different_content_is_collision"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S176",
+      "description": "commit ack前publication 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_origin_is_not_published_until_duckdb_commit_ack"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S177",
+      "description": "commit ack後record precedence正確",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_origin_is_not_published_until_duckdb_commit_ack"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S178",
+      "description": "queue full silent dropなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_background_queue_full_returns_explicit_failed_ack"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S179",
+      "description": "event／zone Parquet read-back",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_parquet_requires_manifest_and_retries_after_duckdb_commit"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S180",
+      "description": "interaction／link Parquet read-back",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_runtime_updates_round_trip_interaction_link_snapshot_and_candle_parquet"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S181",
+      "description": "snapshot／candle Parquet read-back",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_runtime_updates_round_trip_interaction_link_snapshot_and_candle_parquet"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S182",
+      "description": "assessment Parquet read-back",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_assessment_parquet_is_committed_only_with_manifest"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S183",
+      "description": "partial temporary file非正本",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_parquet_requires_manifest_and_retries_after_duckdb_commit"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S184",
+      "description": "manifest片側欠損検出",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_missing_manifest_member_is_detected"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S185",
+      "description": "Decimal precision round trip",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_origin_batch_is_atomic_idempotent_and_decimal_utc_exact"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S186",
+      "description": "UTC round trip",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_origin_batch_is_atomic_idempotent_and_decimal_utc_exact"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S187",
+      "description": "interaction source ordering",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_restart_recovers_zone_without_republishing_origin_and_marks_gap"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S188",
+      "description": "zone checkpoint idempotent",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_checkpoint_is_idempotent_and_mismatch_collides"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S189",
+      "description": "checkpoint不一致collision",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_checkpoint_is_idempotent_and_mismatch_collides"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-S190",
+      "description": "activation artifact／pointer一致",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/database/test_big_trades_storage.py::test_settings_then_activation_mirrors_preserve_lineage"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P191",
+      "description": "disabled時existing output byte-equivalent",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_replay_pipeline_disabled_runtime_is_existing_output_equivalent"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P192",
+      "description": "enabled時CVD不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p192_enabled_runtime_preserves_cvd_output"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P193",
+      "description": "enabled時Footprint不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p193_enabled_runtime_preserves_footprint_output"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P194",
+      "description": "enabled時Flow Price Response不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p194_enabled_runtime_preserves_flow_price_response"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P195",
+      "description": "enabled時LargeTradeDetector不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p195_enabled_runtime_preserves_large_trade_detector"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P196",
+      "description": "accepted tradeをBig Tradesへ一回だけ",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p196_normalized_trade_reaches_big_trades_exactly_once"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P197",
+      "description": "CVD closed candle then current trade順",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p197_closed_cvd_candle_precedes_new_trade_in_big_trades"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P198",
+      "description": "reconnect first tradeがold clusterへjoinしない",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_reconnect_flushes_open_cluster_without_deleting_active_zone"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P199",
+      "description": "reconnectでもactive zones削除なし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_reconnect_flushes_open_cluster_without_deleting_active_zone"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P200",
+      "description": "runtime ERRORでもmarket pipeline継続",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p200_big_trades_error_does_not_stop_market_pipeline"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P201",
+      "description": "Live／Replay event IDs同値",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p201_to_p205_live_replay_match_through_links_and_snapshots"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P202",
+      "description": "Live／Replay zone IDs同値",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p201_to_p205_live_replay_match_through_links_and_snapshots"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P203",
+      "description": "Live／Replay interactions同値",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p201_to_p205_live_replay_match_through_links_and_snapshots"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P204",
+      "description": "Live／Replay links同値",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p201_to_p205_live_replay_match_through_links_and_snapshots"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P205",
+      "description": "Live／Replay snapshots同値",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p201_to_p205_live_replay_match_through_links_and_snapshots"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P206",
+      "description": "historical activationによるzone lineage一致",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_historical_replay_resolves_committed_activation_and_ignores_created_time",
+        "tests/test_big_trades_pipeline.py::test_bt2_p201_to_p205_live_replay_match_through_links_and_snapshots"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P207",
+      "description": "FIXED_RESEARCH production zone rows 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_artifacts.py::test_fixed_research_resolution_has_isolated_output_and_no_activation"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P208",
+      "description": "shutdown storage flush後open session維持",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/test_big_trades_pipeline.py::test_bt2_p208_stream_end_flushes_storage_without_closing_session"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P209",
+      "description": "source-confirmed session order trace一致",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_source_confirmed_next_session_closes_zone_and_saves_stats"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-P210",
+      "description": "old session final zone close後new event生成",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/orderflow/test_big_trades_runtime.py::test_source_confirmed_next_session_closes_zone_and_saves_stats"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W211",
+      "description": "unified stream envelope",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w211_to_w214_unified_envelope_precedence_and_strict_types"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W212",
+      "description": "record kind validation",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w212_unknown_record_kind_is_rejected"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W213",
+      "description": "Decimal string／integer strict型",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w213_boolean_is_not_accepted_as_integer"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W214",
+      "description": "contiguous sequence",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w211_to_w214_unified_envelope_precedence_and_strict_types"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W215",
+      "description": "stream restart検出",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w215_w216_stream_restart_and_drop_gap_are_visible"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W216",
+      "description": "drop count伝達",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w215_w216_stream_restart_and_drop_gap_are_visible"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W217",
+      "description": "status cache reconnect送信",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w217_status_is_cached_first_for_reconnect"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W218",
+      "description": "event before zone precedence",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_protocol.py::test_bt2_w211_to_w214_unified_envelope_precedence_and_strict_types"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W219",
+      "description": "invalid payload browser拒否",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_browser_validator_rejects_unknown_fields_and_numeric_decimal"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W220",
+      "description": "zones oldest-first history",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w220_w221_history_is_oldest_first_with_exclusive_time_id_cursor"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W221",
+      "description": "exclusive time＋ID cursor",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w220_w221_history_is_oldest_first_with_exclusive_time_id_cursor"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W222",
+      "description": "DB＋recent merge dedup",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w222_durable_recent_merge_dedup_and_collision"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W223",
+      "description": "zone detail全lineage",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w223_to_w228_zone_detail_and_lazy_orders"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W224",
+      "description": "fills ordinal pagination",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w223_to_w228_zone_detail_and_lazy_orders"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W225",
+      "description": "interactions source order",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w223_to_w228_zone_detail_and_lazy_orders"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W226",
+      "description": "linked events ordinal",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w223_to_w228_zone_detail_and_lazy_orders"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W227",
+      "description": "snapshots horizon order",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w223_to_w228_zone_detail_and_lazy_orders"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W228",
+      "description": "candles candle-ID order",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w223_to_w228_zone_detail_and_lazy_orders"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W229",
+      "description": "assessment append／supersede",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w229_w230_assessment_append_supersede_and_no_mutation_routes"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W230",
+      "description": "assessment update／delete endpoint不存在",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w229_w230_assessment_append_supersede_and_no_mutation_routes"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W231",
+      "description": "settings PUT atomic／PENDING",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w231_settings_put_is_strict_atomic_pending"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W232",
+      "description": "manual calibration activation PENDING",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w232_manual_calibration_activation_returns_pending"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W233",
+      "description": "activation history immutable API",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w233_activation_history_is_get_only_and_immutable"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W234",
+      "description": "4xx／5xx error semantics",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w234_w235_explicit_error_semantics_and_disabled_health"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-W235",
+      "description": "history limit／ID validation",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_api.py::test_bt2_w234_w235_explicit_error_semantics_and_disabled_health"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U236",
+      "description": "3-mode switch",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u236_three_mode_switch"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U237",
+      "description": "Footprint mode DOM／geometry不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u237_footprint_mode_dom_and_geometry_preserved"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml",
+        "..\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE5_EVIDENCE_20260812\\browser_acceptance.json"
+      ]
+    },
+    {
+      "contract_id": "BT2-U238",
+      "description": "Heatmap mode DOM／geometry不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u238_heatmap_mode_dom_and_geometry_preserved"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml",
+        "..\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE5_EVIDENCE_20260812\\browser_acceptance.json"
+      ]
+    },
+    {
+      "contract_id": "BT2-U239",
+      "description": "Big Trades canvasだけactive",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u239_only_big_trades_canvas_is_active_in_big_mode"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U240",
+      "description": "controls常設、Manual／Auto disabled状態",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u240_controls_are_fixed_and_manual_auto_disable_unused_side"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U241",
+      "description": "marker aggregate quantity label",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u241_marker_has_aggregate_quantity_label"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U242",
+      "description": "BUY／SELLは色＋文字で識別",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u242_buy_sell_use_text_and_color"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U243",
+      "description": "exact execution-range horizontal zone",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u243_zone_uses_exact_execution_range"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U244",
+      "description": "single-price minimum pixel only display",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u244_single_price_minimum_height_is_visual_only"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U245",
+      "description": "break後zone継続",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u245_break_does_not_delete_zone"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U246",
+      "description": "closed zone source-endで停止",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u246_closed_zone_stops_at_source_end"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U247",
+      "description": "gap segment hatch",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u247_gap_segment_is_hatched"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U248",
+      "description": "overlapping zones non-destructive",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u248_overlapping_zones_are_not_destructively_merged"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U249",
+      "description": "linked ordinal badge",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u249_linked_event_ordinal_badge"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U250",
+      "description": "selected EFFORT detail",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u250_selected_effort_detail"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U251",
+      "description": "selected RESULT detail",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u251_selected_result_detail"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U252",
+      "description": "selected REPEATED detail",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u252_selected_repeated_area_detail"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U253",
+      "description": "selected CANDLE RESULT detail",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u253_selected_candle_result_detail"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U254",
+      "description": "selected CONTEXT missing handling",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u254_context_keeps_missing_values_visible"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U255",
+      "description": "selected ASSESSMENT append history",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u255_assessment_is_append_only_with_visible_history"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U256",
+      "description": "1s..600s snapshot表示",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u256_snapshots_cover_one_to_six_hundred_seconds"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U257",
+      "description": "current ABOVE／INSIDE／BELOW表示",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u257_current_relation_is_server_fact"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U258",
+      "description": "first exit immutable表示",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u258_first_exit_is_displayed_from_history_detail"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U259",
+      "description": "touch／reentry／cross count",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u259_touch_reentry_cross_counts_sum_both_directions"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U260",
+      "description": "side filterでdata deletionなし",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u260_side_filter_does_not_delete_data"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U261",
+      "description": "ZONES OFFでobserver継続",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u261_zones_off_changes_drawing_only"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U262",
+      "description": "history＋live dedup",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u262_history_live_dedup_and_collision_rejection"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U263",
+      "description": "sequence gap warning／recovery",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u263_sequence_gap_and_restart_enter_recovery"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U264",
+      "description": "no-data項目`—`維持",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u264_no_data_fields_remain_dash"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U265",
+      "description": "click／Escape／arrow navigation",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u265_click_escape_and_arrow_navigation"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U266",
+      "description": "wheel zoom／drag pan／LIVE LOCK",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u266_wheel_drag_and_live_lock"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U267",
+      "description": "inactive mode handler停止",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u267_inactive_mode_detaches_handlers"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U268",
+      "description": "5000 event／20000 interaction capacity",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u268_bounded_store_capacities_are_wired"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U269",
+      "description": "horizontal overflow 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u269_big_trades_has_no_horizontal_overflow"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml",
+        "..\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE5_EVIDENCE_20260812\\browser_acceptance.json"
+      ]
+    },
+    {
+      "contract_id": "BT2-U270",
+      "description": "browser console error 0",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u270_browser_javascript_compiles"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml",
+        "..\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE5_EVIDENCE_20260812\\browser_acceptance.json"
+      ]
+    },
+    {
+      "contract_id": "BT2-U271",
+      "description": "Time & Sales filter意味不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u271_time_sales_filter_meaning_is_untouched"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U272",
+      "description": "DOM Trade Pulse不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u272_dom_trade_pulse_path_is_untouched"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U273",
+      "description": "3段chart geometry delta 0px",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u273_three_stage_chart_geometry_is_not_overridden"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml",
+        "..\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE5_EVIDENCE_20260812\\browser_acceptance.json"
+      ]
+    },
+    {
+      "contract_id": "BT2-U274",
+      "description": "Flow Response cards不変",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u274_flow_response_cards_are_not_replaced"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-U275",
+      "description": "system factsとuser assessment視覚分離",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/webapp/test_big_trades_ui.py::test_bt2_u275_system_facts_and_user_assessment_are_separate"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O276",
+      "description": "active zones 10 per-trade benchmark",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o276_active_zones_10_per_trade_benchmark"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O277",
+      "description": "active zones 100 benchmark",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o277_active_zones_100_per_trade_benchmark"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O278",
+      "description": "active zones 1000 benchmark",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o278_active_zones_1000_per_trade_benchmark"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O279",
+      "description": "active zones 5000 benchmark",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o279_active_zones_5000_per_trade_benchmark"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O280",
+      "description": "O(N) scan guard fixture",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o280_query_hot_path_does_not_scan_zone_dictionary"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O281",
+      "description": "boundary index vs brute force randomized equality",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o281_boundary_index_matches_randomized_brute_force"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O282",
+      "description": "price path range-query randomized equality",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o282_price_path_range_query_matches_randomized_oracle"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O283",
+      "description": "6000 trade no-loss accounting",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o283_6000_trade_runtime_accounting_has_no_loss"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O284",
+      "description": "25000 trade overflow accounting",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o284_25000_trade_and_stream_overflow_is_fully_accounted"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O285",
+      "description": "5000 event＋20000 interaction browser merge",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o285_browser_merges_5000_events_20000_interactions_under_budget"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O286",
+      "description": "2000 marker＋zone Canvas p95",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o286_canvas_2000_markers_and_zones_p95_under_budget"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O287",
+      "description": "Big Trades OFF／ON TICK age比較",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o287_big_trades_off_on_tick_source_age_comparison"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O288",
+      "description": "BAR_UPDATE age比較",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o288_big_trades_off_on_bar_update_source_age_comparison"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O289",
+      "description": "storage queue high-watermark",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o289_storage_queue_high_watermark_and_overflow_are_visible"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O290",
+      "description": "Tape accounting no regression",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o290_tape_accounting_is_identical_with_big_trades_fanout"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O291",
+      "description": "Book gap／sync no regression",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o291_book_gap_and_sync_are_identical_with_big_trades_fanout"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O292",
+      "description": "CPU／RSS boundedness",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o292_cpu_and_rss_remain_bounded_for_25000_trades"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O293",
+      "description": "120秒以上live soak",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o293_live_soak_is_at_least_120_seconds_and_clean"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml",
+        "..\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\live_soak_120s.json"
+      ]
+    },
+    {
+      "contract_id": "BT2-O294",
+      "description": "restart recovery soak",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o294_restart_recovery_soak_preserves_identity_and_continuity"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O295",
+      "description": "scheduled session transition performance",
+      "status": "PASS",
+      "evidence_nodes": [
+        "tests/performance/test_big_trades_phase6.py::test_bt2_o295_scheduled_session_transition_p99_under_500ms"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_big_trades.xml"
+      ]
+    },
+    {
+      "contract_id": "BT2-O296",
+      "description": "full repository regression",
+      "status": "PASS",
+      "evidence_nodes": [
+        "FULL_REPOSITORY_PYTEST"
+      ],
+      "evidence_files": [
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_full_core.xml",
+        "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\BIG_TRADES_V2_PHASE6_EVIDENCE_20260812\\pytest_full_webapp.xml"
+      ]
+    }
+  ]
+}

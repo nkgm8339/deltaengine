@@ -1,0 +1,120 @@
+{
+  "report_type": "BIG_TRADES_V2_BACKFILL_DRY_RUN",
+  "status": "PASS",
+  "generated_at_utc": "2026-08-11T20:42:14.210964+00:00",
+  "elapsed_seconds": 110.32080119999591,
+  "source": {
+    "database_identity": {
+      "path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\duckdb\\orderflow_05M.duckdb",
+      "status": "PRESENT",
+      "size_bytes": 1035481088,
+      "mtime_utc": "2026-08-11T19:37:55.659211+00:00",
+      "stat_identity_sha256": "8639dac3993e03a1ca38fb20496abb6ff2b33aa9b2a07e90c2c7a37114fdf2e1",
+      "read_only_probe": "LOCKED_OR_UNAVAILABLE",
+      "read_only_probe_error": "IOException: IO Error: Cannot open file \"C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\duckdb\\orderflow_05M.duckdb\": プロセスはファイルにアクセスできません。別のプロセスが使用中です。\r\n\nFile is already open in \nC:\\Windows\\System32\\dllhost.exe (PID 9624)"
+    },
+    "reader": "PARQUET_MIRROR_READ_ONLY",
+    "parquet_manifest": {
+      "root": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet",
+      "selected_file_count": 250,
+      "selected_bytes": 1105244,
+      "first_file": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\symbol=BTCUSDT\\year=2026\\month=08\\day=11\\part-018672.parquet",
+      "last_file": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\parquet\\symbol=BTCUSDT\\year=2026\\month=08\\day=11\\part-018948.parquet",
+      "oldest_file_mtime_utc": "2026-08-11T20:01:13.613647+00:00",
+      "newest_file_mtime_utc": "2026-08-11T20:35:16.641838+00:00",
+      "manifest_sha256": "6838c25bcd90b6572bbc9737a712836cd495029b7f2d1fc143233a16ba923d56",
+      "inspected_candidate_files": 277
+    }
+  },
+  "period": {
+    "start_utc": "2026-08-11T20:00:42.566000+00:00",
+    "end_utc": "2026-08-11T20:27:58.373000+00:00",
+    "selection": "latest completed schema-confirmed trade shards",
+    "safety_lag_seconds": 300
+  },
+  "input": {
+    "trade_count": 42148,
+    "duplicate_rows_removed": 0,
+    "symbol": "BTCUSDT",
+    "venue": "BINANCE"
+  },
+  "predicted_counts": {
+    "clusters": 6608,
+    "accepted_events": 111,
+    "event_fills": 13109,
+    "reaction_zones": 111,
+    "interactions": 10676,
+    "event_zone_links": 542,
+    "result_snapshots": 861,
+    "zone_state_checkpoints": 5515
+  },
+  "disk_estimate": {
+    "isolated_duckdb_bytes": 11284480,
+    "method": "actual isolated DuckDB produced for the selected period",
+    "temporary_output_path": "C:\\Users\\user\\AppData\\Local\\Temp\\big-trades-v2-backfill-dry-run-4npp7pvr\\predicted-output.duckdb",
+    "temporary_output_deleted": true
+  },
+  "versions": {
+    "logic_version": "BTLOGIC-2.0",
+    "settings_id": "bts1_bd6aeb151474272c2f91c01d6e99272f7a0ecbd037631ad8fed91c5e570b6f0a",
+    "calibration_id": null,
+    "activation_id": "bta1_5390675bb2f39f06559930e5b00af268a47f1abc205832e4295c4a637de886d2",
+    "replay_calibration_mode": "FIXED_RESEARCH",
+    "filter_mode": "MANUAL",
+    "manual_min_quantity": "5.000",
+    "manual_max_quantity": "0",
+    "activation_policy": "MANUAL_ONLY",
+    "production_activation": false
+  },
+  "runtime": {
+    "status": "MANUAL_READY",
+    "mode": "REPLAY",
+    "active_zone_count": 111,
+    "boundary_index_size": 111,
+    "price_path_index_size": 42148,
+    "pending_origins": 0,
+    "pending_updates": 0,
+    "recent_records": 12190,
+    "last_error": null,
+    "trades_observed": 42148,
+    "invalid_trades": 0,
+    "clusters_finalized": 6608,
+    "clusters_accepted": 111,
+    "clusters_rejected": 6497,
+    "origin_batches_submitted": 111,
+    "origin_batches_committed": 111,
+    "origin_batches_failed": 0,
+    "storage_updates_failed": 0,
+    "source_gap_epochs": 0,
+    "sessions_source_confirmed": 0,
+    "errors": 0,
+    "storage": {
+      "origin_batches_committed": 111,
+      "origin_batches_failed": 0,
+      "events_written": 111,
+      "fills_written": 13109,
+      "zones_written": 111,
+      "interactions_written": 10676,
+      "links_written": 542,
+      "snapshots_written": 861,
+      "candle_observations_written": 0,
+      "zone_checkpoints_written": 5515,
+      "assessments_written": 0,
+      "duplicates": 0,
+      "collisions": 0,
+      "queue_full": 0,
+      "queue_high_watermark": 440,
+      "parquet_pending": 0,
+      "parquet_failures": 0,
+      "commit_ack_latency_ms": {
+        "p50": 35761.8727500012,
+        "p95": 47267.352399998344,
+        "p99": 47803.30529999628
+      },
+      "queue_pending": 0
+    }
+  },
+  "production_mutations": 0,
+  "production_writer_connection_attempts": 0,
+  "production_backfill_performed": false
+}

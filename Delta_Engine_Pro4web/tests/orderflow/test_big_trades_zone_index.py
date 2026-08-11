@@ -59,3 +59,17 @@ def test_index_keeps_5000_zones_and_removes_only_explicit_target() -> None:
     index.remove("zone-2500")
     assert len(index) == 4_999
     assert "zone-2500" not in index.containing(Decimal("2501"))
+
+
+def test_interval_candidate_query_returns_only_overlap_and_tolerance_neighbors() -> None:
+    zones = [
+        _zone(1, 90, 99),
+        _zone(2, 100, 101),
+        _zone(3, 102, 103),
+        _zone(4, 104, 105),
+        _zone(5, 106, 120),
+    ]
+    index = ReactionZoneBoundaryIndex(zones)
+    assert index.overlapping_or_adjacent(
+        Decimal("101"), Decimal("103"), Decimal("1")
+    ) == ("zone-2", "zone-3", "zone-4")

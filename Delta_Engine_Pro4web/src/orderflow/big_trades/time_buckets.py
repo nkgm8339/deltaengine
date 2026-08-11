@@ -15,6 +15,8 @@ MICROSECONDS_PER_DAY = 86_400 * MICROSECONDS_PER_SECOND
 def require_aware_utc(value: datetime, name: str = "datetime") -> datetime:
     if not isinstance(value, datetime) or value.tzinfo is None:
         raise ValueError(f"{name} must be timezone-aware")
+    if value.tzinfo is UTC:
+        return value
     return value.astimezone(UTC)
 
 

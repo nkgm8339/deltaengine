@@ -3,7 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from src.orderflow.big_trades.ids import canonical_json, decimal_text, zone_id_for_event
+from src.orderflow.big_trades.ids import (
+    canonical_json,
+    content_hash,
+    decimal_text,
+    flat_content_hash,
+    zone_id_for_event,
+)
 from tests.orderflow._big_trades_helpers import event_zone
 
 
@@ -18,6 +24,18 @@ def test_canonical_json_sorts_keys_and_uses_utc() -> None:
         "a": datetime(2026, 1, 1, 9, tzinfo=timezone(timedelta(hours=9))),
     }
     assert canonical_json(value) == '{"a":"2026-01-01T00:00:00.000000Z","z":"1"}'
+
+
+def test_flat_content_hash_is_byte_equivalent_to_general_canonical_hash() -> None:
+    value = {
+        "decimal": Decimal("100.2500"),
+        "time": datetime(2026, 1, 1, tzinfo=timezone.utc),
+        "text": "BTCUSDT",
+        "integer": 42,
+        "boolean": True,
+        "missing": None,
+    }
+    assert flat_content_hash(value) == content_hash(value)
 
 
 def test_zone_id_is_deterministic_and_versioned() -> None:

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from .constants import DEFAULT_HORIZONS_SECONDS, SnapshotValidity
-from .ids import content_hash, snapshot_id
+from .ids import flat_content_hash, snapshot_id
 from .models import BigTradeEvent, BigTradeFill, ReactionZone, ResultSnapshot, ZERO
 from .price_path import SourcePricePathIndex
 from .reaction_zones import BPS, ReactionZoneObserver, relation_for_price
@@ -162,8 +162,17 @@ class ResultHorizonTracker:
             "inside_sell_quantity_to_horizon": metrics.inside_sell_quantity if metrics else ZERO,
             "validity": validity,
         }
-        return ResultSnapshot(content_hash=content_hash(payload), **payload)
+        return ResultSnapshot(content_hash=flat_content_hash(payload), **payload)
 
     @property
     def completed(self) -> tuple[ResultSnapshot, ...]:
         return tuple(self._completed[horizon] for horizon in sorted(self._completed))
+
+    @property
+    def next_target_time(self) -> datetime | None:
+        """Return the next incomplete source-time horizon, if any."""
+
+        for horizon in self.horizons_seconds:
+            if horizon not in self._completed:
+                return self.event.last_time + timedelta(seconds=horizon)
+        return None

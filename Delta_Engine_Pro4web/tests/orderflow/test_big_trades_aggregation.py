@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
 
 from src.orderflow.big_trades.aggregation import ExecutionClusterAggregator, create_big_trade_event
-from src.orderflow.big_trades.constants import ClusterCloseReason, MarkerPriceMode
-from src.orderflow.big_trades.filtering import ManualSizeFilter
+from src.orderflow.big_trades.constants import ClusterCloseReason, MarkerPriceMode, SideFilter
+from src.orderflow.big_trades.filtering import ManualSizeFilter, decide_cluster
 from tests.orderflow._big_trades_helpers import fill, settings
 
 
@@ -50,6 +51,14 @@ def test_exact_40ms_gap_joins_cluster() -> None:
     aggregator.process(fill(0, trade_id=1), configured)
     assert aggregator.process(fill(40, trade_id=2), configured) == ()
     assert aggregator.flush()[0].fill_count == 2
+
+
+def test_same_side_same_millisecond_joins_cluster() -> None:
+    configured = settings()
+    aggregator = ExecutionClusterAggregator()
+    aggregator.process(fill(0, trade_id=1), configured)
+    assert aggregator.process(fill(0, trade_id=2), configured) == ()
+    assert [item.trade_id for item in aggregator.flush()[0].fills] == [1, 2]
 
 
 def test_settings_change_does_not_force_split_and_next_natural_cluster_uses_new_snapshot() -> None:
@@ -137,3 +146,15 @@ def test_session_boundary_closes_cluster() -> None:
 def test_trade_and_settings_identity_mismatch_is_rejected() -> None:
     with pytest.raises(ValueError, match="identity"):
         ExecutionClusterAggregator().process(fill(0, symbol="ETHUSDT"), settings())
+
+
+def test_side_filter_is_display_metadata_after_quantity_decision() -> None:
+    configured = replace(settings(minimum="5"), side_filter=SideFilter.BUY)
+    cluster = ExecutionClusterAggregator()
+    cluster.process(fill(0, quantity="6", side="SELL", trade_id=1), configured)
+    finalized = cluster.flush()[0]
+    decision = decide_cluster(finalized)
+    event = create_big_trade_event(finalized, decision)
+    assert decision.accepted is True
+    assert event.side == "SELL"
+    assert event.side_filter is SideFilter.BUY

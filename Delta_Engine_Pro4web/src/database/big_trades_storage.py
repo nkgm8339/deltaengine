@@ -802,6 +802,7 @@ class BigTradesBackgroundStorageWriter:
             "duplicates": 0,
             "collisions": 0,
             "queue_full": 0,
+            "queue_high_watermark": 0,
             "parquet_pending": 0,
             "parquet_failures": 0,
         }
@@ -843,6 +844,11 @@ class BigTradesBackgroundStorageWriter:
                     error="Big Trades storage queue is full",
                 )
             )
+        else:
+            with self._stats_lock:
+                self.stats["queue_high_watermark"] = max(
+                    self.stats["queue_high_watermark"], self._queue.qsize()
+                )
         return future
 
     def submit_origin_batch(self, batch: BigTradeOriginStorageBatch) -> CommitFuture:

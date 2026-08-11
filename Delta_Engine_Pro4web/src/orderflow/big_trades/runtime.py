@@ -8,6 +8,7 @@ published before its DuckDB transaction has committed.
 from __future__ import annotations
 
 import logging
+import heapq
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -141,6 +142,7 @@ class FixedActivationSettingsResolver:
         self.settings = settings
         self.activation = activation
         self.calibration = calibration
+        self._effective_key = activation.effective_key
         self._snapshot = settings.to_runtime_snapshot(activation_id=activation.activation_id)
         self._automatic = (
             AutomaticSizeFilter(calibration.calibration_id, calibration.thresholds)
@@ -151,7 +153,7 @@ class FixedActivationSettingsResolver:
     def resolve(self, trade: BigTradeFill) -> ResolvedRuntimeSettings:
         if trade.symbol != self.settings.symbol or trade.venue != self.settings.venue:
             raise ValueError("trade identity does not match fixed activation")
-        if trade.source_key < self.activation.effective_key:
+        if trade.source_key < self._effective_key:
             raise ActivationHistoryError("activation is not effective for source trade")
         return ResolvedRuntimeSettings(self._snapshot, self._automatic)
 
@@ -317,6 +319,7 @@ class BigTradesRuntimeV2:
         self.observers: dict[str, ReactionZoneObserver] = {}
         self.events_by_zone: dict[str, BigTradeEvent] = {}
         self.horizon_trackers: dict[str, ResultHorizonTracker] = {}
+        self._horizon_due_heap: list[tuple[int, str]] = []
         self._committed_zones: set[str] = set()
         self._pending_origin_by_token: dict[int, _PendingOrigin] = {}
         self._pending_origin_token_by_zone: dict[str, int] = {}
@@ -324,6 +327,7 @@ class BigTradesRuntimeV2:
         self._ack_queue: Queue[tuple[int, CommitAck]] = Queue()
         self._next_token = 1
         self._dirty_checkpoints: dict[tuple[str, datetime], ZoneStateCheckpoint] = {}
+        self._closed_zone_cleanup_pending: set[str] = set()
         self._recent_records: list[RuntimeRecord] = []
         self._new_publications: list[RuntimeRecord] = []
         self._stats_builder: Optional[SessionStatsBuilder] = None
@@ -353,7 +357,8 @@ class BigTradesRuntimeV2:
     def process(self, trade: BigTradeFill | Any) -> tuple[RuntimeRecord, ...]:
         if not self.enabled or self._halted:
             return ()
-        self.drain_commit_acks()
+        if self._pending_origin_by_token or self._pending_updates:
+            self.drain_commit_acks()
         try:
             normalized = (
                 trade
@@ -373,7 +378,6 @@ class BigTradesRuntimeV2:
                 self._process_ordered(ordered)
         except Exception as exc:  # noqa: BLE001 - isolate Big Trades from existing pipeline
             self._set_error(exc)
-        self.drain_commit_acks()
         return self.take_publications()
 
     def flush(
@@ -406,14 +410,10 @@ class BigTradesRuntimeV2:
             self._end_source_gap(trade.event_time)
         self._flush_checkpoint_buckets_before(trade.event_time)
 
-        for tracker in tuple(self.horizon_trackers.values()):
-            snapshots = tracker.on_trade(trade)
-            if snapshots:
-                self._submit_snapshots(snapshots)
+        self._finalize_due_horizons(trade)
 
-        previous_price = (
-            self.price_path.observations[-1].price if self.price_path.observations else None
-        )
+        previous_observation = self.price_path.last_observation
+        previous_price = previous_observation.price if previous_observation is not None else None
         self.price_path.append(trade)
         self._stats_builder.observe_trade(trade)
         self.counters["trades_observed"] += 1
@@ -482,7 +482,12 @@ class BigTradesRuntimeV2:
         zone = create_reaction_zone(event)
         observer = ReactionZoneObserver(zone, tick_size=self.tick_size)
         links: list[ZoneEventLink] = []
-        for prior_zone_id in tuple(sorted(self.observers)):
+        link_candidate_ids = self.zone_index.overlapping_or_adjacent(
+            event.low_price,
+            event.high_price,
+            self.tick_size * self.link_tolerance_ticks,
+        )
+        for prior_zone_id in link_candidate_ids:
             prior = self.observers[prior_zone_id]
             if prior.lifecycle is ZoneLifecycle.SESSION_CLOSED:
                 continue
@@ -494,8 +499,17 @@ class BigTradesRuntimeV2:
                 ordinal_for_zone=prior.linked_big_trade_count + 1,
             )
             if link is not None:
-                prior.register_link(link, linked_trade_id=event.last_trade_id)
-                self._mark_checkpoint(prior, event.last_time)
+                observed_time = post_trade.event_time if post_trade is not None else event.last_time
+                observed_trade_id = (
+                    post_trade.trade_id if post_trade is not None else event.last_trade_id
+                )
+                prior.register_link(
+                    link,
+                    linked_trade_id=event.last_trade_id,
+                    observed_time=observed_time,
+                    observed_trade_id=observed_trade_id,
+                )
+                self._mark_checkpoint(prior, observed_time)
                 links.append(link)
 
         self.zone_index.add(zone)
@@ -509,6 +523,7 @@ class BigTradesRuntimeV2:
             horizons_seconds=self.horizons_seconds,
             max_staleness_ms=self.max_staleness_ms,
         )
+        self._schedule_horizon_tracker(zone.zone_id)
         batch = BigTradeOriginStorageBatch.create(
             event, cluster.fills, zone, observer.interactions[0], links
         )
@@ -562,6 +577,8 @@ class BigTradesRuntimeV2:
         self._dirty_checkpoints[(checkpoint.zone_id, checkpoint.source_bucket_time)] = checkpoint
 
     def _flush_checkpoint_buckets_before(self, source_time: datetime) -> None:
+        if not self._dirty_checkpoints:
+            return
         boundary = require_aware_utc(source_time).replace(microsecond=0)
         due_keys = [key for key in self._dirty_checkpoints if key[1] < boundary]
         self._flush_checkpoint_keys(due_keys)
@@ -639,7 +656,7 @@ class BigTradesRuntimeV2:
 
         if not self.enabled or self._halted:
             return
-        if self.observers or self.price_path.observations or self.ordering.pending_count:
+        if self.observers or len(self.price_path) or self.ordering.pending_count:
             raise RuntimeError("Big Trades recovery requires an empty runtime")
         assert self.storage_writer is not None
         trades = tuple(sorted(source_trades, key=lambda item: item.source_key))
@@ -758,6 +775,7 @@ class BigTradesRuntimeV2:
             )
             tracker.restore_completed(tuple(snapshots_by_zone[zone.zone_id]))
             self.horizon_trackers[zone.zone_id] = tracker
+            self._schedule_horizon_tracker(zone.zone_id)
             self._committed_zones.add(zone.zone_id)
 
         if zones and not trades:
@@ -997,8 +1015,9 @@ class BigTradesRuntimeV2:
         if snapshots:
             self._submit_snapshots(tuple(snapshots))
         interactions = []
-        for observer in self.observers.values():
+        for zone_id, observer in self.observers.items():
             interactions.append(observer.close_session())
+            self._closed_zone_cleanup_pending.add(zone_id)
             self._mark_checkpoint(observer, transition.confirmed_by_event_time)
         if interactions:
             self._submit_interactions(tuple(interactions))
@@ -1021,11 +1040,38 @@ class BigTradesRuntimeV2:
         for zone_id in tuple(self.observers):
             self.zone_index.remove(zone_id)
         self.horizon_trackers.clear()
+        self._horizon_due_heap.clear()
         self.price_path = SourcePricePathIndex(symbol=self.symbol, venue=self.venue)
         self._stats_builder = None
         self._current_session_id = None
         self._open_gap = None
         self._previous_candle_close = None
+
+    def _schedule_horizon_tracker(self, zone_id: str) -> None:
+        tracker = self.horizon_trackers.get(zone_id)
+        if tracker is None:
+            return
+        target = tracker.next_target_time
+        if target is not None:
+            heapq.heappush(
+                self._horizon_due_heap,
+                (epoch_microseconds(target), zone_id),
+            )
+
+    def _finalize_due_horizons(self, trade: BigTradeFill) -> None:
+        current_us = epoch_microseconds(trade.event_time)
+        while self._horizon_due_heap and self._horizon_due_heap[0][0] < current_us:
+            target_us, zone_id = heapq.heappop(self._horizon_due_heap)
+            tracker = self.horizon_trackers.get(zone_id)
+            if tracker is None:
+                continue
+            target = tracker.next_target_time
+            if target is None or epoch_microseconds(target) != target_us:
+                continue
+            snapshots = tracker.on_trade(trade)
+            if snapshots:
+                self._submit_snapshots(snapshots)
+            self._schedule_horizon_tracker(zone_id)
 
     def _submit_interactions(self, items: tuple[ZoneInteraction, ...]) -> None:
         self._submit_zone_dependent(
@@ -1118,6 +1164,8 @@ class BigTradesRuntimeV2:
         return token
 
     def drain_commit_acks(self) -> tuple[RuntimeRecord, ...]:
+        if self._ack_queue.empty():
+            return tuple(self._new_publications)
         while True:
             try:
                 token, ack = self._ack_queue.get_nowait()
@@ -1164,6 +1212,7 @@ class BigTradesRuntimeV2:
         self.observers.pop(zone_id, None)
         self.events_by_zone.pop(zone_id, None)
         self.horizon_trackers.pop(zone_id, None)
+        self._closed_zone_cleanup_pending.discard(zone_id)
         for key in [key for key in self._dirty_checkpoints if key[0] == zone_id]:
             self._dirty_checkpoints.pop(key, None)
         self.status = BigTradesRuntimeStatus.DEGRADED_STORAGE
@@ -1171,19 +1220,20 @@ class BigTradesRuntimeV2:
         self._halted = True
 
     def _cleanup_closed_zones(self) -> None:
+        if not self._closed_zone_cleanup_pending:
+            return
         pending_zone_ids = set(self._pending_origin_token_by_zone)
         for update in self._pending_updates.values():
             pending_zone_ids.update(update.zone_ids)
         pending_zone_ids.update(zone_id for zone_id, _ in self._dirty_checkpoints)
-        for zone_id, observer in tuple(self.observers.items()):
-            if observer.lifecycle is not ZoneLifecycle.SESSION_CLOSED:
-                continue
+        for zone_id in tuple(self._closed_zone_cleanup_pending):
             if zone_id in pending_zone_ids:
                 continue
             self.observers.pop(zone_id, None)
             self.events_by_zone.pop(zone_id, None)
             self.horizon_trackers.pop(zone_id, None)
             self._committed_zones.discard(zone_id)
+            self._closed_zone_cleanup_pending.discard(zone_id)
 
     def _publish(self, records: Iterable[RuntimeRecord]) -> None:
         ordered = tuple(sorted(records, key=lambda item: item.sort_key))
@@ -1206,6 +1256,8 @@ class BigTradesRuntimeV2:
             self.publication_callback(ordered)
 
     def take_publications(self) -> tuple[RuntimeRecord, ...]:
+        if not self._new_publications:
+            return ()
         published = tuple(sorted(self._new_publications, key=lambda item: item.sort_key))
         self._new_publications.clear()
         return published
@@ -1281,7 +1333,7 @@ class BigTradesRuntimeV2:
             "mode": self.mode.value,
             "active_zone_count": len(self.zone_index),
             "boundary_index_size": len(self.zone_index),
-            "price_path_index_size": len(self.price_path.observations),
+            "price_path_index_size": len(self.price_path),
             "pending_origins": len(self._pending_origin_by_token),
             "pending_updates": len(self._pending_updates),
             "recent_records": len(self._recent_records),

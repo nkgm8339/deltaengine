@@ -83,10 +83,17 @@ def big_trades_json_value(value: Any) -> Any:
 
 def _is_decimal_field(name: str) -> bool:
     lowered = name.lower()
+    if lowered in {
+        "marker_price_mode",
+        "price_level_count",
+        "price_path_index_size",
+        "quantity_unit",
+    }:
+        return False
     return any(
         token in lowered
         for token in ("price", "quantity", "notional", "vwap", "_bps", "_ticks", "threshold")
-    ) and not lowered.endswith(("price_level_count",))
+    )
 
 
 def _is_integer_field(name: str) -> bool:

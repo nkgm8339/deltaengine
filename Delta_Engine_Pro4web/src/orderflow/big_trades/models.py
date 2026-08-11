@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from functools import cached_property
 from typing import Any, Optional
 
 from .constants import (
@@ -71,19 +72,19 @@ class BigTradeFill:
         if self.side not in {"BUY", "SELL"}:
             raise ValueError("side must be BUY or SELL")
 
-    @property
+    @cached_property
     def event_time_ms(self) -> int:
         return event_time_ms(self.event_time)
 
-    @property
+    @cached_property
     def source_key(self) -> tuple[int, int]:
         return source_key(self.event_time, self.trade_id)
 
-    @property
+    @cached_property
     def session_id(self) -> str:
         return session_id(self.event_time)
 
-    @property
+    @cached_property
     def candle_id(self) -> int:
         return candle_id(self.event_time)
 
@@ -388,7 +389,7 @@ class PriceObservation:
         object.__setattr__(self, "event_time", require_aware_utc(self.event_time))
         object.__setattr__(self, "price", _finite_positive(self.price, "price"))
 
-    @property
+    @cached_property
     def source_key(self) -> tuple[int, int]:
         return source_key(self.event_time, self.trade_id)
 

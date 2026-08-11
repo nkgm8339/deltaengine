@@ -225,8 +225,26 @@ def test_bt2_u261_zones_off_changes_drawing_only() -> None:
 def test_bt2_u262_history_live_dedup_and_collision_rejection() -> None:
     output = run_node('''
 const s=new bt.BigTradeEventStore(5),id="bt2_"+"1".repeat(64),base={event_id:id,content_hash:"a".repeat(64),last_time:"2026-08-12T00:00:00Z",aggregate_quantity:"1"};
-if(!s.ingest(base)||s.ingest({...base})||s.events.size!==1)throw new Error("dedup failed");
-let rejected=false;try{s.ingest({...base,content_hash:"b".repeat(64)})}catch(_){rejected=true}
+if(s.merge([base,{...base}])!==1||s.events.size!==1)throw new Error("bulk dedup failed");
+let rejected=false;try{s.merge([{...base,content_hash:"b".repeat(64)}])}catch(_){rejected=true}
+if(!rejected||s.collisions!==1)throw new Error("collision accepted");console.log("ok");
+''')
+    assert output == "ok"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
+def test_big_trades_bulk_interaction_merge_preserves_runtime_state_and_collision_rules() -> None:
+    output = run_node('''
+const s=new bt.ReactionZoneStore(5,5),z="btz2_"+"1".repeat(64),base={zone_id:z,source_event_time:"2026-08-12T00:00:00Z",ordinal:1,current_relation:"ABOVE"};
+const rows=[
+  {...base,interaction_id:"bti2_"+"2".repeat(64),interaction_type:"SOURCE_GAP_STARTED",gap_epoch_id:"gap-1",content_hash:"2".repeat(64)},
+  {...base,interaction_id:"bti2_"+"3".repeat(64),interaction_type:"SOURCE_GAP_ENDED",gap_epoch_id:"gap-1",source_event_time:"2026-08-12T00:00:01Z",ordinal:2,current_relation:"INSIDE",content_hash:"3".repeat(64)},
+  {...base,interaction_id:"bti2_"+"4".repeat(64),interaction_type:"ZONE_SESSION_CLOSED",source_event_time:"2026-08-12T00:00:02Z",ordinal:3,current_relation:"BELOW",content_hash:"4".repeat(64)},
+];
+if(s.mergeInteractions(rows)!==3||s.mergeInteractions(rows)!==0||s.interactions.size!==3)throw new Error("bulk dedup failed");
+const state=s.state(z),gap=state.gaps[0];
+if(state.lifecycle!=="SESSION_CLOSED"||state.relation!=="BELOW"||state.sourceEnd!==rows[2].source_event_time||!gap.end_time)throw new Error("state projection changed");
+let rejected=false;try{s.mergeInteractions([{...rows[0],content_hash:"f".repeat(64)}])}catch(_){rejected=true}
 if(!rejected||s.collisions!==1)throw new Error("collision accepted");console.log("ok");
 ''')
     assert output == "ok"
@@ -359,5 +377,16 @@ bt.BigTradeRecordValidator.validateUpdate(base);let rejected=0;
 try{bt.BigTradeRecordValidator.validateUpdate({...base,extra:true})}catch(_){rejected++}
 try{bt.BigTradeRecordValidator.validateUpdate({...base,payload:{...base.payload,records:[{...base.payload.records[0],data:{...base.payload.records[0].data,aggregate_quantity:1}}]}})}catch(_){rejected++}
 if(rejected!==2)throw new Error("invalid payload accepted");console.log("ok");
+''')
+    assert output == "ok"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
+def test_browser_validator_accepts_enum_price_mode_and_numeric_price_path_size() -> None:
+    output = run_node('''
+const id="bt2_"+"1".repeat(64),hash="a".repeat(64);
+bt.BigTradeRecordValidator.validateHistoryRow({event_id:id,content_hash:hash,last_time:"2026-08-12T00:00:00Z",marker_price_mode:"LAST_PRICE"},"event_id","last_time");
+bt.BigTradeRecordValidator.validateStatus({v:1,type:"BIG_TRADES_STATUS",time:"2026-08-12T00:00:00Z",symbol:"BTCUSDT",payload:{status:"MANUAL_READY",reason:null,counters:{price_path_index_size:25000}}});
+console.log("ok");
 ''')
     assert output == "ok"

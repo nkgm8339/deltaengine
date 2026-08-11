@@ -7,6 +7,7 @@ from src.orderflow.big_trades.constants import DEFAULT_HORIZONS_SECONDS, Snapsho
 from src.orderflow.big_trades.horizons import ResultHorizonTracker
 from src.orderflow.big_trades.price_path import SourcePricePathIndex
 from src.orderflow.big_trades.reaction_zones import ReactionZoneObserver
+from src.orderflow.big_trades.reaction_zones import link_event_to_zone
 from tests.orderflow._big_trades_helpers import BASE, event_zone, fill
 
 
@@ -89,3 +90,59 @@ def test_horizon_crossing_utc_session_is_missing_session() -> None:
     trigger = fill(1_061, "110", trade_id=10, base=late_base)
     path.append(trigger)
     assert tracker.on_trade(trigger)[0].validity is SnapshotValidity.MISSING_SESSION
+
+
+def _fact_rich_snapshot(side: str):
+    event, zone, origin_fills = event_zone(side=side)
+    observer = ReactionZoneObserver(zone, tick_size=Decimal("1"))
+    path = SourcePricePathIndex(symbol=event.symbol, venue=event.venue)
+    for trade in origin_fills:
+        path.append(trade)
+    observations = (
+        fill(100, "103", "1", "BUY", trade_id=10),
+        fill(200, "102", "2", "SELL", trade_id=11),
+        fill(300, "99", "3", "BUY", trade_id=12),
+    )
+    for trade in observations:
+        path.append(trade)
+        observer.observe_trade(trade)
+    linked, _, _ = event_zone(
+        prices=("101",),
+        quantities=("7",),
+        side="SELL" if side == "BUY" else "BUY",
+        times_ms=(500,),
+        minimum="0",
+    )
+    link = link_event_to_zone(
+        zone, linked, tick_size=Decimal("1"), tolerance_ticks=1, ordinal_for_zone=1
+    )
+    assert link is not None
+    observer.register_link(link, linked_trade_id=linked.last_trade_id)
+    at_target = fill(1_060, "104", "1", "BUY", trade_id=13)
+    path.append(at_target)
+    observer.observe_trade(at_target)
+    tracker = ResultHorizonTracker(
+        event, zone, observer, path, horizons_seconds=(1,), max_staleness_ms=1_000
+    )
+    trigger = fill(1_061, "500", trade_id=14)
+    path.append(trigger)
+    return tracker.on_trade(trigger)[0]
+
+
+def test_snapshot_cuts_off_future_trade_and_preserves_all_metric_facts() -> None:
+    snapshot = _fact_rich_snapshot("BUY")
+    assert snapshot.snapshot_price == Decimal("104")
+    assert snapshot.max_above_ticks_to_horizon == Decimal("2")
+    assert snapshot.max_below_ticks_to_horizon == Decimal("1")
+    assert snapshot.touch_count_to_horizon == 1
+    assert snapshot.cross_count_to_horizon == 1
+    assert snapshot.linked_big_trade_count_to_horizon == 1
+    assert snapshot.inside_sell_quantity_to_horizon == Decimal("2")
+    assert snapshot.origin_side_signed_return_bps == snapshot.return_from_vwap_bps
+
+
+def test_sell_signed_return_is_inverse_and_replay_speed_independent() -> None:
+    first = _fact_rich_snapshot("SELL")
+    second = _fact_rich_snapshot("SELL")
+    assert first == second
+    assert first.origin_side_signed_return_bps == -first.return_from_vwap_bps

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any
 
 from .constants import AGGREGATION_CANDLE_TIMEFRAME, AGGREGATION_WINDOW_MS
 from .time_buckets import event_time_ms
@@ -37,14 +38,16 @@ def canonical_value(value: Any) -> Any:
         return utc_text(value)
     if isinstance(value, Enum):
         return value.value
+    if isinstance(value, (str, int, bool)) or value is None:
+        return value
+    if type(value) is dict:
+        return {str(key): canonical_value(value[key]) for key in sorted(value)}
+    if isinstance(value, (tuple, list)):
+        return [canonical_value(item) for item in value]
     if is_dataclass(value):
         return canonical_value(asdict(value))
     if isinstance(value, Mapping):
         return {str(key): canonical_value(value[key]) for key in sorted(value)}
-    if isinstance(value, (tuple, list)):
-        return [canonical_value(item) for item in value]
-    if isinstance(value, (str, int, bool)) or value is None:
-        return value
     raise TypeError(f"unsupported canonical value {type(value)!r}")
 
 
@@ -52,7 +55,7 @@ def canonical_json(value: Any) -> str:
     return json.dumps(
         canonical_value(value),
         ensure_ascii=False,
-        sort_keys=True,
+        sort_keys=False,
         separators=(",", ":"),
     )
 
@@ -64,6 +67,31 @@ def sha256_hex(value: str | bytes) -> str:
 
 def content_hash(value: Any) -> str:
     return sha256_hex(canonical_json(value))
+
+
+def flat_content_hash(value: Mapping[str, Any]) -> str:
+    """Hash a flat record with the exact same wire canonicalization as content_hash."""
+
+    canonical: dict[str, Any] = {}
+    for key in sorted(value):
+        item = value[key]
+        if isinstance(item, Decimal):
+            canonical[str(key)] = decimal_text(item)
+        elif isinstance(item, datetime):
+            canonical[str(key)] = utc_text(item)
+        elif isinstance(item, Enum):
+            canonical[str(key)] = item.value
+        elif isinstance(item, (str, int, bool)) or item is None:
+            canonical[str(key)] = item
+        else:
+            raise TypeError(f"flat canonical record contains {type(item)!r}")
+    encoded = json.dumps(
+        canonical,
+        ensure_ascii=False,
+        sort_keys=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def event_id_for_cluster(cluster: Any) -> str:

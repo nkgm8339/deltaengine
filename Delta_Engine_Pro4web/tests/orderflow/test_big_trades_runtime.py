@@ -360,3 +360,111 @@ def test_disabled_runtime_performs_no_storage_or_resolution(tmp_path: Path) -> N
         assert runtime.process(trade) == ()
     assert runtime.status == BigTradesRuntimeStatus.DISABLED
     assert runtime.statistics()["trades_observed"] == 0
+
+
+def test_delayed_same_area_link_keeps_source_order_and_restart_recovery(
+    tmp_path: Path,
+) -> None:
+    settings, activation = _settings_activation()
+    resolver = FixedActivationSettingsResolver(settings, activation)
+    store, writer, runtime = _runtime(
+        tmp_path,
+        mode=RuntimeMode.LIVE,
+        resolver=resolver,
+    )
+    trades = (
+        _fill(0, 1, "100", "6", "BUY"),
+        _fill(10, 2, "100", "6", "BUY"),
+        _fill(100, 3, "101", "1", "SELL"),
+        _fill(200, 4, "100", "6", "BUY"),
+        _fill(210, 5, "100", "6", "BUY"),
+        _fill(300, 6, "101", "1", "SELL"),
+    )
+    try:
+        for trade in trades:
+            runtime.process(trade)
+        runtime.flush()
+        _settle(writer, runtime)
+        assert runtime.statistics()["errors"] == 0
+        assert store.count("big_trade_events") == 2
+        assert store.count("big_trade_reaction_zones") == 2
+        assert store.count("big_trade_zone_event_links") == 1
+    finally:
+        writer.close()
+
+    recovered_store, recovered_writer, recovered = _runtime(
+        tmp_path,
+        mode=RuntimeMode.LIVE,
+        resolver=resolver,
+    )
+    try:
+        recovered.recover_current_session(
+            session_id=BASE.date().isoformat(), source_trades=trades
+        )
+        _settle(recovered_writer, recovered)
+        assert recovered.statistics()["errors"] == 0
+        assert recovered.statistics()["restart_recoveries"] == 1
+        assert recovered_store.count("big_trade_events") == 2
+        assert recovered_store.count("big_trade_zone_event_links") == 1
+    finally:
+        recovered_writer.close()
+
+
+def test_reconnect_flushes_open_cluster_without_deleting_active_zone(
+    tmp_path: Path,
+) -> None:
+    settings, activation = _settings_activation()
+    store, writer, runtime = _runtime(
+        tmp_path,
+        mode=RuntimeMode.LIVE,
+        resolver=FixedActivationSettingsResolver(settings, activation),
+    )
+    try:
+        runtime.process(_fill(0, 1, "100", "6", "BUY"))
+        runtime.process(_fill(10, 2, "100", "6", "BUY"))
+        runtime.start_source_gap(BASE + timedelta(milliseconds=10))
+        runtime.process(_fill(100, 3, "100", "6", "BUY"))
+        runtime.process(_fill(110, 4, "100", "6", "BUY"))
+        runtime.process(_fill(200, 5, "101", "1", "SELL"))
+        runtime.flush()
+        _settle(writer, runtime)
+        events = store.fetch_rows("big_trade_events", order_by="first_trade_id")
+        assert [(row["first_trade_id"], row["fill_count"]) for row in events] == [
+            (1, 2),
+            (3, 2),
+        ]
+        assert store.count("big_trade_reaction_zones") == 2
+        assert runtime.statistics()["source_gap_epochs"] == 1
+    finally:
+        writer.close()
+
+
+def test_candle_boundary_mismatch_errors_only_big_trades_runtime(tmp_path: Path) -> None:
+    settings, activation = _settings_activation()
+    store, writer, runtime = _runtime(
+        tmp_path,
+        mode=RuntimeMode.LIVE,
+        resolver=FixedActivationSettingsResolver(settings, activation),
+    )
+    try:
+        for trade in _fixture():
+            runtime.process(trade)
+        runtime.flush()
+        _settle(writer, runtime)
+        open_time = BASE.replace(second=0, microsecond=0)
+        runtime.observe_closed_candle(
+            ClosedCandle(
+                candle_id=candle_id(open_time) + 1,
+                open_time=open_time,
+                symbol="BTCUSDT",
+                open=Decimal("100"),
+                high=Decimal("104"),
+                low=Decimal("99"),
+                close=Decimal("102"),
+            )
+        )
+        assert runtime.status is BigTradesRuntimeStatus.ERROR
+        assert runtime.statistics()["errors"] == 1
+        assert store.count("big_trade_events") == 1
+    finally:
+        writer.close()

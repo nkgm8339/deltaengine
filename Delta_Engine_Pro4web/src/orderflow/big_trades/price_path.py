@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from bisect import bisect_right
-from dataclasses import dataclass
+from bisect import bisect_left, bisect_right
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -16,87 +15,6 @@ from .time_buckets import epoch_microseconds, require_aware_utc
 SourceKey = tuple[int, int]
 
 
-@dataclass
-class _PriceNode:
-    key: SourceKey
-    price: Decimal
-    minimum: Decimal
-    maximum: Decimal
-    first_key: SourceKey
-    last_key: SourceKey
-    height: int = 1
-    left: Optional["_PriceNode"] = None
-    right: Optional["_PriceNode"] = None
-
-
-def _height(node: Optional[_PriceNode]) -> int:
-    return node.height if node is not None else 0
-
-
-def _refresh(node: _PriceNode) -> None:
-    node.height = 1 + max(_height(node.left), _height(node.right))
-    node.minimum = min(
-        node.price,
-        node.left.minimum if node.left is not None else node.price,
-        node.right.minimum if node.right is not None else node.price,
-    )
-    node.maximum = max(
-        node.price,
-        node.left.maximum if node.left is not None else node.price,
-        node.right.maximum if node.right is not None else node.price,
-    )
-    node.first_key = node.left.first_key if node.left is not None else node.key
-    node.last_key = node.right.last_key if node.right is not None else node.key
-
-
-def _rotate_left(node: _PriceNode) -> _PriceNode:
-    root = node.right
-    assert root is not None
-    node.right = root.left
-    root.left = node
-    _refresh(node)
-    _refresh(root)
-    return root
-
-
-def _insert(node: Optional[_PriceNode], key: SourceKey, price: Decimal) -> _PriceNode:
-    if node is None:
-        return _PriceNode(key, price, price, price, key, key)
-    if key <= node.key:
-        raise ValueError("price observations must be strictly source ordered")
-    node.right = _insert(node.right, key, price)
-    _refresh(node)
-    if _height(node.right) - _height(node.left) > 1:
-        assert node.right is not None
-        if key < node.right.key:
-            raise AssertionError("monotonic append cannot require a right-left rotation")
-        return _rotate_left(node)
-    return node
-
-
-def _range_min_max(
-    node: Optional[_PriceNode],
-    start_inclusive: SourceKey,
-    end_inclusive: SourceKey,
-) -> Optional[tuple[Decimal, Decimal]]:
-    if node is None or node.last_key < start_inclusive or node.first_key > end_inclusive:
-        return None
-    if start_inclusive <= node.first_key and node.last_key <= end_inclusive:
-        return node.minimum, node.maximum
-    values: list[tuple[Decimal, Decimal]] = []
-    left = _range_min_max(node.left, start_inclusive, end_inclusive)
-    if left is not None:
-        values.append(left)
-    if start_inclusive <= node.key <= end_inclusive:
-        values.append((node.price, node.price))
-    right = _range_min_max(node.right, start_inclusive, end_inclusive)
-    if right is not None:
-        values.append(right)
-    if not values:
-        return None
-    return min(item[0] for item in values), max(item[1] for item in values)
-
-
 class SourcePricePathIndex:
     def __init__(self, *, symbol: str, venue: str) -> None:
         if not symbol or not venue:
@@ -105,7 +23,12 @@ class SourcePricePathIndex:
         self.venue = venue
         self._observations: list[PriceObservation] = []
         self._keys: list[tuple[int, int]] = []
-        self._range_root: Optional[_PriceNode] = None
+        # Append-only segment tree.  Source keys remain in the bisected list;
+        # exact Decimal extrema are queried by index in O(log M).  This avoids
+        # allocating and recursively refreshing an AVL path on every trade.
+        self._range_capacity = 1
+        self._range_min: list[Optional[Decimal]] = [None, None]
+        self._range_max: list[Optional[Decimal]] = [None, None]
         self._gaps: list[SourceGap] = []
         self._open_gap: Optional[SourceGap] = None
 
@@ -125,10 +48,80 @@ class SourcePricePathIndex:
             raise ValueError("price observation identity mismatch")
         if self._keys and observation.source_key <= self._keys[-1]:
             raise ValueError("price observations must be strictly source ordered")
+        position = len(self._observations)
         self._observations.append(observation)
         self._keys.append(observation.source_key)
-        self._range_root = _insert(self._range_root, observation.source_key, observation.price)
+        if position >= self._range_capacity:
+            self._grow_range_tree()
+        node = self._range_capacity + position
+        self._range_min[node] = observation.price
+        self._range_max[node] = observation.price
+        node //= 2
+        while node:
+            current_min = self._range_min[node]
+            current_max = self._range_max[node]
+            if current_min is None or observation.price < current_min:
+                self._range_min[node] = observation.price
+            if current_max is None or observation.price > current_max:
+                self._range_max[node] = observation.price
+            node //= 2
         return observation
+
+    def _grow_range_tree(self) -> None:
+        self._range_capacity *= 2
+        size = self._range_capacity * 2
+        self._range_min = [None] * size
+        self._range_max = [None] * size
+        for position, observation in enumerate(self._observations[:-1]):
+            leaf = self._range_capacity + position
+            self._range_min[leaf] = observation.price
+            self._range_max[leaf] = observation.price
+        for node in range(self._range_capacity - 1, 0, -1):
+            self._refresh_range_node(node)
+
+    def _refresh_range_node(self, node: int) -> None:
+        left = node * 2
+        left_min = self._range_min[left]
+        right_min = self._range_min[left + 1]
+        if left_min is None:
+            self._range_min[node] = right_min
+        elif right_min is None:
+            self._range_min[node] = left_min
+        else:
+            self._range_min[node] = min(left_min, right_min)
+        left_max = self._range_max[left]
+        right_max = self._range_max[left + 1]
+        if left_max is None:
+            self._range_max[node] = right_max
+        elif right_max is None:
+            self._range_max[node] = left_max
+        else:
+            self._range_max[node] = max(left_max, right_max)
+
+    def _range_min_max_indices(self, start: int, end: int) -> tuple[Decimal, Decimal]:
+        left = self._range_capacity + start
+        right = self._range_capacity + end + 1
+        minimum: Optional[Decimal] = None
+        maximum: Optional[Decimal] = None
+        while left < right:
+            if left & 1:
+                value_min = self._range_min[left]
+                value_max = self._range_max[left]
+                if value_min is not None:
+                    minimum = value_min if minimum is None else min(minimum, value_min)
+                    maximum = value_max if maximum is None else max(maximum, value_max)
+                left += 1
+            if right & 1:
+                right -= 1
+                value_min = self._range_min[right]
+                value_max = self._range_max[right]
+                if value_min is not None:
+                    minimum = value_min if minimum is None else min(minimum, value_min)
+                    maximum = value_max if maximum is None else max(maximum, value_max)
+            left //= 2
+            right //= 2
+        assert minimum is not None and maximum is not None
+        return minimum, maximum
 
     def last_at_or_before(self, target_time: datetime) -> Optional[PriceObservation]:
         target_us = epoch_microseconds(target_time)
@@ -144,7 +137,11 @@ class SourcePricePathIndex:
 
         if end_inclusive < start_inclusive:
             raise ValueError("range end must not precede range start")
-        return _range_min_max(self._range_root, start_inclusive, end_inclusive)
+        start = bisect_left(self._keys, start_inclusive)
+        end = bisect_right(self._keys, end_inclusive) - 1
+        if start > end:
+            return None
+        return self._range_min_max_indices(start, end)
 
     def range_min_max(
         self,
@@ -217,6 +214,17 @@ class SourcePricePathIndex:
     @property
     def observations(self) -> tuple[PriceObservation, ...]:
         return tuple(self._observations)
+
+    @property
+    def last_observation(self) -> Optional[PriceObservation]:
+        """Return the newest source observation without copying the history."""
+
+        return self._observations[-1] if self._observations else None
+
+    def __len__(self) -> int:
+        """Return the retained source observation count in O(1)."""
+
+        return len(self._observations)
 
     @property
     def gaps(self) -> tuple[SourceGap, ...]:

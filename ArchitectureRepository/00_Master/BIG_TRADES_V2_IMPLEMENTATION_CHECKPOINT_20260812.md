@@ -12,7 +12,7 @@
 - 工程2完了commit: `bd7dd38`
 - 工程3完了commit: `20b5c54`
 - 工程4完了commit: `308b757`
-- 工程5完了commit: `ac4f782`
+- 工程5完了commit: `3975828`
 - restore tag: `pre-big-trades-20260811`
 - restore tag object: `8e81cb389d459afa68bb5a85bbe4e593d7bfe19b`
 - feature flag: `big_trades.enabled: false`、pipelineは明示注入時だけ接続、production生成なし
@@ -213,7 +213,7 @@
 - `Delta_Engine_Pro4web/tests/webapp/test_big_trades_protocol.py`
 - `Delta_Engine_Pro4web/tests/webapp/test_big_trades_api.py`
 
-### 工程5追加／変更（作業中）
+### 工程5追加／変更（完了）
 
 - `Delta_Engine_Pro4web/webapp/static/big_trades.js`
 - `Delta_Engine_Pro4web/webapp/static/index.html`
@@ -282,6 +282,52 @@
 
 ## 次の再開位置
 
-1. 工程5の§38～§40、§54、§64と承認済みstatic mockを再読し、DOM／geometry契約を固定する。
-2. Big Trades第3modeのUI、browser strict protocol／gap recovery、settings／assessment表示を実装する。
-3. Footprint／Heatmapの既存DOM・geometry差分を試験する。feature flagはfalse、production DB migration／container restartは行わない。
+1. 工程6の性能・運用contract `BT2-O276`～`BT2-O296`を独立した実測へする。
+2. 既存contract `BT2-C001`～`BT2-U275`をcontract ID単位のevidence matrixへ割り当て、未検証IDを機械的に0件へする。
+3. 120秒以上の隔離live soak、restart recovery、全repository pytest、backfill dry-runを実行する。
+
+## 2026-08-12 04:47:51 JST 工程6開始checkpoint
+
+- 承認範囲: userの`GO`により工程6を実行する。工程7のproduction activationは最終Manual Min／Maxまたはactive calibration versionとactivation modeの明示値がないため対象外。
+- 完了済み: 工程0～5。工程5 commitは`3975828`。
+- 未完了: 全296 contractのID別evidence、performance、120秒以上live soak、restart recovery soak、全repository regression、backfill dry-run、工程6 report／commit。
+- 現在の変更file: 本checkpointのみ。工程5 commit hashの訂正を含む。
+- 現在の検証結果: active zone 10／100／1000／5000の予備boundary-index benchmarkを実行し、局所queryのp95はそれぞれ0.023／0.089／0.066／0.036ms。正式evidenceではない。
+- blockerの限定範囲: 工程6はblockerなし。工程7だけproduction parameter承認待ち。
+- production状態: `big_trades.enabled=false`。production DB migration／write 0、container restart 0を維持する。
+- 次の再開位置: 性能・運用試験sourceとevidence runnerを追加し、短時間contractから検証する。
+
+## 2026-08-12 05:22:15 JST 工程6・120秒soak開始前checkpoint
+
+- 承認範囲: userの`GO`で工程6を継続する。隔離temporary DuckDBを使う120秒以上のlive soakを開始する。本番activation、本番DB migration／write、container restartは承認範囲外のまま実施しない。
+- 完了済み: `BT2-O276`～`BT2-O292`および`BT2-O294`～`BT2-O295`の短時間performance／operation testは`19 passed, 1 deselected`。horizon期限heap変更後のruntime対象回帰は`15 passed`、Big Trades対象統合回帰は`179 passed, 195 deselected`。
+- 未完了: `BT2-O293`の120秒live soak、全296 contractのID別evidence matrix、backfill dry-run、full repository pytest、工程6 report／commit。
+- 変更file: `src/orderflow/big_trades/{horizons,models,price_path,runtime,time_buckets,zone_index}.py`、`src/database/big_trades_storage.py`、`webapp/static/big_trades.js`、関連orderflow／database test、`tests/performance/`、`tools/big_trades_phase6_soak.py`、本checkpoint。
+- 検証結果: 短時間contractでactive zone 10／100／1000／5000、O(N) guard、boundary／price-path oracle、6,000／25,000 trade、browser 5,000＋20,000、Canvas、TICK／BAR age、storage queue、Tape／Book、CPU／RSS、restart recovery、session transitionが全PASS。`git diff --check` error 0（CRLF warningのみ）。
+- blockerの限定範囲: 工程6 blockerなし。工程7だけproduction Manual Min／Maxまたはactive calibration versionと初期activation modeが未確定。
+- production状態: `big_trades.enabled=false`を維持。本番mutation 0、container restart 0。
+- 次の再開位置: `tools/big_trades_phase6_soak.py`を120秒以上実行し、JSON evidence保存後に`BT2-O293` testを通す。
+
+## 2026-08-12 06:17:04 JST 工程6・全体回帰後checkpoint
+
+- 承認範囲: userの`GO`で工程6を継続する。工程7のproduction activationは最終Manual Min／Maxまたはactive calibration versionとactivation modeの明示値がないため実行しない。
+- 完了済み: 120.18秒live soak（12,000 trade、error／invalid／queue full／pending 0）、restart recovery、42,148 tradeの隔離backfill dry-run、296 contract mapping、target contract 488件、repository core 863 pass＋1 skip、WebApp 257 pass＋工程0既知failure 1件。
+- 未完了: 一括履歴復元高速化後の全contract／全repository再実行、machine-readable performance／trace evidence、工程6完了report、Phase 6 commit。
+- 変更file: 前checkpoint記載fileに加え、`tools/backfill_big_trades.py`、`tools/big_trades_contract_evidence.py`、`tests/tools/test_backfill_big_trades.py`、`tests/orderflow/test_big_trades_time_buckets.py`、`tests/performance/`、Phase 6 evidence一式。既存完了機能の3段chart／Flow Price Response sourceは変更していない。
+- 検証結果: 5000 event＋20000 interactionのbulk merge経路を追加。検証、content collision拒否、dedup、zone runtime state復元を維持した。5回の独立Node実測は63.37～115.15msでbudget 150ms以内。専用回帰2件と`BT2-O285`はPASS。
+- blockerの限定範囲: 工程6 blockerなし。工程7だけproduction parameter承認待ち。
+- production状態: `big_trades.enabled=false`、production DB migration／write 0、container restart 0を維持。
+- 次の再開位置: performance／lineage trace evidenceを生成後、全contractとrepository全体を再実行し、工程6完了reportとcommitを作成する。
+
+## 2026-08-12 06:49:26 JST 工程6・commit直前checkpoint
+
+- 承認範囲: userの`GO`で工程6を完了し、工程6変更とevidenceをcommitする。工程7のproduction activationは実行しない。
+- 完了済み: `BT2-C001`～`BT2-O296`は296／296 PASS、未割当0。target suite 497／497 PASS。repository全体は1,129 passed、工程0既知failure 1、skip 1、新規failure 0。
+- 性能: 全11 budget PASS。active zone 5,000件でtotal p95 0.114542ms／p99 0.127054ms、boundary p99 0.022351ms、cluster finalize p99 0.382260ms、horizon finalize p99 0.265204ms、daily transition p99 206.9524ms、browser 5,000 event＋20,000 interaction最大98.105ms、Canvas p95 0.1ms、mode switch p99 0.5ms。
+- soak／backfill: 120.181秒・12,000 trade live soakはerror／invalid／queue full／pending 0。42,148 trade backfill dry-runは隔離DuckDBだけを使用し、temporary output削除済み、production mutation 0。
+- lineage: 3件のraw trades→cluster→event→zone→interaction→snapshot→browser store trace、Manual／Automatic equivalence、break／retest／reentry／opposite event、gap／stale／fail-closed例は全PASS。
+- 保護確認: protected source SHA-256は9／9 baseline一致。Phase 5 browser evidenceのprotected geometry deltaは全対象0px、Console error 0、page error 0、failed request 0、horizontal overflow 0。
+- 検証: `compileall`、Node syntax、`git diff --check`はPASS。featureは`big_trades.enabled=false`。container `37ed40868792`はrestart count 0でrunning。本番DB migration／write／backfill 0。
+- 未完了: 工程6のmain commit、commit hashを含むcompletion report、工程7 activation。
+- blockerの限定範囲: 工程6 blockerなし。工程7だけ最終Manual Min／Maxまたはactive calibration versionとactivation mode、production backup／migration／enable／30分soakの明示承認待ち。
+- 次の再開位置: 工程6変更を明示pathだけstageしてcommitし、そのhashをcompletion reportへ記録する。

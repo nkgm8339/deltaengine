@@ -1,0 +1,312 @@
+{
+  "status": "PASS",
+  "generated_at_utc": "2026-08-11T21:41:31.807337+00:00",
+  "measurement_scope": "isolated synthetic fixtures; production mutation 0",
+  "budgets": {
+    "total_per_trade_p95_ms": 0.15,
+    "total_per_trade_p99_ms": 0.4,
+    "cluster_finalize_p99_ms": 1.5,
+    "boundary_query_p99_ms": 0.25,
+    "horizon_finalize_p99_ms": 1.0,
+    "daily_transition_p99_ms": 500,
+    "browser_merge_ms": 150,
+    "canvas_draw_p95_ms": 8,
+    "mode_switch_ms": 100,
+    "tick_bar_age_delta_p95_ms": 1
+  },
+  "checks": {
+    "active_zone_total_p95": true,
+    "active_zone_total_p99": true,
+    "boundary_query_p99": true,
+    "cluster_finalize_p99": true,
+    "horizon_finalize_p99": true,
+    "daily_transition_p99": true,
+    "browser_merge": true,
+    "canvas_draw_p95": true,
+    "mode_switch_p99": true,
+    "tick_age_delta_p95": true,
+    "bar_age_delta_p95": true
+  },
+  "active_zones": {
+    "10": {
+      "trial_count": 3,
+      "total_p95_ms": 0.088437,
+      "total_p99_ms": 0.1020676,
+      "boundary_p99_ms": 0.0123186,
+      "trials": [
+        {
+          "total_p95_ms": 0.07077599999999999,
+          "total_p99_ms": 0.0891912,
+          "boundary_p99_ms": 0.0098546
+        },
+        {
+          "total_p95_ms": 0.0896134,
+          "total_p99_ms": 0.10655339999999999,
+          "boundary_p99_ms": 0.013507199999999999
+        },
+        {
+          "total_p95_ms": 0.088437,
+          "total_p99_ms": 0.1020676,
+          "boundary_p99_ms": 0.0123186
+        }
+      ]
+    },
+    "100": {
+      "trial_count": 3,
+      "total_p95_ms": 0.09992480000000001,
+      "total_p99_ms": 0.19822,
+      "boundary_p99_ms": 0.021956800000000002,
+      "trials": [
+        {
+          "total_p95_ms": 0.0857692,
+          "total_p99_ms": 0.111118,
+          "boundary_p99_ms": 0.0093622
+        },
+        {
+          "total_p95_ms": 0.09992480000000001,
+          "total_p99_ms": 0.2437552,
+          "boundary_p99_ms": 0.09073
+        },
+        {
+          "total_p95_ms": 0.1160372,
+          "total_p99_ms": 0.19822,
+          "boundary_p99_ms": 0.021956800000000002
+        }
+      ]
+    },
+    "1000": {
+      "trial_count": 3,
+      "total_p95_ms": 0.11208939999999999,
+      "total_p99_ms": 0.1650712,
+      "boundary_p99_ms": 0.021633199999999998,
+      "trials": [
+        {
+          "total_p95_ms": 0.11208939999999999,
+          "total_p99_ms": 0.1650712,
+          "boundary_p99_ms": 0.021633199999999998
+        },
+        {
+          "total_p95_ms": 0.1587688,
+          "total_p99_ms": 0.757076,
+          "boundary_p99_ms": 0.0970548
+        },
+        {
+          "total_p95_ms": 0.09616079999999999,
+          "total_p99_ms": 0.1182864,
+          "boundary_p99_ms": 0.0155408
+        }
+      ]
+    },
+    "5000": {
+      "trial_count": 3,
+      "total_p95_ms": 0.11454160000000001,
+      "total_p99_ms": 0.1270538,
+      "boundary_p99_ms": 0.0223508,
+      "trials": [
+        {
+          "total_p95_ms": 0.11454160000000001,
+          "total_p99_ms": 0.1270538,
+          "boundary_p99_ms": 0.0223508
+        },
+        {
+          "total_p95_ms": 0.11706820000000001,
+          "total_p99_ms": 0.1710618,
+          "boundary_p99_ms": 0.0796306
+        },
+        {
+          "total_p95_ms": 0.0711572,
+          "total_p99_ms": 0.0925378,
+          "boundary_p99_ms": 0.0119382
+        }
+      ]
+    }
+  },
+  "cluster_finalize": {
+    "iterations_per_trial": 5000,
+    "batch_size": 50,
+    "trial_count": 3,
+    "p95_ms": 0.34755800000000003,
+    "p99_ms": 0.38226,
+    "max_ms": 0.41188800000000003,
+    "trials": [
+      {
+        "iterations": 5000,
+        "batch_size": 50,
+        "p95_ms": 0.316418,
+        "p99_ms": 0.334756,
+        "max_ms": 0.339124
+      },
+      {
+        "iterations": 5000,
+        "batch_size": 50,
+        "p95_ms": 0.368406,
+        "p99_ms": 0.38226,
+        "max_ms": 0.384788
+      },
+      {
+        "iterations": 5000,
+        "batch_size": 50,
+        "p95_ms": 0.34755800000000003,
+        "p99_ms": 0.410612,
+        "max_ms": 0.41188800000000003
+      }
+    ]
+  },
+  "horizon_finalize": {
+    "iterations_per_trial": 5000,
+    "batch_size": 50,
+    "trial_count": 3,
+    "p95_ms": 0.22445,
+    "p99_ms": 0.265204,
+    "max_ms": 0.31485,
+    "trials": [
+      {
+        "iterations": 5000,
+        "batch_size": 50,
+        "p95_ms": 0.240674,
+        "p99_ms": 0.265204,
+        "max_ms": 0.295056
+      },
+      {
+        "iterations": 5000,
+        "batch_size": 50,
+        "p95_ms": 0.221976,
+        "p99_ms": 0.28702,
+        "max_ms": 0.31485
+      },
+      {
+        "iterations": 5000,
+        "batch_size": 50,
+        "p95_ms": 0.22445,
+        "p99_ms": 0.25174399999999997,
+        "max_ms": 0.262982
+      }
+    ]
+  },
+  "daily_transition": {
+    "transitions": 11,
+    "p95_ms": 206.9524,
+    "p99_ms": 206.9524,
+    "max_ms": 206.9524,
+    "errors": 0,
+    "sessions_source_confirmed": 11
+  },
+  "browser_merge": {
+    "runs": [
+      {
+        "elapsed_ms": 67.97919999999999,
+        "event_merge_ms": 11.995400000000018,
+        "interaction_merge_ms": 55.983799999999974,
+        "warmup_iterations": 3,
+        "events": {
+          "events": 5000,
+          "capacity": 5000,
+          "collisions": 0
+        },
+        "zones": {
+          "zones": 0,
+          "zoneCapacity": 5000,
+          "interactions": 20000,
+          "interactionCapacity": 20000,
+          "collisions": 0
+        }
+      },
+      {
+        "elapsed_ms": 81.88909999999998,
+        "event_merge_ms": 16.81529999999998,
+        "interaction_merge_ms": 65.0738,
+        "warmup_iterations": 3,
+        "events": {
+          "events": 5000,
+          "capacity": 5000,
+          "collisions": 0
+        },
+        "zones": {
+          "zones": 0,
+          "zoneCapacity": 5000,
+          "interactions": 20000,
+          "interactionCapacity": 20000,
+          "collisions": 0
+        }
+      },
+      {
+        "elapsed_ms": 75.04650000000004,
+        "event_merge_ms": 9.963899999999967,
+        "interaction_merge_ms": 65.08260000000007,
+        "warmup_iterations": 3,
+        "events": {
+          "events": 5000,
+          "capacity": 5000,
+          "collisions": 0
+        },
+        "zones": {
+          "zones": 0,
+          "zoneCapacity": 5000,
+          "interactions": 20000,
+          "interactionCapacity": 20000,
+          "collisions": 0
+        }
+      },
+      {
+        "elapsed_ms": 72.53210000000001,
+        "event_merge_ms": 11.222099999999955,
+        "interaction_merge_ms": 61.31000000000006,
+        "warmup_iterations": 3,
+        "events": {
+          "events": 5000,
+          "capacity": 5000,
+          "collisions": 0
+        },
+        "zones": {
+          "zones": 0,
+          "zoneCapacity": 5000,
+          "interactions": 20000,
+          "interactionCapacity": 20000,
+          "collisions": 0
+        }
+      },
+      {
+        "elapsed_ms": 98.10500000000002,
+        "event_merge_ms": 15.916699999999992,
+        "interaction_merge_ms": 82.18830000000003,
+        "warmup_iterations": 3,
+        "events": {
+          "events": 5000,
+          "capacity": 5000,
+          "collisions": 0
+        },
+        "zones": {
+          "zones": 0,
+          "zoneCapacity": 5000,
+          "interactions": 20000,
+          "interactionCapacity": 20000,
+          "collisions": 0
+        }
+      }
+    ],
+    "p95_ms": 98.10500000000002,
+    "max_ms": 98.10500000000002
+  },
+  "canvas": {
+    "renderP95Ms": 0.09999999403953552,
+    "windowMs": 900000,
+    "liveLock": true,
+    "dpr": 1,
+    "zones": 2000
+  },
+  "mode_switch": {
+    "iterations": 100,
+    "p95_ms": 0.20000000298023224,
+    "p99_ms": 0.5,
+    "max_ms": 30.700000002980232
+  },
+  "off_on_age": {
+    "tick_off_p95_ms": 0,
+    "tick_on_p95_ms": 0,
+    "tick_delta_p95_ms": 0,
+    "bar_off_p95_ms": 0.11,
+    "bar_on_p95_ms": 0.5670000000000001,
+    "bar_delta_p95_ms": 0.4570000000000001
+  },
+  "production_mutations": 0
+}

@@ -26,11 +26,20 @@
   const HEX64 = /^[0-9a-f]{64}$/;
   const DECIMAL = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/;
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const HISTORY_IDS = {
-    event_id: /^bt2_[0-9a-f]{64}$/, zone_id: /^btz2_[0-9a-f]{64}$/,
-    interaction_id: /^bti2_[0-9a-f]{64}$/, link_id: /^btl2_[0-9a-f]{64}$/,
-    snapshot_id: /^btsnap2_[0-9a-f]{64}$/, candle_observation_id: /^btcobs2_[0-9a-f]{64}$/,
-    assessment_id: /^btassess2_[0-9a-f]{64}$/,
+  const AWARE_TIME = /(Z|[+-][0-9]{2}:[0-9]{2})$/;
+  const INTEGER_FIELDS = new Set([
+    "sequence", "first_sequence", "last_sequence", "accepted_count", "dropped_count",
+    "schema_version", "zone_schema_version", "source_trade_id", "first_trade_id",
+    "last_trade_id", "trade_id", "snapshot_trade_id", "effective_from_trade_id",
+    "fill_ordinal", "ordinal", "ordinal_for_zone", "horizon_seconds",
+  ]);
+  const NON_DECIMAL_FIELDS = new Set([
+    "marker_price_mode", "price_level_count", "price_path_index_size", "quantity_unit",
+  ]);
+  const FIELD_KIND_CACHE = new Map();
+  const HISTORY_PREFIXES = {
+    event_id: "bt2_", zone_id: "btz2_", interaction_id: "bti2_", link_id: "btl2_",
+    snapshot_id: "btsnap2_", candle_observation_id: "btcobs2_", assessment_id: "btassess2_",
   };
 
   function ownKeys(value, expected) {
@@ -41,33 +50,62 @@
   function isObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
   function isIntegerField(name) {
     const key = String(name).toLowerCase();
-    return new Set([
-      "sequence", "first_sequence", "last_sequence", "accepted_count", "dropped_count",
-      "schema_version", "zone_schema_version", "source_trade_id", "first_trade_id",
-      "last_trade_id", "trade_id", "snapshot_trade_id", "effective_from_trade_id",
-      "fill_ordinal", "ordinal", "ordinal_for_zone", "horizon_seconds",
-    ]).has(key) || key.endsWith("_count") || key.endsWith("_ms") || key.endsWith("_milliseconds");
+    return INTEGER_FIELDS.has(key) || key.endsWith("_count") || key.endsWith("_ms") || key.endsWith("_milliseconds");
   }
   function isDecimalField(name) {
     const key = String(name).toLowerCase();
-    return !key.endsWith("price_level_count") && [
+    return !NON_DECIMAL_FIELDS.has(key) && [
       "price", "quantity", "notional", "vwap", "_bps", "_ticks", "threshold",
     ].some(token => key.includes(token));
   }
-  function validateWireTypes(value, fieldName) {
-    if (Array.isArray(value)) { value.forEach(item => validateWireTypes(item, fieldName)); return; }
-    if (isObject(value)) { Object.entries(value).forEach(([key, item]) => validateWireTypes(item, key)); return; }
+  function isHex64(value) {
+    if (typeof value !== "string" || value.length !== 64) return false;
+    for (let index = 0; index < 64; index += 1) {
+      const code = value.charCodeAt(index);
+      if (!((code >= 48 && code <= 57) || (code >= 97 && code <= 102))) return false;
+    }
+    return true;
+  }
+  function validateWireScalar(value, fieldName) {
     if (value === null) return;
-    if (isDecimalField(fieldName) && (typeof value !== "string" || !DECIMAL.test(value))) {
-      throw new Error(`${fieldName} must be a Decimal JSON string`);
-    }
-    if (isIntegerField(fieldName) && (!Number.isInteger(value) || typeof value === "boolean")) {
-      throw new Error(`${fieldName} must be a JSON integer`);
-    }
+    let kind = FIELD_KIND_CACHE.get(fieldName);
+    if (kind === undefined) { kind = isDecimalField(fieldName) ? 1 : isIntegerField(fieldName) ? 2 : 0; FIELD_KIND_CACHE.set(fieldName, kind); }
+    if (kind === 1 && (typeof value !== "string" || !DECIMAL.test(value))) throw new Error(`${fieldName} must be a Decimal JSON string`);
+    if (kind === 2 && (!Number.isInteger(value) || typeof value === "boolean")) throw new Error(`${fieldName} must be a JSON integer`);
     if (typeof value === "number" && !Number.isFinite(value)) throw new Error(`${fieldName} must be finite`);
   }
+  function validateWireTypes(value, fieldName) {
+    if (Array.isArray(value)) { value.forEach(item => validateWireTypes(item, fieldName)); return; }
+    if (isObject(value)) {
+      for (const [key, item] of Object.entries(value)) {
+        if (Array.isArray(item) || isObject(item)) validateWireTypes(item, key);
+        else validateWireScalar(item, key);
+      }
+      return;
+    }
+    validateWireScalar(value, fieldName);
+  }
+  function wireSchema(row) {
+    return Object.keys(row).map(key => [key, isDecimalField(key) ? 1 : isIntegerField(key) ? 2 : 0]);
+  }
+  function validateWithWireSchema(row, schema) {
+    const keys = Object.keys(row);
+    if (keys.length !== schema.length || schema.some(([key]) => !Object.prototype.hasOwnProperty.call(row, key))) {
+      validateWireTypes(row, "");
+      return wireSchema(row);
+    }
+    for (const [key, kind] of schema) {
+      const value = row[key];
+      if (Array.isArray(value) || isObject(value)) { validateWireTypes(value, key); continue; }
+      if (value === null) continue;
+      if (kind === 1 && (typeof value !== "string" || !DECIMAL.test(value))) throw new Error(`${key} must be a Decimal JSON string`);
+      if (kind === 2 && (!Number.isInteger(value) || typeof value === "boolean")) throw new Error(`${key} must be a JSON integer`);
+      if (typeof value === "number" && !Number.isFinite(value)) throw new Error(`${key} must be finite`);
+    }
+    return schema;
+  }
   function parseTime(value, fieldName) {
-    if (typeof value !== "string" || !/(Z|[+-][0-9]{2}:[0-9]{2})$/.test(value)) {
+    if (typeof value !== "string" || !AWARE_TIME.test(value)) {
       throw new Error(`${fieldName} must be timezone-aware ISO8601`);
     }
     const parsed = Date.parse(value);
@@ -109,7 +147,7 @@
         if (record.sequence !== payload.first_sequence + index) throw new Error("record sequence gap inside batch");
         parseTime(record.source_event_time, "source_event_time");
         if (record.source_trade_id !== null && (!Number.isInteger(record.source_trade_id) || typeof record.source_trade_id === "boolean" || record.source_trade_id < 0)) throw new Error("invalid source_trade_id");
-        if (typeof record.record_id !== "string" || !record.record_id || typeof record.content_hash !== "string" || !HEX64.test(record.content_hash)) throw new Error("invalid record identity");
+        if (typeof record.record_id !== "string" || !record.record_id || !isHex64(record.content_hash)) throw new Error("invalid record identity");
         if (!isObject(record.data) || record.data[ID_FIELDS[record.kind]] !== record.record_id || record.data.content_hash !== record.content_hash) throw new Error("record data identity mismatch");
       });
       if (payload.last_sequence !== payload.first_sequence + payload.records.length - 1) throw new Error("invalid last_sequence");
@@ -124,23 +162,47 @@
       return message;
     }
     static validateHistoryRow(row, idField, timeField) {
-      if (!isObject(row) || typeof row[idField] !== "string" || !HISTORY_IDS[idField]?.test(row[idField]) || typeof row.content_hash !== "string" || !HEX64.test(row.content_hash)) throw new Error(`invalid ${idField} history row`);
+      const prefix = HISTORY_PREFIXES[idField], identifier = isObject(row) ? row[idField] : null;
+      if (!prefix || typeof identifier !== "string" || !identifier.startsWith(prefix) || !isHex64(identifier.slice(prefix.length)) || !isHex64(row.content_hash)) throw new Error(`invalid ${idField} history row`);
       if (timeField) parseTime(row[timeField], timeField);
       validateWireTypes(row, "");
       return row;
     }
+    static validateHistoryRows(rows, idField, timeField) {
+      const prefix = HISTORY_PREFIXES[idField];
+      if (!prefix) throw new Error(`invalid ${idField} history schema`);
+      let schema = null;
+      for (const row of rows || []) {
+        const identifier = isObject(row) ? row[idField] : null;
+        if (typeof identifier !== "string" || !identifier.startsWith(prefix) || !isHex64(identifier.slice(prefix.length)) || !isHex64(row.content_hash)) throw new Error(`invalid ${idField} history row`);
+        if (timeField) parseTime(row[timeField], timeField);
+        schema = validateWithWireSchema(row, schema || wireSchema(row));
+      }
+      return rows;
+    }
   }
 
   class BigTradeEventStore {
-    constructor(capacity = 5000) { this.capacity = capacity; this.events = new Map(); this.collisions = 0; }
+    constructor(capacity = 5000) { this.capacity = capacity; this.events = new Map(); this.collisions = 0; this.revision = 0; }
     ingest(row) {
       BigTradeRecordValidator.validateHistoryRow(row, "event_id", "last_time");
       const prior = this.events.get(row.event_id);
       if (prior && prior.content_hash !== row.content_hash) { this.collisions += 1; throw new Error(`event content collision ${row.event_id}`); }
-      if (!prior) this.events.set(row.event_id, Object.freeze({ ...row }));
+      if (!prior) { this.events.set(row.event_id, Object.freeze(row)); this.revision += 1; }
       this.prune(); return !prior;
     }
-    merge(rows) { let added = 0; (rows || []).forEach(row => { if (this.ingest(row)) added += 1; }); return added; }
+    merge(rows) {
+      let added = 0;
+      const batch = rows || [];
+      BigTradeRecordValidator.validateHistoryRows(batch, "event_id", "last_time");
+      for (const row of batch) {
+        const prior = this.events.get(row.event_id);
+        if (prior && prior.content_hash !== row.content_hash) { this.collisions += 1; throw new Error(`event content collision ${row.event_id}`); }
+        if (!prior) { this.events.set(row.event_id, Object.freeze(row)); this.revision += 1; added += 1; }
+      }
+      this.prune();
+      return added;
+    }
     prune() { while (this.events.size > this.capacity) this.events.delete(this.sorted()[0].event_id); }
     get(id) { return this.events.get(id) || null; }
     sorted() { return Array.from(this.events.values()).sort((a, b) => compareKey(sourceKey(a, "last_time", "event_id"), sourceKey(b, "last_time", "event_id"))); }
@@ -152,17 +214,18 @@
       this.zoneCapacity = zoneCapacity; this.interactionCapacity = interactionCapacity;
       this.zones = new Map(); this.interactions = new Map(); this.links = new Map();
       this.snapshots = new Map(); this.candles = new Map(); this.assessments = new Map();
-      this.details = new Map(); this.runtimeState = new Map(); this.selectedZoneId = null; this.collisions = 0;
+      this.details = new Map(); this.runtimeState = new Map(); this.selectedZoneId = null; this.collisions = 0; this.revision = 0; this._sortedZonesCache = null;
     }
     insert(map, id, row) {
       const prior = map.get(id);
       if (prior && prior.content_hash !== row.content_hash) { this.collisions += 1; throw new Error(`content collision ${id}`); }
-      if (!prior) map.set(id, Object.freeze({ ...row }));
+      if (!prior) { map.set(id, Object.freeze(row)); this.revision += 1; }
       return !prior;
     }
     ingestZone(row) {
       BigTradeRecordValidator.validateHistoryRow(row, "zone_id", "zone_source_start");
       const added = this.insert(this.zones, row.zone_id, row);
+      if (added) this._sortedZonesCache = null;
       if (!this.runtimeState.has(row.zone_id)) this.runtimeState.set(row.zone_id, { lifecycle: row.lifecycle || "ACTIVE", relation: row.current_relation || null, sourceEnd: row.zone_source_end || null, gaps: (row.gap_segments || []).slice() });
       this.pruneZones(); return added;
     }
@@ -178,6 +241,24 @@
         this.runtimeState.set(row.zone_id, state);
       }
       this.pruneInteractions(); return added;
+    }
+    mergeInteractions(rows) {
+      let added = 0;
+      const batch = rows || [];
+      BigTradeRecordValidator.validateHistoryRows(batch, "interaction_id", "source_event_time");
+      for (const row of batch) {
+        const inserted = this.insert(this.interactions, row.interaction_id, row);
+        if (!inserted) continue;
+        added += 1;
+        const state = this.runtimeState.get(row.zone_id) || { lifecycle: "ACTIVE", relation: null, sourceEnd: null, gaps: [] };
+        if (row.current_relation) state.relation = row.current_relation;
+        if (row.interaction_type === "SOURCE_GAP_STARTED") { state.lifecycle = "ACTIVE_WITH_GAP"; state.gaps.push({ gap_epoch_id: row.gap_epoch_id, start_time: row.source_event_time, end_time: null }); }
+        if (row.interaction_type === "SOURCE_GAP_ENDED") { state.lifecycle = "ACTIVE"; const gap = [...state.gaps].reverse().find(item => item.gap_epoch_id === row.gap_epoch_id && !item.end_time); if (gap) gap.end_time = row.source_event_time; }
+        if (row.interaction_type === "ZONE_SESSION_CLOSED") { state.lifecycle = "SESSION_CLOSED"; state.sourceEnd = row.source_event_time; }
+        this.runtimeState.set(row.zone_id, state);
+      }
+      this.pruneInteractions();
+      return added;
     }
     ingestLink(row) { BigTradeRecordValidator.validateHistoryRow(row, "link_id", "linked_time"); return this.insert(this.links, row.link_id, row); }
     ingestSnapshot(row) { BigTradeRecordValidator.validateHistoryRow(row, "snapshot_id", "target_time"); return this.insert(this.snapshots, row.snapshot_id, row); }
@@ -196,7 +277,7 @@
     mergeDetail(body) {
       if (!body || !body.zone) return;
       this.ingestZone(body.zone);
-      (body.interactions || []).forEach(row => this.ingestInteraction(row));
+      this.mergeInteractions(body.interactions || []);
       (body.linked_event_summary || []).forEach(row => this.ingestLink(row));
       (body.horizon_snapshots || []).forEach(row => this.ingestSnapshot(row));
       (body.candle_observations || []).forEach(row => this.ingestCandle(row));
@@ -204,9 +285,9 @@
       if (body.latest_user_assessment) this.ingestAssessment(body.latest_user_assessment);
       this.details.set(body.zone.zone_id, body);
     }
-    pruneZones() { while (this.zones.size > this.zoneCapacity) { const oldest = this.sortedZones()[0]; this.zones.delete(oldest.zone_id); this.runtimeState.delete(oldest.zone_id); } }
+    pruneZones() { while (this.zones.size > this.zoneCapacity) { const oldest = this.sortedZones()[0]; this.zones.delete(oldest.zone_id); this.runtimeState.delete(oldest.zone_id); this._sortedZonesCache = null; } }
     pruneInteractions() { while (this.interactions.size > this.interactionCapacity) { const oldest = Array.from(this.interactions.values()).sort((a, b) => compareKey(sourceKey(a, "source_event_time", "interaction_id"), sourceKey(b, "source_event_time", "interaction_id")))[0]; this.interactions.delete(oldest.interaction_id); } }
-    sortedZones() { return Array.from(this.zones.values()).sort((a, b) => compareKey(sourceKey(a, "zone_source_start", "zone_id"), sourceKey(b, "zone_source_start", "zone_id"))); }
+    sortedZones() { if (!this._sortedZonesCache) this._sortedZonesCache = Array.from(this.zones.values()).sort((a, b) => compareKey(sourceKey(a, "zone_source_start", "zone_id"), sourceKey(b, "zone_source_start", "zone_id"))); return this._sortedZonesCache; }
     visible({ side = "BOTH", state = "ACTIVE" } = {}) { return this.sortedZones().filter(zone => { const runtime = this.runtimeState.get(zone.zone_id) || {}; return (side === "BOTH" || zone.origin_side === side) && (state === "ALL" || runtime.lifecycle !== "SESSION_CLOSED"); }); }
     select(zoneId) { this.selectedZoneId = zoneId && this.zones.has(zoneId) ? zoneId : null; return this.selectedZoneId; }
     selected() { return this.selectedZoneId ? this.zones.get(this.selectedZoneId) || null : null; }
@@ -272,7 +353,7 @@
       this.canvas = canvas; this.tooltip = tooltip; this.eventStore = eventStore; this.zoneStore = zoneStore;
       this.onSelect = onSelect; this.onNeedOlder = onNeedOlder; this.onViewport = onViewport;
       this.candlesProvider = candlesProvider || (() => []);
-      this.projection = new ReactionZoneProjection(); this.active = false; this.zonesOn = true;
+      this.projection = new ReactionZoneProjection(); this.active = false; this.zonesOn = true; this._lastRenderSignature = null;
       this.side = "BOTH"; this.stateFilter = "ACTIVE"; this.liveLock = true; this.timeWindowMs = 15 * 60 * 1000; this.timeOffsetMs = 0;
       this.hitZones = []; this.hitBadges = []; this.drag = null; this.crosshair = null; this.drawTimes = []; this._handlers = null;
       this.resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => this.draw(true)) : null;
@@ -316,6 +397,9 @@
     wheel(event) { event.preventDefault(); this.liveLock = false; const factor = event.deltaY > 0 ? 1.2 : 0.82; this.timeWindowMs = Math.max(60_000, Math.min(24 * 3600_000, this.timeWindowMs * factor)); if (this.onViewport) this.onViewport(this); this.draw(true); }
     draw(force) {
       if (!this.active && !force) return; const started = performance.now(); const rect = this.canvas.getBoundingClientRect(); const dpr = Math.max(1, global.devicePixelRatio || 1); const width = Math.max(1, Math.round(rect.width)), height = Math.max(1, Math.round(rect.height));
+      const renderSignature = `${width}|${height}|${dpr}|${this.eventStore.revision}|${this.zoneStore.revision}|${this.zoneStore.selectedZoneId || ""}|${this.side}|${this.stateFilter}|${this.zonesOn}|${this.timeWindowMs}|${this.timeOffsetMs}`;
+      if (!force && !this.crosshair && renderSignature === this._lastRenderSignature) { this.recordDraw(started); return; }
+      this._lastRenderSignature = renderSignature;
       if (this.canvas.width !== Math.round(width * dpr) || this.canvas.height !== Math.round(height * dpr)) { this.canvas.width = Math.round(width * dpr); this.canvas.height = Math.round(height * dpr); }
       const ctx = this.canvas.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height); ctx.fillStyle = "#060C16"; ctx.fillRect(0, 0, width, height);
       ctx.strokeStyle = "#17243B"; ctx.lineWidth = 1; for (let x = 42; x < width - 40; x += 84) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); } for (let y = 20; y < height - 20; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
@@ -330,12 +414,24 @@
         ctx.strokeStyle = up ? "#237D5A" : "#853342"; ctx.fillStyle = up ? "#123C30" : "#421D26"; ctx.beginPath(); ctx.moveTo(x, yHigh); ctx.lineTo(x, yLow); ctx.stroke(); ctx.fillRect(x - candleWidth / 2, Math.min(yOpen, yClose), candleWidth, Math.max(1, Math.abs(yOpen - yClose)));
       });
       ctx.font = "800 9px ui-monospace,monospace";
-      zones.forEach(zone => {
+      const zoneFillPath = new Path2D(), zonePaths = { BUY:new Path2D(), SELL:new Path2D() }, exactPaths = { BUY:new Path2D(), SELL:new Path2D() }, markerPaths = { BUY:new Path2D(), SELL:new Path2D() }, renderItems = [];
+      const dense = zones.length > 500, labelStride = Math.max(1, Math.ceil(zones.length / 100));
+      zones.forEach((zone, zoneIndex) => {
         const eventRow = events.get(zone.origin_event_id); const state = this.zoneStore.state(zone.zone_id); const box = this.projection.zoneRect(zone, state, scale, latestTime); if (box.x + box.width < 0 || box.x > width) return;
-        const color = zone.origin_side === "BUY" ? "#19C979" : "#FF4058"; if (this.zonesOn) { ctx.fillStyle = "rgba(130,145,170,.10)"; ctx.fillRect(box.x, box.y, box.width, box.height); ctx.strokeStyle = color; ctx.strokeRect(box.x, box.y, box.width, box.height); ctx.beginPath(); ctx.moveTo(box.x, scale.y(box.exactHigh)); ctx.lineTo(box.x, scale.y(box.exactLow)); ctx.stroke(); state.gaps.forEach(gap => { const gx1 = scale.x(Date.parse(gap.start_time)), gx2 = scale.x(gap.end_time ? Date.parse(gap.end_time) : latestTime); ctx.save(); ctx.beginPath(); ctx.rect(Math.max(box.x, gx1), box.y, Math.max(1, Math.min(box.x + box.width, gx2) - Math.max(box.x, gx1)), box.height); ctx.clip(); ctx.strokeStyle = "#F4C542"; for (let x = gx1 - box.height; x < gx2 + box.height; x += 6) { ctx.beginPath(); ctx.moveTo(x, box.y + box.height); ctx.lineTo(x + box.height, box.y); ctx.stroke(); } ctx.restore(); }); }
-        const markerTime = eventRow ? Date.parse(eventRow.marker_time) : Date.parse(zone.zone_source_start), markerPrice = eventRow ? num(eventRow.marker_price) : num(zone.zone_anchor); const mx = scale.x(markerTime), my = scale.y(markerPrice); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(mx, my, zone.zone_id === this.zoneStore.selectedZoneId ? 8 : 6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#F1F5FF"; ctx.fillText(`${zone.origin_side} ${eventRow ? eventRow.aggregate_quantity : "—"}`, mx + 9, my - 7); ctx.fillStyle = state.relation === "ABOVE" ? "#19C979" : state.relation === "BELOW" ? "#FF4058" : "#F4C542"; ctx.fillText(state.relation || "AWAITING RESULT", mx + 9, my + 6);
+        const color = zone.origin_side === "BUY" ? "#19C979" : "#FF4058", side = color === "#19C979" ? "BUY" : "SELL";
+        if (this.zonesOn) { zoneFillPath.rect(box.x, box.y, box.width, box.height); zonePaths[side].rect(box.x, box.y, box.width, box.height); exactPaths[side].moveTo(box.x, scale.y(box.exactHigh)); exactPaths[side].lineTo(box.x, scale.y(box.exactLow)); }
+        const markerTime = eventRow ? Date.parse(eventRow.marker_time) : Date.parse(zone.zone_source_start), markerPrice = eventRow ? num(eventRow.marker_price) : num(zone.zone_anchor); const mx = scale.x(markerTime), my = scale.y(markerPrice), selected = zone.zone_id === this.zoneStore.selectedZoneId, drawLabel = zoneIndex % labelStride === 0;
+        if (dense && !selected) markerPaths[side].rect(mx - 1, my - 1, 2, 2); else { markerPaths[side].moveTo(mx + (selected ? 8 : 6), my); markerPaths[side].arc(mx, my, selected ? 8 : 6, 0, Math.PI * 2); }
+        if (drawLabel || selected || state.gaps.length || this.zoneStore.links.size) renderItems.push({ zone, eventRow, state, box, mx, my, drawLabel });
+        this.hitZones.push({ ...box, zoneId: zone.zone_id });
+      });
+      if (this.zonesOn) { if (!dense) { ctx.fillStyle = "rgba(130,145,170,.10)"; ctx.fill(zoneFillPath); } for (const side of ["BUY", "SELL"]) { ctx.strokeStyle = side === "BUY" ? "#19C979" : "#FF4058"; if (!dense) ctx.stroke(zonePaths[side]); ctx.stroke(exactPaths[side]); } }
+      for (const side of ["BUY", "SELL"]) { ctx.fillStyle = side === "BUY" ? "#19C979" : "#FF4058"; ctx.fill(markerPaths[side]); }
+      renderItems.forEach(({ zone, eventRow, state, box, mx, my, drawLabel }) => {
+        if (this.zonesOn && state.gaps.length) state.gaps.forEach(gap => { const gx1 = scale.x(Date.parse(gap.start_time)), gx2 = scale.x(gap.end_time ? Date.parse(gap.end_time) : latestTime); ctx.save(); ctx.beginPath(); ctx.rect(Math.max(box.x, gx1), box.y, Math.max(1, Math.min(box.x + box.width, gx2) - Math.max(box.x, gx1)), box.height); ctx.clip(); ctx.strokeStyle = "#F4C542"; for (let x = gx1 - box.height; x < gx2 + box.height; x += 6) { ctx.beginPath(); ctx.moveTo(x, box.y + box.height); ctx.lineTo(x + box.height, box.y); ctx.stroke(); } ctx.restore(); });
+        if (drawLabel) { ctx.fillStyle = "#F1F5FF"; ctx.fillText(`${zone.origin_side} ${eventRow ? eventRow.aggregate_quantity : "—"}`, mx + 9, my - 7); ctx.fillStyle = state.relation === "ABOVE" ? "#19C979" : state.relation === "BELOW" ? "#FF4058" : "#F4C542"; ctx.fillText(state.relation || "AWAITING RESULT", mx + 9, my + 6); }
         if (zone.zone_id === this.zoneStore.selectedZoneId) { ctx.strokeStyle = "#F4C542"; ctx.lineWidth = 2; ctx.strokeRect(box.x - 2, box.y - 2, box.width + 4, box.height + 4); ctx.lineWidth = 1; }
-        this.hitZones.push({ ...box, zoneId: zone.zone_id }); this.zoneStore.linksFor(zone.zone_id).forEach(link => { const lx = scale.x(Date.parse(link.linked_time)), ly = scale.y((num(link.linked_low) + num(link.linked_high)) / 2); ctx.fillStyle = "#8B63E6"; ctx.fillRect(lx - 8, ly - 8, 16, 16); ctx.fillStyle = "#fff"; ctx.fillText(String(link.ordinal_for_zone), lx - 3, ly + 3); this.hitBadges.push({ x: lx - 8, y: ly - 8, width: 16, height: 16, zoneId: zone.zone_id, eventId: link.linked_event_id }); });
+        if (this.zoneStore.links.size) this.zoneStore.linksFor(zone.zone_id).forEach(link => { const lx = scale.x(Date.parse(link.linked_time)), ly = scale.y((num(link.linked_low) + num(link.linked_high)) / 2); ctx.fillStyle = "#8B63E6"; ctx.fillRect(lx - 8, ly - 8, 16, 16); ctx.fillStyle = "#fff"; ctx.fillText(String(link.ordinal_for_zone), lx - 3, ly + 3); this.hitBadges.push({ x: lx - 8, y: ly - 8, width: 16, height: 16, zoneId: zone.zone_id, eventId: link.linked_event_id }); });
       });
       if (this.crosshair) { ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = "rgba(201,211,234,.42)"; ctx.beginPath(); ctx.moveTo(this.crosshair.x, 0); ctx.lineTo(this.crosshair.x, height); ctx.moveTo(0, this.crosshair.y); ctx.lineTo(width, this.crosshair.y); ctx.stroke(); ctx.restore(); }
       ctx.fillStyle = "#7F8EAD"; ctx.fillText(new Date(scale.minTime).toISOString().slice(11, 16), 42, height - 8); ctx.fillText(new Date(scale.maxTime).toISOString().slice(11, 16), width - 88, height - 8); this.recordDraw(started);

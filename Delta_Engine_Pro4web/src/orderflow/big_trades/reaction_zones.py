@@ -309,15 +309,30 @@ class ReactionZoneObserver:
         self._record_metrics(trade.event_time, trade.trade_id, current)
         return tuple(self._interactions[before:])
 
-    def register_link(self, link: ZoneEventLink, *, linked_trade_id: int) -> None:
+    def register_link(
+        self,
+        link: ZoneEventLink,
+        *,
+        linked_trade_id: int,
+        observed_time: Optional[datetime] = None,
+        observed_trade_id: Optional[int] = None,
+    ) -> None:
         if link.zone_id != self.zone.zone_id:
             raise ValueError("link belongs to a different zone")
+        if (observed_time is None) is not (observed_trade_id is None):
+            raise ValueError("link observation time and trade ID must be supplied together")
+        metric_time = link.linked_time if observed_time is None else observed_time
+        metric_trade_id = linked_trade_id if observed_trade_id is None else observed_trade_id
+        if source_key(metric_time, metric_trade_id) < source_key(
+            link.linked_time, linked_trade_id
+        ):
+            raise ValueError("link cannot be observed before the linked event")
         self.linked_big_trade_count += 1
         if link.linked_side == "BUY":
             self.linked_buy_quantity += link.linked_quantity
         else:
             self.linked_sell_quantity += link.linked_quantity
-        self._record_metrics(link.linked_time, linked_trade_id, self.current_relation)
+        self._record_metrics(metric_time, metric_trade_id, self.current_relation)
 
     def start_gap(self, gap_epoch_id: str, source_time: datetime) -> ZoneInteraction:
         if self._open_gap_id is not None:

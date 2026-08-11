@@ -35,21 +35,29 @@ from src.orderflow.big_trades.constants import (
     PriceRelation,
     SideFilter,
 )
+from src.orderflow.big_trades.artifacts import BigTradesArtifactRepository
 from src.orderflow.big_trades.filtering import ManualSizeFilter
 from src.orderflow.big_trades.ids import content_hash
 from src.orderflow.big_trades.models import (
     BigTradeFill,
     BigTradesSettingsSnapshot,
+    ClosedCandle,
     ExecutionCluster,
     UserAssessment,
     ZoneStateCheckpoint,
 )
 from src.orderflow.big_trades.reaction_zones import ReactionZoneObserver, create_reaction_zone
+from src.orderflow.big_trades.runtime import (
+    BigTradesRuntimeV2,
+    FixedActivationSettingsResolver,
+    RuntimeMode,
+)
 from src.orderflow.big_trades.settings import (
     SettingsRequest,
     SettingsRequestSource,
     SettingsVersion,
 )
+from src.orderflow.big_trades.time_buckets import candle_id
 
 
 UTC = timezone.utc
@@ -264,6 +272,7 @@ def test_background_queue_full_returns_explicit_failed_ack(tmp_path: Path) -> No
         assert rejected.success is False
         assert rejected.error_code == "QUEUE_FULL"
         assert writer.statistics()["queue_full"] == 1
+        assert writer.statistics()["queue_high_watermark"] == 1
         release.set()
         assert first.result(5).success
         assert second.result(5).success
@@ -389,5 +398,107 @@ def test_settings_then_activation_mirrors_preserve_lineage(tmp_path: Path) -> No
         assert activation_row["settings_id"] == settings.settings_id
         assert activation_row["activation_id"] == activation.activation_id
         assert activation_row["effective_from_event_time"] == BASE
+    finally:
+        writer.close()
+
+
+def test_runtime_updates_round_trip_interaction_link_snapshot_and_candle_parquet(
+    tmp_path: Path,
+) -> None:
+    parquet_root = tmp_path / "parquet"
+    store = BigTradesDuckDbStore(
+        tmp_path / "isolated.duckdb", parquet_path=parquet_root
+    )
+    writer = BigTradesBackgroundStorageWriter(store)
+    configured = SettingsVersion.create(
+        symbol="BTCUSDT",
+        venue="BINANCE",
+        filter_mode=FilterMode.MANUAL,
+        manual_min_quantity="10",
+        manual_max_quantity="0",
+        automatic_intensity=AutomaticIntensity.MEDIUM,
+        side_filter=SideFilter.BOTH,
+        marker_price_mode=MarkerPriceMode.LAST_PRICE,
+    )
+    activation = ActivationArtifact.create(
+        symbol="BTCUSDT",
+        venue="BINANCE",
+        effective_from_event_time=BASE,
+        effective_from_trade_id=0,
+        settings_id=configured.settings_id,
+        calibration_id=None,
+        activation_reason=ActivationReason.USER_SETTINGS,
+        activation_policy=CalibrationActivationPolicy.MANUAL_ONLY,
+        requested_at_utc=BASE,
+    )
+    runtime = BigTradesRuntimeV2(
+        enabled=True,
+        mode=RuntimeMode.REPLAY,
+        symbol="BTCUSDT",
+        venue="BINANCE",
+        tick_size=Decimal("0.1"),
+        settings_resolver=FixedActivationSettingsResolver(configured, activation),
+        storage_writer=writer,
+        artifact_repository=BigTradesArtifactRepository(tmp_path / "artifacts"),
+        horizons_seconds=(1,),
+    )
+
+    def trade(trade_id: int, offset_ms: int, price: str, quantity: str, side: str):
+        source_time = BASE + timedelta(milliseconds=offset_ms)
+        return BigTradeFill(
+            event_time=source_time,
+            trade_time=source_time,
+            trade_id=trade_id,
+            symbol="BTCUSDT",
+            venue="BINANCE",
+            price=Decimal(price),
+            quantity=Decimal(quantity),
+            side=side,
+        )
+
+    try:
+        for item in (
+            trade(1, 0, "100", "6", "BUY"),
+            trade(2, 10, "100", "6", "BUY"),
+            trade(3, 100, "101", "1", "SELL"),
+            trade(4, 200, "100", "6", "BUY"),
+            trade(5, 210, "100", "6", "BUY"),
+            trade(6, 300, "101", "1", "SELL"),
+            trade(7, 2_000, "102", "1", "SELL"),
+        ):
+            runtime.process(item)
+        runtime.flush()
+        writer.join()
+        runtime.drain_commit_acks()
+        writer.join()
+        runtime.drain_commit_acks()
+        open_time = BASE.replace(second=0, microsecond=0)
+        runtime.observe_closed_candle(
+            ClosedCandle(
+                candle_id=candle_id(open_time),
+                open_time=open_time,
+                symbol="BTCUSDT",
+                open=Decimal("100"),
+                high=Decimal("103"),
+                low=Decimal("99"),
+                close=Decimal("101"),
+            )
+        )
+        writer.join()
+        runtime.drain_commit_acks()
+        writer.join()
+        runtime.drain_commit_acks()
+        assert runtime.statistics()["errors"] == 0
+        for table_name in (
+            "big_trade_zone_interactions",
+            "big_trade_zone_event_links",
+            "big_trade_result_snapshots",
+            "big_trade_zone_candle_observations",
+        ):
+            files = tuple((parquet_root / table_name).glob("*.parquet"))
+            assert files, table_name
+            assert sum(pq.ParquetFile(path).read().num_rows for path in files) == store.count(
+                table_name
+            )
     finally:
         writer.close()
