@@ -120,3 +120,7 @@ def snapshot_id(zone_id: str, horizon_seconds: int) -> str:
 
 def candle_observation_id(zone_id: str, candle_identifier: int) -> str:
     return "btcobs2_" + sha256_hex(f"BTCOBS2|{zone_id}|{candle_identifier}")
+
+
+def checkpoint_id(zone_id: str, source_bucket_time: datetime) -> str:
+    return "btcp2_" + sha256_hex(f"BTCP2|{zone_id}|{utc_text(source_bucket_time)}")

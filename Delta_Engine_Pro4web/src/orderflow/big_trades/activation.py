@@ -12,7 +12,13 @@ from .constants import INPUT_MODE_AGGREGATE_TRADES, LOGIC_VERSION, FilterMode
 from .ids import canonical_json, content_hash, sha256_hex
 from .models import BigTradeFill
 from .settings import SettingsVersion
-from .time_buckets import epoch_microseconds, require_aware_utc, session_id, source_key
+from .time_buckets import (
+    epoch_microseconds,
+    require_aware_utc,
+    session_id,
+    session_start,
+    source_key,
+)
 
 
 ACTIVATION_SCHEMA_VERSION = 1
@@ -345,6 +351,14 @@ class SourceConfirmedSessionTracker:
         """A shutdown never confirms the current source session."""
 
         return None
+
+    def restore_current_session(self, current_session_id: str) -> None:
+        """Seed restart state without falsely confirming a session transition."""
+
+        session_start(current_session_id)
+        if self._current_session_id is not None and self._current_session_id != current_session_id:
+            raise ValueError("session tracker is already initialized")
+        self._current_session_id = current_session_id
 
 
 def schedule_period_id(schedule: CalibrationSchedule | str, session: str) -> str:

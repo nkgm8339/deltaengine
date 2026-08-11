@@ -89,6 +89,9 @@ from .orderflow.imbalance import ImbalanceDetector, ImbalanceResult
 from .orderflow.orderbook import OrderBookStateManager
 from .orderflow.signal import SignalEngine, SignalResult
 from .orderflow.volume_ref import VolumeRefTracker
+from .orderflow.big_trades.models import ClosedCandle as BigTradesClosedCandle
+from .orderflow.big_trades.runtime import BigTradesRuntimeV2
+from .orderflow.big_trades.time_buckets import candle_id as big_trades_candle_id
 from .strategy_engine.ingestion.snapshot_producer import SnapshotProducer
 
 logger = logging.getLogger("pipeline")
@@ -102,6 +105,38 @@ _IMBALANCE_COOLDOWN_BARS = 3
 _DEC_ZERO = Decimal("0")
 DEFAULT_PIPELINE_CHUNK_MAX_EVENTS = 32
 DEFAULT_PIPELINE_CHUNK_MAX_WALL_MS = 50
+
+
+def _to_big_trades_closed_candle(candle: Any) -> BigTradesClosedCandle | None:
+    """Project only authoritative closed 1-minute CVD bars into Big Trades."""
+
+    if candle.timeframe != "1m":
+        return None
+    return BigTradesClosedCandle(
+        candle_id=big_trades_candle_id(candle.bar_time),
+        open_time=candle.bar_time,
+        symbol=candle.symbol,
+        open=candle.open,
+        high=candle.high,
+        low=candle.low,
+        close=candle.close,
+    )
+
+
+def _finish_big_trades_runtime(runtime: BigTradesRuntimeV2 | None) -> None:
+    """Flush source buffers and wait for its separate durable writer at shutdown."""
+
+    if runtime is None:
+        return
+    runtime.flush()
+    if runtime.storage_writer is not None:
+        for _ in range(8):
+            runtime.storage_writer.join()
+            runtime.drain_commit_acks()
+            status = runtime.statistics()
+            if status["pending_origins"] == 0 and status["pending_updates"] == 0:
+                break
+    runtime.take_publications()
 
 
 class _RecorderFanout:
@@ -375,6 +410,7 @@ class ReplayPipeline:
         flow_response_opposite_bps: Decimal = Decimal("1.0"),
         flow_response_min_trades: int = 20,
         flow_response_outcome_horizons_sec: tuple[int, ...] = (60, 180, 300, 600),
+        big_trades_runtime: Optional[BigTradesRuntimeV2] = None,
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -419,6 +455,7 @@ class ReplayPipeline:
         self.flow_response_opposite_bps = flow_response_opposite_bps
         self.flow_response_min_trades = flow_response_min_trades
         self.flow_response_outcome_horizons_sec = tuple(flow_response_outcome_horizons_sec)
+        self.big_trades_runtime = big_trades_runtime
         # Latest closed 5m/15m candles; used by the trend filter in the next phase.
         self.higher_timeframe_candles: dict = {}
         self.trend_state = None
@@ -440,6 +477,8 @@ class ReplayPipeline:
         profile: ExchangeProfile,
         parquet_path: str | Path,
         duckdb_path: str | Path,
+        *,
+        big_trades_runtime: Optional[BigTradesRuntimeV2] = None,
     ) -> "ReplayPipeline":
         sig = config.signal
         imb = config.imbalance
@@ -492,6 +531,7 @@ class ReplayPipeline:
             flow_response_opposite_bps=Decimal(fr.opposite_bps),
             flow_response_min_trades=fr.min_trades,
             flow_response_outcome_horizons_sec=tuple(fr.outcome_horizons_sec),
+            big_trades_runtime=big_trades_runtime,
         )
 
     def run(self, data_path: str | Path) -> ReplayStats:
@@ -625,6 +665,14 @@ class ReplayPipeline:
             cvd_result = cvd.process(normalized)
             if cvd_result.update is not None:
                 producer.observe_cvd(cvd_result.update)
+            if self.big_trades_runtime is not None:
+                if cvd_result.closed_candle is not None:
+                    big_trades_candle = _to_big_trades_closed_candle(
+                        cvd_result.closed_candle
+                    )
+                    if big_trades_candle is not None:
+                        self.big_trades_runtime.observe_closed_candle(big_trades_candle)
+                self.big_trades_runtime.process(normalized)
             if cvd_result.accepted:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
@@ -697,6 +745,8 @@ class ReplayPipeline:
                     handle(normalized)
         for normalized in normalizer.flush():
             handle(normalized)
+
+        _finish_big_trades_runtime(self.big_trades_runtime)
 
         if flow_response_detector is not None and flow_response_tracker is not None:
             snapshots = flow_response_detector.finalize()
@@ -1029,6 +1079,7 @@ class LivePipeline:
         flow_response_opposite_bps: Decimal = Decimal("1.0"),
         flow_response_min_trades: int = 20,
         flow_response_outcome_horizons_sec: tuple[int, ...] = (60, 180, 300, 600),
+        big_trades_runtime: Optional[BigTradesRuntimeV2] = None,
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -1125,6 +1176,7 @@ class LivePipeline:
         self.flow_response_opposite_bps = flow_response_opposite_bps
         self.flow_response_min_trades = flow_response_min_trades
         self.flow_response_outcome_horizons_sec = tuple(flow_response_outcome_horizons_sec)
+        self.big_trades_runtime = big_trades_runtime
 
     @classmethod
     def from_config(
@@ -1134,6 +1186,7 @@ class LivePipeline:
         *,
         parquet_path: str | Path | None = None,
         duckdb_path: str | Path | None = None,
+        big_trades_runtime: Optional[BigTradesRuntimeV2] = None,
     ) -> "LivePipeline":
         ws = config.websocket
         sig = config.signal
@@ -1209,6 +1262,7 @@ class LivePipeline:
             flow_response_opposite_bps=Decimal(fr.opposite_bps),
             flow_response_min_trades=fr.min_trades,
             flow_response_outcome_horizons_sec=tuple(fr.outcome_horizons_sec),
+            big_trades_runtime=big_trades_runtime,
         )
 
     async def run_async(
@@ -1582,7 +1636,16 @@ class LivePipeline:
             )
             await mt5_server.start()
 
+        last_big_trades_reconnect_count = connector.reconnect_count
+
         def handle(normalized) -> None:
+            nonlocal last_big_trades_reconnect_count
+            if (
+                self.big_trades_runtime is not None
+                and connector.reconnect_count > last_big_trades_reconnect_count
+            ):
+                self.big_trades_runtime.start_source_gap(self._last_event_time)
+                last_big_trades_reconnect_count = connector.reconnect_count
             if self.on_accepted_trade is not None:
                 try:
                     self.on_accepted_trade(normalized)
@@ -1620,6 +1683,14 @@ class LivePipeline:
             cvd_result = cvd.process(normalized)
             if cvd_result.update is not None:
                 producer.observe_cvd(cvd_result.update)
+            if self.big_trades_runtime is not None:
+                if cvd_result.closed_candle is not None:
+                    big_trades_candle = _to_big_trades_closed_candle(
+                        cvd_result.closed_candle
+                    )
+                    if big_trades_candle is not None:
+                        self.big_trades_runtime.observe_closed_candle(big_trades_candle)
+                self.big_trades_runtime.process(normalized)
             if cvd_result.accepted:
                 closed_higher = higher_timeframes.process(normalized)
                 self.higher_timeframe_candles.update(closed_higher)
@@ -2068,6 +2139,7 @@ class LivePipeline:
             drain_snapshot_results()
             for normalized in normalizer.flush():
                 handle(normalized)
+            _finish_big_trades_runtime(self.big_trades_runtime)
             if flow_response_detector is not None and flow_response_tracker is not None:
                 snapshots = flow_response_detector.finalize()
                 if snapshots:

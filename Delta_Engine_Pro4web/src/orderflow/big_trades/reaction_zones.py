@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Optional
 
 from .constants import InteractionType, PriceRelation, ZoneLifecycle
-from .ids import content_hash, interaction_id, link_id, zone_id_for_event
+from .ids import checkpoint_id, content_hash, interaction_id, link_id, zone_id_for_event
 from .models import (
     BigTradeEvent,
     BigTradeFill,
@@ -16,9 +16,16 @@ from .models import (
     ZoneEventLink,
     ZoneInteraction,
     ZoneMetricsSnapshot,
+    ZoneStateCheckpoint,
     ZERO,
 )
-from .time_buckets import epoch_microseconds, milliseconds_between, session_end, source_key
+from .time_buckets import (
+    epoch_microseconds,
+    milliseconds_between,
+    require_aware_utc,
+    session_end,
+    source_key,
+)
 
 
 BPS = Decimal("10000")
@@ -37,6 +44,7 @@ def create_reaction_zone(event: BigTradeEvent) -> ReactionZone:
     zone_id = zone_id_for_event(event.logic_version, event.event_id)
     payload = {
         "zone_id": zone_id,
+        "zone_schema_version": 1,
         "origin_event_id": event.event_id,
         "zone_low": event.low_price,
         "zone_high": event.high_price,
@@ -52,6 +60,7 @@ def create_reaction_zone(event: BigTradeEvent) -> ReactionZone:
         "logic_version": event.logic_version,
         "settings_id": event.settings_id,
         "calibration_id": event.calibration_id,
+        "activation_id": event.activation_id,
         "lifecycle": ZoneLifecycle.ACTIVE,
     }
     return ReactionZone(content_hash=content_hash(payload), **payload)
@@ -97,6 +106,87 @@ class ReactionZoneObserver:
             zone.origin_last_trade_id,
             PriceRelation.INSIDE,
         )
+
+    @classmethod
+    def restore(
+        cls,
+        zone: ReactionZone,
+        *,
+        tick_size: Decimal,
+        checkpoint: ZoneStateCheckpoint,
+        interactions: tuple[ZoneInteraction, ...],
+        links: tuple[ZoneEventLink, ...] = (),
+    ) -> "ReactionZoneObserver":
+        """Restore derived runtime state without rewriting authoritative facts."""
+
+        if checkpoint.zone_id != zone.zone_id:
+            raise ValueError("checkpoint belongs to a different zone")
+        if not interactions or interactions[0].interaction_type is not InteractionType.ZONE_CREATED:
+            raise ValueError("recovery requires the authoritative ZONE_CREATED interaction")
+        ordered = tuple(sorted(interactions, key=lambda item: item.ordinal))
+        if tuple(item.ordinal for item in ordered) != tuple(range(1, len(ordered) + 1)):
+            raise ValueError("zone interaction ordinals are not contiguous")
+        if any(item.zone_id != zone.zone_id for item in ordered):
+            raise ValueError("interaction belongs to a different zone")
+        if any(item.zone_id != zone.zone_id for item in links):
+            raise ValueError("link belongs to a different zone")
+        if checkpoint.linked_event_count != len(links):
+            raise ValueError("checkpoint linked-event count mismatch")
+
+        restored = cls(zone, tick_size=tick_size)
+        restored._interactions = list(ordered)
+        restored._ordinal = ordered[-1].ordinal
+        restored.current_relation = checkpoint.current_relation
+        restored.first_exit_direction = checkpoint.first_exit_direction
+        restored.touch_count = checkpoint.touch_count
+        restored.reentry_count = sum(
+            item.interaction_type
+            in {InteractionType.REENTER_FROM_ABOVE, InteractionType.REENTER_FROM_BELOW}
+            for item in ordered
+        )
+        restored.cross_count = checkpoint.cross_count
+        restored.linked_big_trade_count = checkpoint.linked_event_count
+        restored.linked_buy_quantity = sum(
+            (item.linked_quantity for item in links if item.linked_side == "BUY"), ZERO
+        )
+        restored.linked_sell_quantity = sum(
+            (item.linked_quantity for item in links if item.linked_side == "SELL"), ZERO
+        )
+        restored.inside_buy_quantity = checkpoint.inside_buy_quantity
+        restored.inside_sell_quantity = checkpoint.inside_sell_quantity
+        restored.inside_buy_trade_count = 0
+        restored.inside_sell_trade_count = 0
+        restored._open_gap_id = checkpoint.gap_epoch_id
+        if any(
+            item.interaction_type is InteractionType.ZONE_SESSION_CLOSED for item in ordered
+        ):
+            restored.lifecycle = ZoneLifecycle.SESSION_CLOSED
+        elif checkpoint.gap_epoch_id is not None or any(
+            item.interaction_type is InteractionType.SOURCE_GAP_STARTED for item in ordered
+        ):
+            restored.lifecycle = ZoneLifecycle.ACTIVE_WITH_GAP
+        else:
+            restored.lifecycle = ZoneLifecycle.ACTIVE
+        restored._metric_keys = []
+        restored._metrics = []
+        latest_trade_interaction = next(
+            (item for item in reversed(ordered) if item.source_trade_id is not None),
+            None,
+        )
+        metric_time = max(
+            checkpoint.source_bucket_time,
+            latest_trade_interaction.source_event_time
+            if latest_trade_interaction is not None
+            else zone.zone_source_start,
+        )
+        metric_trade_id = (
+            latest_trade_interaction.source_trade_id
+            if latest_trade_interaction is not None
+            else zone.origin_last_trade_id
+        )
+        assert metric_trade_id is not None
+        restored._record_metrics(metric_time, metric_trade_id, checkpoint.current_relation)
+        return restored
 
     def observe_trade(self, trade: BigTradeFill) -> tuple[ZoneInteraction, ...]:
         if trade.symbol != self.zone.symbol or trade.venue != self.zone.venue:
@@ -364,6 +454,42 @@ class ReactionZoneObserver:
     @property
     def metrics(self) -> tuple[ZoneMetricsSnapshot, ...]:
         return tuple(self._metrics)
+
+    @property
+    def first_exit_time(self) -> Optional[datetime]:
+        first = next(
+            (
+                item
+                for item in self._interactions
+                if item.interaction_type
+                in {InteractionType.FIRST_EXIT_UP, InteractionType.FIRST_EXIT_DOWN}
+            ),
+            None,
+        )
+        return first.source_event_time if first is not None else None
+
+
+def create_zone_state_checkpoint(
+    observer: ReactionZoneObserver,
+    source_time: datetime,
+) -> ZoneStateCheckpoint:
+    normalized = require_aware_utc(source_time)
+    bucket = normalized.replace(microsecond=0)
+    payload = {
+        "checkpoint_id": checkpoint_id(observer.zone.zone_id, bucket),
+        "zone_id": observer.zone.zone_id,
+        "source_bucket_time": bucket,
+        "current_relation": observer.current_relation,
+        "first_exit_direction": observer.first_exit_direction,
+        "first_exit_time": observer.first_exit_time,
+        "touch_count": observer.touch_count,
+        "cross_count": observer.cross_count,
+        "inside_buy_quantity": observer.inside_buy_quantity,
+        "inside_sell_quantity": observer.inside_sell_quantity,
+        "linked_event_count": observer.linked_big_trade_count,
+        "gap_epoch_id": observer._open_gap_id,
+    }
+    return ZoneStateCheckpoint(content_hash=content_hash(payload), **payload)
 
 
 def interval_gap(zone: ReactionZone, event: BigTradeEvent) -> Decimal:

@@ -187,6 +187,21 @@ class SourcePricePathIndex:
         self._open_gap = None
         return closed
 
+    def restore_open_gap(self, gap_epoch_id: str, start_time: datetime) -> SourceGap:
+        """Restore a persisted open gap without deriving a new identity."""
+
+        if self._open_gap is not None:
+            raise ValueError("a source gap is already open")
+        if not isinstance(gap_epoch_id, str) or not gap_epoch_id:
+            raise ValueError("gap_epoch_id must be non-empty")
+        gap = SourceGap(
+            gap_epoch_id=gap_epoch_id,
+            start_time=require_aware_utc(start_time),
+            end_time=None,
+        )
+        self._open_gap = gap
+        return gap
+
     def gap_intersects(self, start_exclusive: datetime, end_inclusive: datetime) -> bool:
         start = require_aware_utc(start_exclusive)
         end = require_aware_utc(end_inclusive)

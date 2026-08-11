@@ -71,6 +71,19 @@ class ResultHorizonTracker:
             completed.append(snapshot)
         return tuple(completed)
 
+    def restore_completed(self, snapshots: tuple[ResultSnapshot, ...]) -> None:
+        """Restore already committed horizons without recomputing or publishing them."""
+
+        for snapshot in snapshots:
+            if snapshot.zone_id != self.zone.zone_id:
+                raise ValueError("snapshot belongs to a different zone")
+            if snapshot.horizon_seconds not in self.horizons_seconds:
+                raise ValueError("snapshot horizon is not configured")
+            existing = self._completed.get(snapshot.horizon_seconds)
+            if existing is not None and existing.content_hash != snapshot.content_hash:
+                raise ValueError("snapshot content collision during recovery")
+            self._completed[snapshot.horizon_seconds] = snapshot
+
     def _build(
         self,
         horizon: int,

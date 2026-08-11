@@ -288,6 +288,7 @@ class BigTradeEvent:
     candle_id: int
     aggregation_window_ms: int = AGGREGATION_WINDOW_MS
     aggregation_candle_timeframe: str = AGGREGATION_CANDLE_TIMEFRAME
+    schema_version: int = 2
 
 
 @dataclass(frozen=True)
@@ -309,7 +310,9 @@ class ReactionZone:
     logic_version: str
     settings_id: str
     calibration_id: Optional[str]
+    activation_id: Optional[str]
     lifecycle: ZoneLifecycle = ZoneLifecycle.ACTIVE
+    zone_schema_version: int = 1
 
 
 @dataclass(frozen=True)
@@ -463,3 +466,32 @@ class ZoneCandleObservation:
     returned_inside_after_upper_excursion: bool
     returned_inside_after_lower_excursion: bool
     labels: tuple[CandleResultLabel, ...]
+
+
+@dataclass(frozen=True)
+class ZoneStateCheckpoint:
+    checkpoint_id: str
+    zone_id: str
+    source_bucket_time: datetime
+    current_relation: PriceRelation
+    first_exit_direction: Optional[str]
+    first_exit_time: Optional[datetime]
+    touch_count: int
+    cross_count: int
+    inside_buy_quantity: Decimal
+    inside_sell_quantity: Decimal
+    linked_event_count: int
+    gap_epoch_id: Optional[str]
+    content_hash: str
+
+
+@dataclass(frozen=True)
+class UserAssessment:
+    assessment_id: str
+    zone_id: str
+    assessment: str
+    assessed_at_utc: datetime
+    assessed_against_source_time: datetime
+    user_note: Optional[str]
+    supersedes_assessment_id: Optional[str]
+    content_hash: str

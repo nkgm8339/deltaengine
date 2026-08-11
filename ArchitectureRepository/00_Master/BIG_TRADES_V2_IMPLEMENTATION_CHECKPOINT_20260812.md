@@ -2,16 +2,17 @@
 
 ## Current checkpoint
 
-- 更新時刻: 2026-08-12 02:38:10 JST
-- current phase: 工程2 config／calibration／artifact実装・検証完了、commit直前
+- 更新時刻: 2026-08-12 03:24:38 JST
+- current phase: 工程3 storage／Live／Replay実装・回帰gate完了、commit直前
 - user承認: 2026-08-12「GO」
 - 承認範囲: V2実装指示書§60～§66、工程1～7
 - branch: `feature/big-trades-v1`
 - 工程1開始HEAD: `9fd7d6ffbb0eee3be50a7dd89c7e1670233042cb`
 - 工程1完了commit: `23128fc`
+- 工程2完了commit: `bd7dd38`
 - restore tag: `pre-big-trades-20260811`
 - restore tag object: `8e81cb389d459afa68bb5a85bbe4e593d7bfe19b`
-- feature flag: `big_trades.enabled: false`、既存runtimeへの接続なし
+- feature flag: `big_trades.enabled: false`、pipelineは明示注入時だけ接続、production生成なし
 
 ## 承認範囲
 
@@ -70,9 +71,30 @@
 - `FIXED_RESEARCH`は`research/big_trades/<run_id>`へ隔離し、production activationを作らない。
 - YAML referenceと実コード由来の4種類のcanonical artifact例を追加した。
 
+### 工程3 storage／Live／Replay
+
+- 新規`src/database/big_trades_schema.py`を14 DuckDB table、7 index、13 Arrow schema、UTC／Decimal storage projectionの単一正本にした。
+- schema metadataを`schema_version=2`、`logic_version=BTLOGIC-2.0`で検証し、不一致をfail closedにした。
+- event＋全fills＋zone＋ZONE_CREATED interaction＋prior-zone linksを一つのDuckDB transactionへ保存し、component failure時の全rollbackを実装した。
+- same identity／same contentをidempotent duplicate、same identity／different contentをcollisionとし、foreign key相当のevent／zone／settings／calibration lineageをtransaction内で検証する。
+- raw VWAPはimmutable fillsから再構成可能にし、storage投影だけを宣言scaleへDecimal half-even量子化した。
+- Parquetはbatch関連fileをtemporaryへ書き、schema／row count read-back後にfinal fileへ移し、最後のcommit manifestがあるbatchだけをcommittedとする。
+- DuckDB commit済み／Parquet失敗は`PENDING`として明示し、background writer idle時のretryを実装した。
+- bounded FIFOの`BigTradesBackgroundStorageWriter`とbatch ID付き`CommitAck`を実装し、queue fullを明示failed ackにした。
+- runtimeはack callbackをmarket loopへqueue-backし、DuckDB commit前のevent／zone／interaction／snapshot／candle publicationを0件にした。
+- 新規`BigTradesRuntimeV2`へsame-ms order、aggregation、filter、event／zone／link、boundary observation、horizon、candle、checkpoint、session transitionを同じ順序で接続した。
+- pending origin zoneはack前もsource観測するがdependent write／publicationをbufferし、origin失敗時は全非公開でruntimeをfail closedにした。
+- one-second checkpointは次source bucketで確定し、stream end／disconnectを現在bucketの完了根拠にしない。
+- source gap start／end interaction、gap横断snapshot invalidation、open cluster disconnect flush、active zone維持を実装した。
+- current sessionのevent／fills／zones／interactions／links／snapshotsをDuckDBから復元し、authoritative source tradesでobserverを再演算するrestart recoveryを実装した。
+- restart後はopen clusterを復元せず、明示restart gapを開始し、session statsをrestart-truncatedとしてcalibration母集団から除外する。
+- `ReplayPipeline`と`LivePipeline`のCVD処理直後へoptional runtimeを接続し、closed 1m candleをcurrent tradeより先に渡す。runtime未注入時は既存pathを変更しない。
+- pipeline終了はnormalizer flush後にBig Tradesを`STREAM_ENDED` flushし、専用writerの全ackを回収してから既存storage closeへ進む。
+- production DB、production Parquet、稼働containerへmigration／restart／writeを行っていない。
+
 ## 未完了
 
-- 工程3: isolated migration、storage、runtime、Live／Replay、restart／gap recovery。
+- 工程3: commitだけ未実行。実装・回帰gateは完了。
 - 工程4: WebSocket／API。
 - 工程5: 承認済みstatic mockに従うUI。
 - 工程6: integration／performance／soak。
@@ -135,6 +157,22 @@
 - `ArchitectureRepository/40_Reference/YAMLReference_v3.4.md`
 - `ArchitectureRepository/00_Master/BIG_TRADES_V2_PHASE2_ARTIFACT_EXAMPLES_20260812.md`
 
+### 工程3追加／変更
+
+- `Delta_Engine_Pro4web/src/database/big_trades_schema.py`
+- `Delta_Engine_Pro4web/src/database/big_trades_storage.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/runtime.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/models.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/ids.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/reaction_zones.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/horizons.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/price_path.py`
+- `Delta_Engine_Pro4web/src/orderflow/big_trades/activation.py`
+- `Delta_Engine_Pro4web/src/pipeline.py`
+- `Delta_Engine_Pro4web/tests/database/test_big_trades_storage.py`
+- `Delta_Engine_Pro4web/tests/orderflow/test_big_trades_runtime.py`
+- `Delta_Engine_Pro4web/tests/test_big_trades_pipeline.py`
+
 ## 検証結果
 
 - `python -m pytest tests/orderflow -k big_trades -q`: `67 passed, 195 deselected in 4.48s`。
@@ -145,24 +183,34 @@
 - active zone 5,000件保持／明示remove: PASS。
 - `python -m compileall -q src/orderflow/big_trades tests/orderflow`: PASS。
 - 工程2終了時`python -m compileall -q Delta_Engine_Pro4web/src/orderflow/big_trades Delta_Engine_Pro4web/src/config.py`: PASS。
+- 工程3単体storage: `11 passed in 4.48s`。
+- 工程3runtime＋既存Big Trades core: `108 passed, 195 deselected in 14.34s`。
+- 工程3pipeline Live／Replay: `3 passed in 4.44s`。
+- 工程3統合回帰`tests/orderflow tests/database`＋pipeline／config関連: `464 passed in 34.08s`。
+- Live／Replay同一fixtureでevent／fills／zone／interactionの全row一致: PASS。
+- ack前publication 0、ack後`EVENT_CREATED → ZONE_CREATED`: PASS。
+- origin途中failureの全table rollback、queue full明示failed ack、Parquet manifest欠損非正本: PASS。
+- restart recovery後のorigin重複0、interaction ordinal連続、restart gap横断snapshot invalid: PASS。
+- source-confirmed next sessionでzone close／final checkpoint／session stats artifact＋mirror: PASS。
+- disabled optional runtimeのReplayStats既存出力一致、enabled時も既存ReplayStats一致: PASS。
 - `ruff`: 環境にmodule未導入のため未実行。試験失敗ではない。
 - protected source SHA-256: 9／9 baseline一致。
-- production storage write: 0件。testはpytest temporary directoryだけへartifactを書いた。
+- production storage write: 0件。testはpytest temporary directoryだけへartifact／DuckDB／Parquetを書いた。
 - production DB migration: 0件。
-- pipeline／API／WebSocket／UI接続: 0件。
+- pipeline: optional injection pointだけ追加。production runtime生成0件。API／WebSocket／UI接続0件。
 - 稼働container restart: 0件。
+- 稼働container ID: `37ed40868792`のまま、Up 30 hours。
 
 ## blocker
 
 - 工程1: なし、完了。
 - 工程2: なし、完了。
-- 工程3: なし、isolated temporary DBから開始可能。
+- 工程3: なし、実装・回帰gate完了。
 - 工程7 activation: production Manual Min／Maxと初期modeの確定が必要。
 - 開始前runtimeのmemory RED、syncing、Tape gapはpure coreのblockerではない。工程6／7でbaselineとの差分判定対象とする。
 
 ## 次の再開位置
 
-1. 工程2 source、tests、reference、artifact例、checkpointを独立commitへ固定する。
-2. V2 instruction §62に従い、新規`src/database/big_trades_schema.py`とisolated temporary DuckDB migrationから工程3を開始する。
-3. origin batch atomicity、commit acknowledgement、restart checkpoint、source gap、Live／Replay共通runtimeを実装する。
-4. feature flagはfalseのまま維持し、production DBをmigrationしない。
+1. 工程3変更だけを選別してcommitする。user既存untracked fileは含めない。
+2. 工程4 WebSocket／APIへ進み、committed RuntimeRecordだけをunified streamとhistoryへ接続する。
+3. feature flagはfalseのまま維持し、production DBをmigrationしない。

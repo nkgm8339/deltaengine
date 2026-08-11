@@ -128,6 +128,7 @@ def create_big_trade_event(
     event_id = event_id_for_cluster(cluster)
     payload = {
         "event_id": event_id,
+        "schema_version": 2,
         "logic_version": cluster.logic_version,
         "symbol": cluster.symbol,
         "venue": cluster.venue,
