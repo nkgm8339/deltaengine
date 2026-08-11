@@ -33,6 +33,14 @@ body{background:var(--bg);color:var(--text);overflow:auto;
 .kv .v{font-size:13px;font-weight:600}
 #live{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;
   font-size:10px;font-weight:600}
+#spotgroup{min-width:158px}
+.spot-inline{display:flex;align-items:baseline;gap:7px;white-space:nowrap}
+#spotprice{color:var(--info);font-size:14px;font-weight:800}
+#spotbasis{color:var(--sub);font-size:9px;font-weight:800;letter-spacing:.04em}
+#freshnessbanner{position:sticky;top:0;z-index:10000;padding:8px 14px;border-bottom:2px solid var(--sell);
+  background:#4A0B18;color:#FFF;font-size:12px;font-weight:900;letter-spacing:.08em;text-align:center}
+#freshnessbanner[hidden]{display:none}
+body.market-data-stale #main{opacity:.42;filter:grayscale(.55);pointer-events:none}
 #devbtn{background:none;border:none;color:var(--dis);cursor:pointer;font-size:15px;padding:6px}
 #devbtn.on{color:var(--info)}
 /* main */
@@ -629,12 +637,17 @@ body:not(.phase5-fusion) #tape{display:none!important}
 </head>
 <body class="notranslate">
 <div id="banner"></div>
+<div id="freshnessbanner" role="alert" aria-live="assertive">MARKET DATA CONNECTING — LIVE DECISION DATA DISABLED</div>
 <div id="toasts"></div>
 <div id="appgrid">
 
   <div id="topbar" class="panel">
     <span id="symwrap" style="display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1.05"><span style="font-size:13px;font-weight:700;letter-spacing:.15em;color:var(--sub)" id="sym">—</span><span id="clonebadge" style="margin-top:3px;font-size:9px;font-weight:900;letter-spacing:.22em;color:#FFE35D">BINANCE · USD-M · 05M</span></span>
     <span id="price" class="dash">—</span>
+    <span class="kv" id="spotgroup" title="Official Binance Spot BTC/USDT last trade">
+      <span class="k">BINANCE SPOT BTC/USDT</span>
+      <span class="v spot-inline"><span id="spotprice">—</span><span id="spotbasis">SYNCING</span></span>
+    </span>
     <span class="kv" id="oigroup" title="Official Binance USD-M Futures open interest · current / 1m change / 5m change">
       <span class="k">BINANCE OI · Δ1M · Δ5M</span>
       <span class="v oi-inline"><span id="oivalue">—</span><span id="oi1m" class="oi-delta">—</span><span id="oi5m" class="oi-delta">—</span></span>
@@ -957,6 +970,7 @@ body:not(.phase5-fusion) #tape{display:none!important}
 <script src="/static/footprint_canvas.js"></script>
 <script src="/static/time_sales.js"></script>
 <script src="/static/orderbook_heatmap.js"></script>
+<script src="/static/market_freshness.js"></script>
 <script>
 "use strict";
 // ============================================================
@@ -980,6 +994,7 @@ const N=s=>s==null?null:Number(s);           // 表示専用変換
 const fmt=(s,d=2)=>s==null?"—":Number(s).toFixed(d);
 const FP_ROW_H=22;                           // base footprint row height (px) @ zoom 1
 const HEATMAP_BOOK_ID=typeof DeltaOrderBookHeatmap!=="undefined"?DeltaOrderBookHeatmap:null;
+const MARKET_FRESHNESS_ID=typeof DeltaMarketFreshness!=="undefined"?DeltaMarketFreshness:null;
 function fpTfSeconds(tf){                     // timeframe string → seconds (for elapsed)
   const m=/^(\d+)([smhd])$/.exec(tf||""); if(!m)return 60;
   return (+m[1])*({s:1,m:60,h:3600,d:86400}[m[2]]||60);
@@ -995,6 +1010,9 @@ const S={
   series:{ "CVD+Δ":{cvd:[],delta:[]}, VOLUME:[], OI:[], LIQUIDATION:[], "BTCUSDT 1M":[] },
   oiSamples:[],oiPollIntervalSec:10,hfmQuote:null,
   tab:"CVD+Δ", stats:null, lastTickAt:null, lastTickServerMs:null, latency:null,
+  marketFresh:false,marketFreshState:"CONNECTING",marketFreshReason:"SOCKET_CONNECTING",
+  marketMode:null,wsTransportOpen:false,
+  spotPrice:null,spotTradeId:null,spotEventTime:null,spotFresh:false,spotFreshState:"CONNECTING",spotFreshReason:"SOCKET_CONNECTING",
   liveBar:null, health:null, flowResponse:[], flowResponseHistory:[],marketTime:null,previousDayLevels:null,domLinkedPrice:null,domLinkedTick:null,
   vwapHistory:new Map(),liveBook:{sync_state:"NO_SNAPSHOT",bids:[],asks:[]},
   };
@@ -1003,23 +1021,68 @@ let TAPE_UI=null,tapeHistoryLoading=false;
 
 // ---------------- WebSocket ----------------
 let ws=null, backoff=1000;
+if(!MARKET_FRESHNESS_ID)throw new Error("market freshness guard unavailable");
+const MARKET_FRESHNESS=new MARKET_FRESHNESS_ID.MarketHeartbeatGuard({
+  maxTransportAgeMs:2000,maxSourceAgeMs:5000,futureToleranceMs:5000,
+  onStateChange:snapshot=>renderMarketFreshness(snapshot),
+});
+const SPOT_FRESHNESS=new MARKET_FRESHNESS_ID.MarketFreshnessGuard({
+  staleAfterMs:5000,syncTimeoutMs:8000,maxTransportAgeMs:3000,maxSourceAgeMs:5000,futureToleranceMs:5000,
+  onStateChange:snapshot=>renderSpotFreshness(snapshot),
+});
 function connect(){
+  MARKET_FRESHNESS.socketConnecting();
+  SPOT_FRESHNESS.socketConnecting();
   ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
-  ws.onopen=()=>{backoff=1000;setLive(true);if(PHASE5_FUSION_ENABLED)loadTimeSalesHistory();};
-  ws.onclose=()=>{setLive(false);setTimeout(connect,backoff);backoff=Math.min(backoff*2,10000);};
-  ws.onerror=()=>ws.close();
+  ws.onopen=()=>{setRealtimeTransportConnected(true);MARKET_FRESHNESS.socketOpen();SPOT_FRESHNESS.socketOpen();if(PHASE5_FUSION_ENABLED)loadTimeSalesHistory();};
+  ws.onclose=()=>{setRealtimeTransportConnected(false);MARKET_FRESHNESS.socketClosed();SPOT_FRESHNESS.socketClosed();setTimeout(connect,backoff);backoff=Math.min(backoff*2,10000);};
+  ws.onerror=()=>{setRealtimeTransportConnected(false);ws.close();};
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(_){return;}handle(m);};
 }
-function setLive(on){
+function setRealtimeTransportConnected(connected){
+  S.wsTransportOpen=!!connected;
+  if(TAPE_UI)TAPE_UI.setConnected(S.wsTransportOpen);
+  if(window.HEATMAP_UI)window.HEATMAP_UI.setConnected(S.wsTransportOpen,S.marketTime||Date.now());
+}
+function renderMarketFreshness(snapshot){
+  const state=snapshot&&snapshot.state||"STALE",fresh=!!(snapshot&&snapshot.fresh);
+  const on=fresh;
+  S.marketFresh=fresh;S.marketFreshState=state;S.marketFreshReason=snapshot&&snapshot.reason||"UNKNOWN";
   const el=$("live");
-  el.textContent=on?"LIVE":"RECONNECTING";
-  el.style.color=on?BUY:DIS;
-  el.style.background=on?"rgba(0,230,118,.08)":"transparent";
-  el.style.borderColor=on?"rgba(0,230,118,.25)":LINE;
-  if(TAPE_UI)TAPE_UI.setConnected(on);
-  if(window.HEATMAP_UI)window.HEATMAP_UI.setConnected(on,S.marketTime||Date.now());
-  if(!on&&PHASE5_FUSION_ENABLED){S.liveBook={sync_state:"NO_CONNECTION",bids:[],asks:[]};renderFootprint("liveDom");}
+  const color=fresh?BUY:state==="STALE"?SELL:state==="SYNCING"?WARN:DIS;
+  el.textContent=state;el.style.color=color;
+  el.style.background=fresh?"rgba(0,230,118,.08)":state==="STALE"?"rgba(255,54,95,.12)":"transparent";
+  el.style.borderColor=fresh?"rgba(0,230,118,.25)":state==="STALE"?SELL:LINE;
+  const banner=$("freshnessbanner");banner.hidden=fresh;
+  if(!fresh)banner.textContent=`MARKET DATA ${state} — LIVE DECISION DATA DISABLED · ${S.marketFreshReason}`;
+  if(!fresh){
+    S.price=null;S.prevPrice=null;S.latency=null;S.lastTickAt=null;S.lastTickServerMs=null;
+  }
   if(!on)resetAbsorptionRealtimeState();
+  renderTop();renderLiveObservation();updateFootprintCurrentPrice();
+}
+function renderSpotFreshness(snapshot){
+  S.spotFresh=!!(snapshot&&snapshot.fresh);
+  S.spotFreshState=snapshot&&snapshot.state||"STALE";
+  S.spotFreshReason=snapshot&&snapshot.reason||"UNKNOWN";
+  if(!S.spotFresh){S.spotPrice=null;S.spotTradeId=null;S.spotEventTime=null;}
+  renderSpotReference();
+}
+function renderSpotReference(){
+  const group=$("spotgroup"),price=$("spotprice"),basis=$("spotbasis");
+  if(!group||!price||!basis)return;
+  if(!S.spotFresh||!Number.isFinite(S.spotPrice)){
+    price.textContent="—";price.style.color=DIS;
+    basis.textContent=S.spotFreshState;basis.style.color=S.spotFreshState==="STALE"?SELL:DIS;
+    group.title=`Binance Spot BTC/USDT ${S.spotFreshState} · ${S.spotFreshReason}`;
+    return;
+  }
+  price.textContent=S.spotPrice.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:2});
+  price.style.color=INFO;
+  const spread=S.marketFresh&&Number.isFinite(S.price)?S.spotPrice-S.price:null;
+  basis.textContent=Number.isFinite(spread)?`SPOT-PERP ${spread>=0?"+":""}${spread.toFixed(1)}`:"SPOT-PERP —";
+  basis.style.color=SUB;
+  group.title=`Official Binance Spot BTC/USDT last trade · trade ${S.spotTradeId??"—"} · ${(S.spotEventTime?new Date(S.spotEventTime).toISOString():"time —")}`;
 }
 
 function versionWarn(serverV){
@@ -1042,8 +1105,16 @@ function handle(m){
     switch(m.type){
       case "HELLO":
         if(p.payload_version!==UI_PAYLOAD_VERSION)versionWarn(p.payload_version);
+        S.marketMode=p.market_mode||null;
+        MARKET_FRESHNESS.configureHello({
+          mode:p.market_mode,
+          intervalMs:p.market_heartbeat_interval_ms,
+          timeoutMs:p.market_heartbeat_timeout_ms,
+        });
         $("sym").textContent=m.symbol; break;
+      case "MARKET_HEARTBEAT": onMarketHeartbeat(p); break;
       case "TICK": onTick(m,p); break;
+      case "SPOT_PRICE": onSpotPrice(p); break;
       case "CANDLE": onCandle(p); break;
       case "ANALYSIS":
         S.analysis=p; renderAnalysis();
@@ -1072,15 +1143,34 @@ function handle(m){
 }
 
 // ---------------- handlers ----------------
+function onMarketHeartbeat(p){
+  MARKET_FRESHNESS.acceptHeartbeat({
+    mode:p.mode,
+    sequence:p.heartbeat_sequence,
+    upstreamFresh:p.upstream_fresh,
+    pipelineAlive:p.pipeline_alive,
+  });
+}
 function onTick(m,p){
-  S.prevPrice=S.price; S.price=N(p.price);
+  const price=N(p.price);if(!Number.isFinite(price)||price<=0)return;
+  const freshness=MARKET_FRESHNESS.acceptTick({publishedTime:p.published_time,sourceAgeMs:p.source_age_ms});
+  if(!freshness.accepted)return;
+  backoff=1000;
+  S.prevPrice=S.price; S.price=price;
   S.lastTickAt=Date.now();
   const sv=Date.parse(m.time);
   S.lastTickServerMs=isNaN(sv)?null:sv;
-  S.latency=isNaN(sv)?null:Math.max(0,Date.now()-sv);
+  S.latency=freshness.snapshot.totalAgeMs;
   renderTop();
   renderLiveObservation();
   updateFootprintCurrentPrice();
+}
+function onSpotPrice(p){
+  const price=N(p.price);if(!Number.isFinite(price)||price<=0)return;
+  const freshness=SPOT_FRESHNESS.acceptTick({publishedTime:p.published_time,sourceAgeMs:p.source_age_ms});
+  if(!freshness.accepted)return;
+  S.spotPrice=price;S.spotTradeId=p.trade_id??null;S.spotEventTime=Date.parse(p.event_time);
+  renderSpotReference();
 }
 function onBookUpdate(p){
   S.liveBook=p&&typeof p==="object"?p:{sync_state:"INVALID",bids:[],asks:[]};
@@ -1088,7 +1178,7 @@ function onBookUpdate(p){
   renderFootprint("liveDom");
 }
 function onTapeUpdate(m,p){
-  if(!TAPE_UI)return;
+  if(!S.wsTransportOpen||!TAPE_UI)return;
   const result=TAPE_UI.ingestBatch(p,m.symbol||S.symbol);
   refreshDomPriceLink();
   if(window.HEATMAP_UI)window.HEATMAP_UI.recordTapeContinuity(result,TAPE_UI.store.streamId);
@@ -1118,7 +1208,7 @@ function rememberVwap(p){
 function onCandle(p){
   rememberVwap(p);
   rememberFootprintBar(p);
-  if(S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
+  if(S.marketFresh&&S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
   if(S.liveBar&&Date.parse(S.liveBar.bar_time)<=Date.parse(p.bar_time))S.liveBar=null;
   const pTime=Date.parse(p.bar_time);
   const same=S.bars.findIndex(b=>Date.parse(b.bar_time)===pTime);
@@ -1301,7 +1391,7 @@ function pushSeries(key,v){
 
 function onBarUpdate(p){
   rememberVwap(p);
-  if(S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
+  if(S.marketFresh&&S.price==null&&Number.isFinite(N(p.close))){S.price=N(p.close);renderTop();}
   // 形成中バー: 価格チャートと、追従モード時の FOOTPRINT に反映。
   S.liveBar=p;
   renderFootprint("liveFootprint");
@@ -1330,7 +1420,11 @@ $("hdot").onclick=()=>{const o=$("hpop");o.style.display=o.style.display==="bloc
 // ---------------- renderers ----------------
 function renderTop(){
   renderOiTop();
-  if(S.price==null)return;
+  renderSpotReference();
+  if(!S.marketFresh||S.price==null){
+    const pe=$("price"),le=$("lat");pe.classList.add("dash");pe.textContent="—";pe.style.color=DIS;
+    le.textContent="—";le.style.color=DIS;return;
+  }
   const up=S.prevPrice==null||S.price>=S.prevPrice;
   const pe=$("price"); pe.classList.remove("dash");
   pe.textContent=S.price.toLocaleString(undefined,{minimumFractionDigits:1});
@@ -1412,13 +1506,13 @@ function computeFootprintTotals(levels){
   return {bid,ask,delta:ask-bid};
 }
 function updateFootprintCurrentPrice(){
-  if(FP.chart)FP.chart.setData({currentPrice:S.price},"reference");
+  if(FP.chart)FP.chart.setData({currentPrice:S.marketFresh?S.price:null},"reference");
 }
 function renderFootprint(layer="liveFootprint"){
   if(!FP.chart)return;
   const bars=footprintClosedBars(),live=footprintLiveBar(bars);
   FP.chart.setData({
-    bars,liveBar:live,currentPrice:S.price,vwap:latestFootprintVwap(bars,live),
+    bars,liveBar:live,currentPrice:S.marketFresh?S.price:null,vwap:latestFootprintVwap(bars,live),
     book:PHASE5_FUSION_ENABLED?S.liveBook:null,
     vaPct:FP.vaPct,priceStep:FP.priceStep,ratio:IMB.ratio,minVolume:IMB.minVol,stack:IMB.stack,
   },layer);
@@ -1573,6 +1667,7 @@ function expireAbsorptionState(){
   return true;
 }
 function onAbsorptionState(m,p){
+  if(!S.marketFresh)return;
   ABS_REALTIME_SEEN=true;
   if(p.active!==true){
     ABS=null;
@@ -1586,7 +1681,9 @@ function onAbsorptionState(m,p){
       ABS=null;
       ABS_EXPIRES_AT=null;
     }else{
-      ABS={classification,strength:p.strength,price_low:p.price_low,price_high:p.price_high};
+      ABS={classification,strength:p.strength,price_low:p.price_low,price_high:p.price_high,
+        aggression_qty:p.aggression_qty,threshold_qty:p.threshold_qty,
+        distinct_prices:p.distinct_prices,window_sec:p.window_sec};
       const expiresAt=Date.parse(p.expires_at);
       ABS_EXPIRES_AT=Number.isFinite(expiresAt)?expiresAt:null;
     }
@@ -1598,19 +1695,35 @@ function onAbsorptionState(m,p){
 }
 function renderAbsorption(){
   const el=$("absbody"), hint=$("abshint");
-  if(!ABS){el.innerHTML='<div class="dash" style="text-align:center">—</div>'; hint.textContent="—"; return;}
+  if(!ABS){
+    hint.textContent="MONITORING";
+    hint.style.color=SUB;
+    el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">`
+      +`<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:15px;color:${SUB};font-weight:700">NO ACTIVE ABSORPTION</span><span style="font-size:10px;color:${INFO};border:1px solid ${INFO}66;border-radius:3px;padding:2px 5px">MONITORING</span></div>`
+      +`<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-size:11px">`
+      +`<span style="color:${SUB}">window <b style="color:${TXT}">10s</b></span><span style="color:${SUB}">stall ≤ <b style="color:${TXT}">1 price</b></span>`
+      +`<span style="color:${SUB}">aggression ≥ <b style="color:${TXT}">2× ref</b></span><span style="color:${SUB}">state <b style="color:${TXT}">waiting</b></span></div>`
+      +`<div style="font-size:11px;color:${DIS}">条件成立時に方向・強度・出来高・価格帯を表示</div></div>`;
+    return;
+  }
   const buy=ABS.classification==="BUY_ABSORPTION";
   const c=buy?BUY:SELL;
   const pct=Math.round(N(ABS.strength)*100);
+  const agg=ABS.aggression_qty==null?"—":ABS.aggression_qty;
+  const threshold=ABS.threshold_qty==null?"—":ABS.threshold_qty;
+  const prices=ABS.distinct_prices==null?"—":ABS.distinct_prices;
   hint.textContent=buy?"BUY ABS":"SELL ABS";
   hint.style.color=c;
   el.innerHTML=
-    `<div style="display:flex;flex-direction:column;gap:6px">`
-    +`<div style="font-size:15px;color:${c};font-weight:600">${buy?"BUY ABS":"SELL ABS"}</div>`
+    `<div style="display:flex;flex-direction:column;gap:7px">`
+    +`<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:16px;color:${c};font-weight:700">${buy?"BUY ABSORPTION":"SELL ABSORPTION"}</span><span style="font-size:10px;color:${c};border:1px solid ${c}66;border-radius:3px;padding:2px 5px">ACTIVE</span></div>`
     +`<div style="display:flex;align-items:center;gap:8px"><span style="color:${SUB};font-size:11px">strength</span>`
     +`<div style="flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${c}"></div></div>`
     +`<span style="color:${c};font-size:12px">${pct}%</span></div>`
-    +`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:${SUB}">price</span>`
+    +`<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px">`
+    +`<span style="color:${SUB}">aggression <b style="color:${TXT}">${agg}</b></span><span style="color:${SUB}">threshold <b style="color:${TXT}">${threshold}</b></span>`
+    +`<span style="color:${SUB}">stalled prices <b style="color:${TXT}">${prices}</b></span><span style="color:${SUB}">window <b style="color:${TXT}">${ABS.window_sec||"—"}s</b></span></div>`
+    +`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:${SUB}">price range</span>`
     +`<span style="color:${c}">${ABS.price_low} – ${ABS.price_high}</span></div>`
     +`</div>`;
 }
@@ -1904,7 +2017,7 @@ function renderLiveObservation(){
 
   const bars=marketBars(),bar=bars.length?bars[bars.length-1]:null;
   const pattern=bar?classifyCvdPattern(bars,bars.length-1):null;
-  const currentPrice=S.price??(bar?bar.c:null);
+  const currentPrice=S.marketFresh?S.price:null;
   const priceChange=flow?N(flow.price_change_bps):null;
   $("loprice").textContent=Number.isFinite(currentPrice)?currentPrice.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:2}):"—";
   $("lopricechange").textContent=loSigned(priceChange,1,"bp");
@@ -1927,7 +2040,7 @@ function renderLiveObservation(){
   const oiChange=oiOneMinute?oiOneMinute.change:null;
   const oiLabel=oiChange==null?"—":oiChange>0?"BUILDING":oiChange<0?"UNWINDING":"UNCHANGED";
   loContext("looicontext","looicontextdot",oiLabel,oiChange==null?DIS:oiChange===0?WARN:INFO);
-  const absorption=ABS&&ABS.classification==="BUY_ABSORPTION"?"BUY ABS":ABS&&ABS.classification==="SELL_ABSORPTION"?"SELL ABS":"—";
+  const absorption=ABS&&ABS.classification==="BUY_ABSORPTION"?`BUY ABS ${Math.round(N(ABS.strength)*100)}%`:ABS&&ABS.classification==="SELL_ABSORPTION"?`SELL ABS ${Math.round(N(ABS.strength)*100)}%`:"MONITORING";
   loContext("loabsorption","loabsorptiondot",absorption,absorption==="BUY ABS"?BUY:absorption==="SELL ABS"?SELL:DIS);
 
   $("lofactpressure").textContent=pressure==null?"Pressure —":`Pressure ${pressure>0?"BUY":pressure<0?"SELL":"NEUTRAL"} · ${loSigned(pressure*100,0,"%")}`;
@@ -2181,15 +2294,19 @@ async function loadChartHistory(){
   }catch(_){/* live stream continues even when history is unavailable */}
 }
 function refreshDomPriceLink(){
-  if(!TAPE_UI||!Number.isFinite(Number(S.domLinkedPrice)))return;
-  const price=Number(S.domLinkedPrice),tick=Math.max(1e-10,Number(S.domLinkedTick)||1e-8),epsilon=tick*0.51;
+  if(!TAPE_UI||S.domLinkedPrice==null)return;
+  const price=Number(S.domLinkedPrice);
+  if(!Number.isFinite(price)||price<=0)return;
+  const tick=Math.max(1e-10,Number(S.domLinkedTick)||1e-8),epsilon=tick*0.51;
+  const trades=Array.isArray(TAPE_UI.store&&TAPE_UI.store.trades)?TAPE_UI.store.trades:[];
   TAPE_UI.linkedKeys.clear();
-  for(const trade of TAPE_UI.store.trades)if(Math.abs(Number(trade.price)-price)<=epsilon)TAPE_UI.linkedKeys.add(trade.key);
+  for(const trade of trades)if(Math.abs(Number(trade.price)-price)<=epsilon)TAPE_UI.linkedKeys.add(trade.key);
   TAPE_UI.render();
 }
 function linkDomPriceToTape(selection){
-  if(!selection||!Number.isFinite(Number(selection.price)))return;
-  S.domLinkedPrice=Number(selection.price);
+  const price=Number(selection&&selection.price);
+  if(!Number.isFinite(price)||price<=0)return;
+  S.domLinkedPrice=price;
   S.domLinkedTick=Math.max(1e-10,Number(selection.tick)||1e-8);
   refreshDomPriceLink();
 }
@@ -2407,7 +2524,7 @@ $("devbtn").onclick=()=>{const o=$("devov");const on=o.style.display!=="block";
   const bookStore=new HEATMAP_BOOK_ID.HeatmapBookStore({maxAgeMs:3600000,maxFrames:36000,maxGaps:4096});
   const tradeStore=new HEATMAP_BOOK_ID.HeatmapTradeStore({maxAgeMs:900000,capacity:100000,maxMarkers:1024});
   const chart=new HEATMAP_BOOK_ID.OrderBookHeatmapCanvas({
-    canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.price,getPreviousDayLevels:()=>S.previousDayLevels,
+    canvas:heatCanvas,status:heatStatus,detail:heatDetail,tooltip:heatTooltip,bookStore,tradeStore,getLastPrice:()=>S.marketFresh?S.price:null,getPreviousDayLevels:()=>S.previousDayLevels,
     onTradeSelect:trade=>{if(!TAPE_UI||!trade)return;const hit=TAPE_UI.store.trades.find(item=>String(item.tradeId)===String(trade.tradeId));if(hit)TAPE_UI.selectTrade(hit,true);else TAPE_UI.markSelectionError("TRADE OUTSIDE TAPE RETENTION");},
   });
   const api={enabled:true,bookStore,tradeStore,store:bookStore,chart,mode:"FOOTPRINT",
@@ -2488,7 +2605,11 @@ for(const count of [3,10,20])$("fp"+count).onclick=()=>FP.chart.setVisibleBars(c
 $("plock").onclick=()=>FP.chart.returnLive();
 renderFootprint("viewport");
 
-initMarketChart(); renderLiveObservation(); loadChartHistory(); loadPreviousDayLevels(); loadFootprintHistory(); loadTimeSalesHistory(); loadFlowResponseHistory(); loadOiHistory(); loadCombinedContextHistory(); connect();
+setRealtimeTransportConnected(false);
+initMarketChart();renderMarketFreshness(MARKET_FRESHNESS.snapshot());renderSpotFreshness(SPOT_FRESHNESS.snapshot());renderLiveObservation();loadChartHistory();loadPreviousDayLevels();loadFootprintHistory();loadTimeSalesHistory();loadFlowResponseHistory();loadOiHistory();loadCombinedContextHistory();
+setInterval(()=>{MARKET_FRESHNESS.check();SPOT_FRESHNESS.check();},250);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){MARKET_FRESHNESS.check();SPOT_FRESHNESS.check();}});
+connect();
 /* App version — /api/version(正は CHANGELOG.md)。失敗しても UI は阻害しない */
 fetch("/api/version").then(r=>r.json())
   .then(j=>{ $("appver").textContent = j.version || "v?.?.?"; })

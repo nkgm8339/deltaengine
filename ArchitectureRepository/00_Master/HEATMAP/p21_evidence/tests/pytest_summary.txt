@@ -1,0 +1,20 @@
+Command:
+python -m pytest -q -p no:cacheprovider
+
+Live-test deselection:
+None. Exchange WebSocket/REST tests use fixtures, mocks, injected FakeConnect,
+or fake transports. No live exchange connection was used.
+
+Result:
+1 failed, 727 passed, 1 skipped in 85.44s (0:01:25)
+
+Failure:
+tests/webapp/test_dom_tape_fusion_ui.py::test_fixed_fusion_layout_keeps_indicators_and_removes_old_book_presentation
+
+Assertion:
+assert 'body.phase5-fusion #right>#left{display:none!important}' in html
+
+Handling:
+Known Phase 5 UI contract failure, unrelated to Phase 2-1 evidence collection.
+No repair and no retry were performed.
+

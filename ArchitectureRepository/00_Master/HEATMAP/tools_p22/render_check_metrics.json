@@ -1,0 +1,120 @@
+{
+  "counters": {
+    "diffs_applied": 2938,
+    "diffs_discarded_after_fail": 0,
+    "gaps_detected": 0,
+    "snapshots_applied": 1,
+    "sync_failures": 0,
+    "trades_skipped": 25144
+  },
+  "downsampled": {
+    "grid": {
+      "gap_columns": 0,
+      "price_bins": 461,
+      "time_cols": 150
+    },
+    "method": {
+      "price_bin": "20",
+      "price_bin_multiplier": "2",
+      "time_col_divisor": 2,
+      "time_cols_limit": 150
+    },
+    "render": {
+      "budget_note": "The static PNG total_ms p95 comparison with 16 ms is reference-only. The strict dynamic frame-budget evaluation belongs to Phase 2-3.",
+      "last_report": {
+        "aggregation_ms": "0",
+        "bytes_written": 29513,
+        "gap_columns": 0,
+        "height": 600,
+        "price_bins": 461,
+        "render_ms": "5065.8872",
+        "time_cols": 150,
+        "total_ms": "5957.0337",
+        "transform_ms": "882.7213",
+        "width": 900
+      },
+      "output_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\HEATMAP\\tools_p22\\rendered_heatmap_downsampled.png",
+      "png_bytes": 29513,
+      "reference_budget_ms": "16",
+      "runs": 20,
+      "timing_ms": {
+        "render_ms": {
+          "max": "5721.4778",
+          "min": "4941.6948",
+          "p50": "5145.47775",
+          "p95": "5615.938405"
+        },
+        "total_ms": {
+          "max": "6734.9816",
+          "min": "5738.5072",
+          "p50": "6113.28185",
+          "p95": "6620.010700"
+        },
+        "transform_ms": {
+          "max": "1557.235",
+          "min": "706.5205",
+          "p50": "816.64485",
+          "p95": "1475.125740"
+        }
+      },
+      "total_ms_p95_status": "EXCEEDS_REFERENCE_BUDGET"
+    }
+  },
+  "grid": {
+    "gap_columns": 0,
+    "price_bins": 799,
+    "time_cols": 300
+  },
+  "integrity": "PASS",
+  "metrics_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\HEATMAP\\tools_p22\\render_check_metrics.json",
+  "recording_dir": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\Delta_Engine_Pro4web\\data_05M\\phase2_0_d2_validation\\20260730T043059\\depth_history_raw\\symbol=BTCUSDT",
+  "render": {
+    "budget_note": "The static PNG total_ms p95 comparison with 16 ms is reference-only. The strict dynamic frame-budget evaluation belongs to Phase 2-3.",
+    "last_report": {
+      "aggregation_ms": "0",
+      "bytes_written": 45455,
+      "gap_columns": 0,
+      "height": 600,
+      "price_bins": 799,
+      "render_ms": "17148.5707",
+      "time_cols": 300,
+      "total_ms": "20320.174",
+      "transform_ms": "3127.441",
+      "width": 900
+    },
+    "output_path": "C:\\Users\\user\\Desktop\\DeltaEngine05M\\ArchitectureRepository\\00_Master\\HEATMAP\\tools_p22\\rendered_heatmap_full.png",
+    "png_bytes": 45455,
+    "reference_budget_ms": "16",
+    "runs": 20,
+    "timing_ms": {
+      "render_ms": {
+        "max": "18067.5251",
+        "min": "16555.1083",
+        "p50": "17273.83950",
+        "p95": "17842.238680"
+      },
+      "total_ms": {
+        "max": "21629.7443",
+        "min": "19759.6148",
+        "p50": "20575.69735",
+        "p95": "21264.085690"
+      },
+      "transform_ms": {
+        "max": "3544.8716",
+        "min": "2782.6854",
+        "p50": "3325.60080",
+        "p95": "3532.032920"
+      }
+    },
+    "total_ms_p95_status": "EXCEEDS_REFERENCE_BUDGET"
+  },
+  "samples": 300,
+  "segments": 34,
+  "skipped_segments": 0,
+  "viewport": {
+    "height": 600,
+    "left": "0",
+    "top": "0",
+    "width": 900
+  }
+}

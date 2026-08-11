@@ -2,9 +2,9 @@
 
 version: 1.0  
 作成日時: 2026-07-29 05:12 JST  
-文書状態: **PROPOSED — USER REVIEW**  
-現在の承認範囲: **本指示書の作成まで**  
-source code実装承認: **未承認**  
+文書状態: **APPROVED IN PART — GO-H0／GO-H1 COMPLETED**
+現在の承認範囲: **GO-H0 baseline／GO-H1 Book continuity contract**
+source code実装承認: **GO-H1のみ完了。GO-H2以降は未承認**
 deployment承認: **未承認**
 
 本書は、DeltaEngine05MへBookmap系の時間×価格Order Book Heatmapを追加するための
@@ -1087,3 +1087,30 @@ source実装前にユーザーへ次を提示する。
 6. implementationとdeploymentが別承認であること
 
 ユーザーの明示GO-H0までは、文書以外のsource codeを変更しない。
+
+---
+
+## 31. 2026-07-29 GO-H0／GO-H1 completion record
+
+### 31.1 GO-H0
+
+- restore point: `1134886430b7c48487cd4a9389a202acfa6ff53e`
+- exact 57 file、artifact／別topic文書混入0
+- WebApp 122 passed
+- repository 664 passed／1 skipped
+- 1280×900実Edge baseline geometry／font／errorを保存
+
+### 31.2 GO-H1
+
+- `BOOK_UPDATE` payload v1.4 additive
+- `book_stream_id`: PushBroker lifecycle UUID
+- `book_sequence`: 同一stream内1開始の連続message sequence
+- SYNCED／fail-closed双方を連番対象
+- validation拒否はsequence非消費
+- reconnect cacheは同一ID／sequenceを再送
+- targeted 45 passed
+- WebApp 125 passed
+- repository 667 passed／1 skipped
+- runtime deployment未実施
+
+GO-H2以降は未承認である。

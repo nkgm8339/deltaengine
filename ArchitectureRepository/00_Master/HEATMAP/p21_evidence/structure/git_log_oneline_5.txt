@@ -1,0 +1,6 @@
+e358a0f fix(depth-history): RecorderTee.close no-op to prevent shutdown AttributeError (P1-2b)
+091b202 fix(depth-history): restore compose disabled-comment for pd4 contract (P1-1c)
+28d656c feat(depth-history): wire raw recorder into acquisition tap (P1-1-b)
+a7f107d fix(depth-history): correct rotation test threshold (P1-1修正1)
+f94822a feat(depth-history): ADR-011 raw depth recorder (P1-1)
+

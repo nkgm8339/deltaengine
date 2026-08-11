@@ -1,7 +1,7 @@
 # Order Book Heatmap Phase H0 checkpoint
 
-最終更新: 2026-07-29 05:43 JST  
-状態: **exact 57 file stage監査PASS／commit直前checkpoint／Heatmap source未変更**
+最終更新: 2026-07-29 05:52 JST
+状態: **GO-H0完了／baseline restore point作成・再検証PASS／Heatmap source未変更**
 
 ## 承認
 
@@ -76,11 +76,21 @@
 - expected manifestとの`Compare-Object`: 差分0。
 - staged artifact／Parquet／DuckDB／JSONL: 0。
 - staged別topicトリガー文書: 0。
+- baseline commitを作成した。
+  - SHA: `1134886430b7c48487cd4a9389a202acfa6ff53e`
+  - message: `snapshot: preserve Footprint DOM Tape baseline before heatmap`
+  - committed file: 57
+  - committed artifact／別topic文書: 0
+- commit後WebApp: `122 passed in 8.33s`。
+- commit後repository全体: `664 passed, 1 skipped in 33.30s`。
+- commit後実Edge: baseline geometry完全一致、gap各12px、overflow 0、Tape 14px／28px、page／console error 0。
+- commit後pytest専用temporary directory 2件は絶対pathを検証して削除済み。
+- post-commit document diff check初回は本fileのMarkdown hard-break用末尾space 2文字だけを検出。除去後の再checkはPASS。
 
 ## 未完了
 
-- commit対象／除外対象の提示
-- ユーザー承認後のbaseline commit
+- GO-H0承認範囲内はなし。
+- GO-H1 Book continuity contractは未承認。
 
 ## 変更file
 
@@ -95,7 +105,7 @@
 - browser 2回目: stdout UTF-8明示でPASS。geometry／font／errorを取得済み。
 - blocker: なし
 - stage: exact 57 file、監査PASS
-- commit: 未実施
+- commit: `1134886430b7c48487cd4a9389a202acfa6ff53e`、PASS
 - approval: primary 57 fileのexact stageとrestore point commitを受領済み。
 - 推奨commit message: `snapshot: preserve Footprint DOM Tape baseline before heatmap`
-- 次の再開位置: 本checkpointを再stageして57件一致を再確認し、承認済みmessageでrestore point commitする。
+- 次の再開位置: ユーザーが明示GO-H1を出した場合、additive `book_stream_id`／`book_sequence` contractの実装checkpointから開始する。

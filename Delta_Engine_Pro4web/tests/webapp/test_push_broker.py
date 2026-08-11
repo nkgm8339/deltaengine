@@ -64,8 +64,98 @@ def test_tick_payload_keeps_trade_id_for_latency_audit():
             quantity=Decimal("0.2"),
             side="BUY",
         ))
+        await broker.wait_until_idle(ws)
         assert sent[0]["type"] == "TICK"
         assert sent[0]["payload"]["trade_id"] == 987654
+
+    asyncio.run(run())
+
+
+def test_market_heartbeat_sequence_is_monotonic_and_never_cached():
+    async def run():
+        broker = _make_broker()
+        first_messages = []
+        first_ws = MagicMock()
+        first_ws.send_text = AsyncMock(
+            side_effect=lambda text: first_messages.append(json.loads(text))
+        )
+        await broker.register(first_ws)
+        event_time = _utc("2026-08-03T00:00:00")
+        payload = {
+            "mode": "live",
+            "upstream_state": "SUBSCRIBED",
+            "upstream_last_message_time": event_time.isoformat(),
+            "upstream_age_ms": 50,
+            "upstream_fresh": True,
+            "pipeline_alive": True,
+        }
+        await broker.send_market_heartbeat(event_time, payload)
+        await broker.send_market_heartbeat(event_time, payload)
+        await broker.wait_until_idle(first_ws)
+
+        assert [m["payload"]["heartbeat_sequence"] for m in first_messages] == [1, 2]
+        assert all(m["type"] == "MARKET_HEARTBEAT" for m in first_messages)
+        assert all(m["payload"]["published_time"] == event_time.isoformat() for m in first_messages)
+        assert not hasattr(broker, "_latest_heartbeat_message")
+
+        late_messages = []
+        late_ws = MagicMock()
+        late_ws.send_text = AsyncMock(
+            side_effect=lambda text: late_messages.append(json.loads(text))
+        )
+        await broker.register(late_ws)
+        assert late_messages == []
+
+    asyncio.run(run())
+
+
+def test_slow_client_heartbeat_timeout_does_not_block_healthy_tick():
+    async def run():
+        broker = _make_broker(client_send_timeout_sec=0.02)
+        never = asyncio.Event()
+        slow_ws = MagicMock()
+
+        async def blocked_send(_text):
+            await never.wait()
+
+        slow_ws.send_text = AsyncMock(side_effect=blocked_send)
+        healthy_messages = []
+        healthy_ws = MagicMock()
+        healthy_ws.send_text = AsyncMock(side_effect=healthy_messages.append)
+        await broker.register(slow_ws)
+        await broker.register(healthy_ws)
+
+        now = datetime.now(timezone.utc)
+        await broker.send_market_heartbeat(now, {
+            "mode": "live",
+            "upstream_state": "SUBSCRIBED",
+            "upstream_last_message_time": now.isoformat(),
+            "upstream_age_ms": 0,
+            "upstream_fresh": True,
+            "pipeline_alive": True,
+        })
+        await broker.wait_until_idle()
+        assert slow_ws not in broker._clients
+        assert json.loads(healthy_messages[-1])["type"] == "MARKET_HEARTBEAT"
+
+        await broker.on_trade(SimpleNamespace(
+            event_time=now,
+            trade_id=42,
+            price=Decimal("100.1"),
+            quantity=Decimal("0.2"),
+            side="BUY",
+        ))
+        await broker.wait_until_idle(healthy_ws)
+        assert json.loads(healthy_messages[-1])["type"] == "TICK"
+        await broker._broadcast(envelope(
+            "BOOK_UPDATE",
+            now,
+            "BTCUSDT",
+            {"sync_state": "NO_SNAPSHOT", "bids": [], "asks": []},
+        ))
+        await broker.wait_until_idle(healthy_ws)
+        assert json.loads(healthy_messages[-1])["type"] == "BOOK_UPDATE"
+        assert healthy_ws in broker._clients
 
     asyncio.run(run())
 
@@ -87,6 +177,7 @@ def test_hfm_quote_payload_is_bid_ask_and_usd_spread():
         await broker.on_hfm_quote(HfmQuote(
             "#BTCUSDr", now, now, 41, Decimal("65751.411"), Decimal("65771.681"),
         ))
+        await broker.wait_until_idle(ws)
         assert sent[0]["type"] == "HFM_QUOTE"
         assert sent[0]["payload"]["hfm_symbol"] == "#BTCUSDr"
         assert sent[0]["payload"]["bid"] == "65751.411"
@@ -529,6 +620,8 @@ def test_ws_hello_payload_version():
     mock_config.webapp.live_dom_depth_levels = 50
     mock_config.webapp.book_update_interval_ms = 100
     mock_config.webapp.book_stale_after_ms = 2000
+    mock_config.webapp.market_heartbeat_interval_ms = 1000
+    mock_config.webapp.market_heartbeat_timeout_ms = 3000
     mock_config.webapp.tape_batch_interval_ms = 100
     mock_config.webapp.tape_max_trades_per_message = 250
     mock_config.webapp.tape_pending_capacity = 10000
@@ -566,7 +659,12 @@ def test_ws_hello_payload_version():
                 assert data["type"] == "HELLO"
                 assert data["v"] == 1
                 assert data["payload"]["payload_version"] == 1
+                assert data["payload"]["market_mode"] == "live"
+                assert data["payload"]["market_heartbeat_interval_ms"] == 1000
+                assert data["payload"]["market_heartbeat_timeout_ms"] == 3000
                 assert data["symbol"] == "BTCUSDT"
+                assert app.state.market_heartbeat_task is not None
+                assert app.state.market_heartbeat_task in app.state.tasks
 
 
 # ── test 13: register/unregister removes dead client on broadcast ─────────────
@@ -593,12 +691,130 @@ def test_register_unregister_dead_client_removed():
         t = _utc("2024-01-01T00:00:00")
         msg = envelope("STATS", t, "BTCUSDT", {"x": "1"})
         await broker._broadcast(msg)
+        await broker.wait_until_idle()
 
         # broken_ws should have been removed
         assert broken_ws not in broker._clients
         # good_ws should still be there
         assert good_ws in broker._clients
         assert len(received) == 1
+
+    asyncio.run(run())
+
+
+def test_client_writer_is_single_and_heartbeat_interrupts_normal_fifo():
+    async def run():
+        broker = _make_broker()
+        ws = MagicMock()
+        first_started = asyncio.Event()
+        release_first = asyncio.Event()
+        sent = []
+        active_sends = 0
+        max_active_sends = 0
+
+        async def send_text(text):
+            nonlocal active_sends, max_active_sends
+            message = json.loads(text)
+            active_sends += 1
+            max_active_sends = max(max_active_sends, active_sends)
+            try:
+                if message["type"] == "STATS" and message["payload"]["x"] == "A":
+                    first_started.set()
+                    await release_first.wait()
+                sent.append(message)
+            finally:
+                active_sends -= 1
+
+        ws.send_text = AsyncMock(side_effect=send_text)
+        ws.close = AsyncMock()
+        await broker.register(ws)
+        now = _utc("2026-08-03T00:00:00")
+        await broker._broadcast(envelope("STATS", now, "BTCUSDT", {"x": "A"}))
+        await asyncio.wait_for(first_started.wait(), timeout=1.0)
+        await broker._broadcast(envelope("STATS", now, "BTCUSDT", {"x": "B"}))
+        await broker._broadcast(envelope("STATS", now, "BTCUSDT", {"x": "C"}))
+        await broker.send_market_heartbeat(now, {
+            "mode": "live",
+            "upstream_state": "SUBSCRIBED",
+            "upstream_last_message_time": now.isoformat(),
+            "upstream_age_ms": 0,
+            "upstream_fresh": True,
+            "pipeline_alive": True,
+        })
+        release_first.set()
+        await broker.wait_until_idle(ws)
+
+        assert [message["type"] for message in sent] == [
+            "STATS", "MARKET_HEARTBEAT", "STATS", "STATS",
+        ]
+        assert [
+            message["payload"]["x"]
+            for message in sent
+            if message["type"] == "STATS"
+        ] == ["A", "B", "C"]
+        assert max_active_sends == 1
+        await broker.close()
+
+    asyncio.run(run())
+
+
+def test_queue_overflow_disconnects_only_slow_client_without_silent_drop():
+    async def run():
+        broker = _make_broker()
+        slow_started = asyncio.Event()
+        never = asyncio.Event()
+        slow_ws = MagicMock()
+        slow_ws.close = AsyncMock()
+
+        async def blocked_send(_text):
+            slow_started.set()
+            await never.wait()
+
+        slow_ws.send_text = AsyncMock(side_effect=blocked_send)
+        healthy_messages = []
+        healthy_ws = MagicMock()
+        healthy_ws.send_text = AsyncMock(side_effect=healthy_messages.append)
+        healthy_ws.close = AsyncMock()
+        await broker.register(slow_ws)
+        await broker.register(healthy_ws)
+
+        now = _utc("2026-08-03T00:00:00")
+        await broker._broadcast(envelope("STATS", now, "BTCUSDT", {"x": "0"}))
+        await asyncio.wait_for(slow_started.wait(), timeout=1.0)
+        for index in range(1, 258):
+            await broker._broadcast(envelope(
+                "STATS", now, "BTCUSDT", {"x": str(index)},
+            ))
+            await broker.wait_until_idle(healthy_ws)
+
+        assert slow_ws not in broker._clients
+        assert healthy_ws in broker._clients
+        assert broker.client_count == 1
+        assert len(healthy_messages) == 258
+        assert broker.client_queue_high_watermark == 256
+        slow_ws.close.assert_awaited_once()
+        await broker.close()
+
+    asyncio.run(run())
+
+
+def test_broker_close_cancels_and_awaits_all_client_writers():
+    async def run():
+        broker = _make_broker()
+        sockets = [MagicMock(), MagicMock()]
+        for ws in sockets:
+            ws.send_text = AsyncMock()
+            ws.close = AsyncMock()
+            await broker.register(ws)
+        writer_tasks = [state.writer_task for state in broker._clients.values()]
+
+        await broker.close()
+        await broker.close()
+
+        assert broker.client_count == 0
+        assert all(task is not None and task.done() for task in writer_tasks)
+        for ws in sockets:
+            ws.close.assert_awaited_once()
 
     asyncio.run(run())
 

@@ -97,6 +97,7 @@ def test_bar_update_payload_shape():
             source_trade_id=123,
             source_event_time=T0,
         )
+        await broker.wait_until_idle(ws)
         assert len(ws.sent) == 1
         msg = json.loads(ws.sent[0])
         assert msg["type"] == "BAR_UPDATE"
@@ -121,6 +122,7 @@ def test_bar_update_empty_levels():
         ws = _FakeWs()
         await broker.register(ws)
         await broker.on_bar_update(_candle(), [])
+        await broker.wait_until_idle(ws)
         p = json.loads(ws.sent[0])["payload"]
         assert p["footprint"]["levels"] == []
         assert p["footprint"]["poc_price"] is None
@@ -136,6 +138,7 @@ def test_send_health_payload():
         payload = {"state": "GREEN", "checks": {"latency": {"level": "GREEN"}},
                    "anomalies_today": 0}
         await broker.send_health(T0, payload)
+        await broker.wait_until_idle(ws)
         msg = json.loads(ws.sent[0])
         assert msg["type"] == "HEALTH"
         assert msg["symbol"] == "BTCUSDT"
@@ -154,6 +157,7 @@ def test_bar_update_numbers_are_strings():
             _candle(),
             [{"price": Decimal("100.5"), "bid": Decimal("0.1"), "ask": Decimal("0.2")}],
         )
+        await broker.wait_until_idle(ws)
         p = json.loads(ws.sent[0])["payload"]
         for key in ("open", "high", "low", "close", "volume", "delta", "cvd"):
             assert isinstance(p[key], str)
@@ -177,6 +181,7 @@ def test_bar_update_carries_vwap_value_and_quality():
             session_vwap=Decimal("100.25"),
             vwap_status="PARTIAL",
         )
+        await broker.wait_until_idle(ws)
         payload = json.loads(ws.sent[0])["payload"]
         assert payload["source_trade_id"] == 456
         assert payload["vwap"] == "100.25"
@@ -197,6 +202,7 @@ def test_candle_carries_exact_vwap_quality():
             session_vwap=Decimal("100.25"),
             vwap_status="EXACT",
         )
+        await broker.wait_until_idle(ws)
         payload = json.loads(ws.sent[0])["payload"]
         assert payload["vwap"] == "100.25"
         assert payload["vwap_status"] == "EXACT"

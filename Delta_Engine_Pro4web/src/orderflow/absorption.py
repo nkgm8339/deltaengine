@@ -26,8 +26,8 @@ classification values (Absorption_v3.1 §5.3):
 
 from __future__ import annotations
 
-from collections import deque
-from dataclasses import dataclass
+from collections import Counter, deque
+from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any, Optional
@@ -54,8 +54,9 @@ class AbsorptionResult:
     strength: Decimal
     price_low: Decimal
     price_high: Decimal
-    price_low: Decimal
-    price_high: Decimal
+    aggression_qty: Decimal = field(default=_ZERO, compare=False)
+    threshold_qty: Decimal = field(default=_ZERO, compare=False)
+    distinct_prices: int = field(default=0, compare=False)
 
 
 class AbsorptionDetector:
@@ -81,6 +82,12 @@ class AbsorptionDetector:
         self._book_state = book_state
         # sliding window of trades (any duck-typed trade with event_time/price/quantity/side)
         self._window: deque[Any] = deque()
+        # Maintain the exact window aggregates incrementally.  Re-scanning the
+        # full 10-second trade window on every tick makes this path O(n^2) at
+        # live market rates.
+        self._agg_buy: Decimal = _ZERO
+        self._agg_sell: Decimal = _ZERO
+        self._price_counts: Counter[Decimal] = Counter()
         self._window_start_snapshot: Optional[OrderBookSnapshot] = None
         self._last_result: Optional[AbsorptionResult] = None
         # counters (no silent loss)
@@ -119,7 +126,15 @@ class AbsorptionDetector:
         # Prune trades outside the window from the left.
         old_head = self._window[0].event_time if self._window else None
         while self._window and self._window[0].event_time <= cutoff:
-            self._window.popleft()
+            expired = self._window.popleft()
+            expired_quantity, expired_price = self._trade_values(expired)
+            if expired.side == "BUY":
+                self._agg_buy -= expired_quantity
+            else:
+                self._agg_sell -= expired_quantity
+            self._price_counts[expired_price] -= 1
+            if self._price_counts[expired_price] <= 0:
+                del self._price_counts[expired_price]
         new_head = self._window[0].event_time if self._window else None
 
         window_advanced = old_head != new_head  # True when any trade was pruned
@@ -130,7 +145,13 @@ class AbsorptionDetector:
             if snap is not None:
                 self._window_start_snapshot = snap
 
+        quantity, price = self._trade_values(trade)
         self._window.append(trade)
+        if trade.side == "BUY":
+            self._agg_buy += quantity
+        else:
+            self._agg_sell += quantity
+        self._price_counts[price] += 1
 
         current_snap = self._book_state.snapshot()
         if current_snap is None or self._window_start_snapshot is None:
@@ -143,19 +164,25 @@ class AbsorptionDetector:
         """Return the most recent AbsorptionResult, or None if no detection active."""
         return self._last_result
 
+    @staticmethod
+    def _trade_values(trade: Any) -> tuple[Decimal, Decimal]:
+        quantity = (
+            Decimal(str(trade.quantity))
+            if not isinstance(trade.quantity, Decimal)
+            else trade.quantity
+        )
+        price = (
+            Decimal(str(trade.price))
+            if not isinstance(trade.price, Decimal)
+            else trade.price
+        )
+        return quantity, price
+
     def _evaluate(self, current_snap: OrderBookSnapshot) -> Optional[AbsorptionResult]:
         # Step 2: Directional aggression over the window.
-        agg_buy = _ZERO
-        agg_sell = _ZERO
-        distinct_prices: set[Decimal] = set()
-        for t in self._window:
-            q = Decimal(str(t.quantity)) if not isinstance(t.quantity, Decimal) else t.quantity
-            p = Decimal(str(t.price)) if not isinstance(t.price, Decimal) else t.price
-            if t.side == "BUY":
-                agg_buy += q
-            else:
-                agg_sell += q
-            distinct_prices.add(p)
+        agg_buy = self._agg_buy
+        agg_sell = self._agg_sell
+        distinct_prices = set(self._price_counts)
 
         # Step 3: Stall condition.
         if len(distinct_prices) > self._price_stall_ticks:
@@ -204,6 +231,8 @@ class AbsorptionDetector:
             return AbsorptionResult(
                 classification="BUY_ABSORPTION", strength=strength,
                 price_low=p_low, price_high=p_high,
+                aggression_qty=agg_sell, threshold_qty=threshold,
+                distinct_prices=len(distinct_prices),
             )
         else:
             strength = min(agg_buy / threshold, _ONE)
@@ -211,4 +240,6 @@ class AbsorptionDetector:
             return AbsorptionResult(
                 classification="SELL_ABSORPTION", strength=strength,
                 price_low=p_low, price_high=p_high,
+                aggression_qty=agg_buy, threshold_qty=threshold,
+                distinct_prices=len(distinct_prices),
             )

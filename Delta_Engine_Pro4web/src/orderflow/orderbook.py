@@ -23,6 +23,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from functools import cached_property
 from typing import Callable, Optional
 
 logger = logging.getLogger("orderflow.orderbook")
@@ -82,6 +83,16 @@ class OrderBookSnapshot:
     def ask_quantity_at(self, price: Decimal) -> Decimal:
         return self.asks.get(_to_decimal(price), _ZERO)
 
+    @cached_property
+    def ordered_bids(self) -> tuple[tuple[Decimal, Decimal], ...]:
+        """All bid levels in best-to-worst order, computed once per snapshot."""
+        return tuple(sorted(self.bids.items(), key=lambda row: row[0], reverse=True))
+
+    @cached_property
+    def ordered_asks(self) -> tuple[tuple[Decimal, Decimal], ...]:
+        """All ask levels in best-to-worst order, computed once per snapshot."""
+        return tuple(sorted(self.asks.items(), key=lambda row: row[0]))
+
 
 @dataclass(frozen=True)
 class ApplyResult:
@@ -117,6 +128,10 @@ class OrderBookStateManager:
         self._last_applied_monotonic: Optional[float] = None
         self._initialized: bool = False
         self._sync_id: Optional[int] = None   # set during initial Binance sync phase
+        # ``OrderBookSnapshot`` is immutable by contract. Reuse the same copied
+        # view until the next accepted state transition instead of rebuilding
+        # both full side dictionaries for every consumer and every trade.
+        self._snapshot_cache: Optional[OrderBookSnapshot] = None
         # counters (no silent loss)
         self.snapshots_applied: int = 0
         self.diffs_applied: int = 0
@@ -177,13 +192,15 @@ class OrderBookStateManager:
         """Return immutable snapshot of current state, or None if not initialized."""
         if not self._initialized:
             return None
-        return OrderBookSnapshot(
-            symbol=self.symbol,
-            last_update_id=self._last_update_id,  # type: ignore[arg-type]
-            bids=dict(self._bids),
-            asks=dict(self._asks),
-            event_time=self._last_event_time,
-        )
+        if self._snapshot_cache is None:
+            self._snapshot_cache = OrderBookSnapshot(
+                symbol=self.symbol,
+                last_update_id=self._last_update_id,  # type: ignore[arg-type]
+                bids=dict(self._bids),
+                asks=dict(self._asks),
+                event_time=self._last_event_time,
+            )
+        return self._snapshot_cache
 
     def bid_quantity_at(self, price: Decimal) -> Decimal:
         return self._bids.get(_to_decimal(price), _ZERO)
@@ -259,6 +276,7 @@ class OrderBookStateManager:
             self._last_event_time = update.event_time
             self._last_applied_monotonic = None
             self._initialized = False
+            self._snapshot_cache = None
             self.gaps_detected += 1
             logger.warning(
                 "%s order book gap detected: symbol=%s last_id=%s pu=%s first_id=%s",
@@ -278,6 +296,7 @@ class OrderBookStateManager:
     def _mark_applied(self, update: OrderBookUpdate) -> None:
         self._last_event_time = update.event_time
         self._last_applied_monotonic = self._clock()
+        self._snapshot_cache = None
 
     @staticmethod
     def _apply_levels(

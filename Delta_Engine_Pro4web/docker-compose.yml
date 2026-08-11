@@ -2,6 +2,13 @@ version: "3.9"
 services:
   deltaengine_clone:
     build: .
+    # Docker Desktop's embedded resolver intermittently returned EAI_AGAIN/
+    # name-not-known for Binance, causing reconnect storms and stale heartbeat.
+    # Use explicit resolvers so the live upstream path does not depend on the
+    # host-side embedded DNS cache.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     ports:
       - "18080:8080"
       # MT5 Adapter (SIGNAL/HEARTBEAT)。ホストの loopback のみに公開（LAN 非公開）。
@@ -21,6 +28,10 @@ services:
       - PYTHONUNBUFFERED=1
       - HFM_QUOTE_FILE=/app/data_05M/hfm/DeltaEngine_HFM_quotes_utf8.jsonl
       - HOOK_OBSERVER_CONFIG=/app/config/hook_observer.yaml
+      # Official Binance Spot BTC/USDT last trade. Display-only reference;
+      # never enters the USD-M Order Flow / Hook / Strategy pipeline.
+      - BINANCE_SPOT_REFERENCE_ENABLED=true
+      - BINANCE_SPOT_STREAM_URL=wss://stream.binance.com:9443/ws/btcusdt@trade
       # PD4 compatibility boundary: persistent writer remains disabled.
       # 旧persistent writer(UI投影系)は無効。値もfalseで一致(R7)。
       - PERSISTENT_DEPTH_HISTORY_ENABLED=false

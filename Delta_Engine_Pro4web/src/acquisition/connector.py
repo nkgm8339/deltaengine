@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 
@@ -40,6 +42,12 @@ class ConnectionState(str, Enum):
 # connect(url, streams) -> async iterator of raw message dicts
 ConnectFn = Callable[[str, list[str]], Awaitable[AsyncIterator[dict]]]
 SleepFn = Callable[[float], Awaitable[None]]
+WallClockFn = Callable[[], datetime]
+MonotonicClockFn = Callable[[], float]
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class ExchangeConnector:
@@ -62,6 +70,8 @@ class ExchangeConnector:
         heartbeat_sec: int = 30,
         treat_stream_end_as_disconnect: bool = True,
         sleep: SleepFn = asyncio.sleep,
+        wall_clock: WallClockFn = _utc_now,
+        monotonic_clock: MonotonicClockFn = time.monotonic,
     ) -> None:
         if not url:
             raise ValueError("url is required")
@@ -78,12 +88,16 @@ class ExchangeConnector:
         self.heartbeat_sec = heartbeat_sec
         self.treat_stream_end_as_disconnect = treat_stream_end_as_disconnect
         self._sleep = sleep
+        self._wall_clock = wall_clock
+        self._monotonic_clock = monotonic_clock
         # observable state / counters
         self.state = ConnectionState.DISCONNECTED
         self.state_history: list[ConnectionState] = []
         self.reconnect_count = 0
         self.messages_out = 0
         self.errors = 0
+        self.last_message_received_at: datetime | None = None
+        self._last_message_received_monotonic: float | None = None
         self._stopped = False
 
     @classmethod
@@ -109,6 +123,17 @@ class ExchangeConnector:
 
     def stop(self) -> None:
         self._stopped = True
+
+    @property
+    def last_message_received_monotonic(self) -> float | None:
+        return self._last_message_received_monotonic
+
+    def message_age_ms(self) -> int | None:
+        """Return raw-frame age using only the injected monotonic clock."""
+        if self._last_message_received_monotonic is None:
+            return None
+        elapsed = self._monotonic_clock() - self._last_message_received_monotonic
+        return max(0, int(elapsed * 1000))
 
     def _set_state(self, state: ConnectionState) -> None:
         self.state = state
@@ -163,6 +188,8 @@ class ExchangeConnector:
             stream_error = False
             try:
                 async for message in transport:  # RECEIVE / MONITOR
+                    self.last_message_received_at = self._wall_clock()
+                    self._last_message_received_monotonic = self._monotonic_clock()
                     self.messages_out += 1
                     await self._out.put(message)
             except ConnectionError as exc:

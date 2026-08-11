@@ -544,10 +544,9 @@ def _latest_book_state_at(
 
 
 def _book_side_state(snapshot: object, side: str) -> _BookSideState:
-    levels = getattr(snapshot, f"{side}s", {})
-    reverse = side == "bid"
-    top_prices = tuple(sorted(levels, reverse=reverse)[:_BOOK_TOP_N])
-    top_depth = sum((_decimal(levels[price]) for price in top_prices), _ZERO)
+    top_levels = _ordered_book_levels(snapshot, side, _BOOK_TOP_N)
+    top_prices = tuple(price for price, _quantity in top_levels)
+    top_depth = sum((_decimal(quantity) for _price, quantity in top_levels), _ZERO)
     return _BookSideState(
         top_prices=frozenset(_decimal(price) for price in top_prices),
         top_depth=top_depth,
@@ -560,13 +559,18 @@ def _book_side_event(
     previous_levels = getattr(previous, f"{side}s", {})
     current_levels = getattr(current, f"{side}s", {})
     update_levels = getattr(update, f"{side}s", ())
-    reverse = side == "bid"
-    previous_near = set(
-        sorted(previous_levels, reverse=reverse)[:_BOOK_NEAR_BEST_N]
-    )
-    current_near = set(
-        sorted(current_levels, reverse=reverse)[:_BOOK_NEAR_BEST_N]
-    )
+    previous_near = {
+        price
+        for price, _quantity in _ordered_book_levels(
+            previous, side, _BOOK_NEAR_BEST_N
+        )
+    }
+    current_near = {
+        price
+        for price, _quantity in _ordered_book_levels(
+            current, side, _BOOK_NEAR_BEST_N
+        )
+    }
     near_best = {_decimal(price) for price in previous_near | current_near}
 
     add_volume = _ZERO
@@ -592,6 +596,21 @@ def _book_side_event(
         cancel_volume=cancel_volume,
         refresh_count=refresh_count,
         changed_prices=frozenset(changed_prices),
+    )
+
+
+def _ordered_book_levels(
+    snapshot: object,
+    side: str,
+    limit: int,
+) -> tuple[tuple[Decimal, Decimal], ...]:
+    cached = getattr(snapshot, f"ordered_{side}s", None)
+    if cached is not None:
+        return tuple(cached[:limit])
+    levels = getattr(snapshot, f"{side}s", {})
+    return tuple(
+        (price, levels[price])
+        for price in sorted(levels, reverse=side == "bid")[:limit]
     )
 
 

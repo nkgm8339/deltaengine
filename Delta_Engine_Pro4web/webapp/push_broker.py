@@ -5,6 +5,7 @@ WebSocketPayload仕様_v1 に完全準拠。数値は全て str(Decimal)。float
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,10 @@ from webapp.book_projection import BookProjection, FAIL_CLOSED_STATES, SYNCED
 from webapp.tape import TapeBatch
 
 PAYLOAD_VERSION = 1
+CLIENT_SEND_TIMEOUT_SEC = 0.5
+CLIENT_QUEUE_MAXSIZE = 256
+_HEARTBEAT_PRIORITY = 0
+_NORMAL_PRIORITY = 1
 
 
 def d2s(v: Optional[Decimal]) -> Optional[str]:
@@ -138,6 +143,26 @@ class LatestValuePump:
             await asyncio.sleep(self.interval_sec)
 
 
+@dataclass(order=True)
+class _QueuedMessage:
+    priority: int
+    sequence: int
+    text: str = field(compare=False)
+    completion: asyncio.Future | None = field(default=None, compare=False)
+
+
+@dataclass(eq=False)
+class _ClientState:
+    ws: Any
+    queue: asyncio.PriorityQueue = field(
+        default_factory=lambda: asyncio.PriorityQueue(maxsize=CLIENT_QUEUE_MAXSIZE)
+    )
+    writer_task: asyncio.Task | None = None
+    closing: bool = False
+    close_socket_on_stop: bool = False
+    queue_high_watermark: int = 0
+
+
 class PushBroker:
     """WebSocketクライアント管理とPayload配信。asyncio単一ループ（ADR-003）。"""
 
@@ -147,65 +172,297 @@ class PushBroker:
         depth_levels: int = 15,
         live_dom_depth_levels: int = 50,
         persistent_writer=None,
+        client_send_timeout_sec: float = CLIENT_SEND_TIMEOUT_SEC,
     ) -> None:
         self.symbol = symbol
         self.persistent_writer = persistent_writer
         self.depth_levels = depth_levels
         self.live_dom_depth_levels = live_dom_depth_levels
-        self._clients: set[Any] = set()
+        self._clients: dict[Any, _ClientState] = {}
         self._lock = asyncio.Lock()
+        self._enqueue_lock = asyncio.Lock()
+        self._enqueue_sequence = 0
+        self._closed = False
+        self.client_queue_high_watermark = 0
+        self.client_send_timeout_sec = float(client_send_timeout_sec)
+        if self.client_send_timeout_sec <= 0:
+            raise ValueError("client_send_timeout_sec must be > 0")
         self._latest_hfm_message: dict | None = None
         self._latest_book_message: dict | None = None
         self._latest_absorption_message: dict | None = None
+        self._latest_tick_message: dict | None = None
+        self._latest_spot_message: dict | None = None
         self.book_stream_id = str(uuid4())
         self.book_updates_broadcast = 0
         self.tape_batches_broadcast = 0
         self.tape_trades_broadcast = 0
+        self.market_heartbeat_sequence = 0
 
     async def register(self, ws: Any) -> None:
-        async with self._lock:
-            self._clients.add(ws)
-            latest_hfm = self._latest_hfm_message
-            latest_book = self._latest_book_message
-            latest_absorption = self._latest_absorption_message
-        for latest in (latest_hfm, latest_book, latest_absorption):
-            if latest is None:
-                continue
+        cache_completion = None
+        state = _ClientState(ws=ws)
+        # Cache items are enqueued before this client becomes visible to later
+        # normal broadcasts. No broker lock is held while network I/O runs.
+        async with self._enqueue_lock:
+            async with self._lock:
+                if self._closed or ws in self._clients:
+                    return
+                cached = (
+                    self._latest_tick_message,
+                    self._latest_spot_message,
+                    self._latest_hfm_message,
+                    self._latest_book_message,
+                    self._latest_absorption_message,
+                )
+                cached = tuple(latest for latest in cached if latest is not None)
+                if cached:
+                    cache_completion = asyncio.get_running_loop().create_future()
+                for index, latest in enumerate(cached):
+                    completion = cache_completion if index == len(cached) - 1 else None
+                    self._put_nowait(
+                        state,
+                        json.dumps(latest, separators=(",", ":")),
+                        _NORMAL_PRIORITY,
+                        completion=completion,
+                    )
+                state.writer_task = asyncio.create_task(
+                    self._client_writer(state),
+                    name=f"push-writer-{id(ws)}",
+                )
+                self._clients[ws] = state
+
+        if cache_completion is not None:
             try:
-                await ws.send_text(json.dumps(latest, separators=(",", ":")))
+                await asyncio.wait_for(
+                    asyncio.shield(cache_completion),
+                    timeout=self.client_send_timeout_sec,
+                )
             except Exception:
-                await self.unregister(ws)
-                break
+                await self._stop_state(state, close_socket=True)
 
     async def unregister(self, ws: Any) -> None:
         async with self._lock:
-            self._clients.discard(ws)
+            state = self._clients.pop(ws, None)
+            if state is not None:
+                state.closing = True
+        if state is not None:
+            await self._stop_state(state, close_socket=False)
+
+    async def close(self) -> None:
+        """Stop and await every per-client writer. Safe to call repeatedly."""
+        async with self._enqueue_lock:
+            async with self._lock:
+                self._closed = True
+                states = tuple(self._clients.values())
+                self._clients.clear()
+                for state in states:
+                    state.closing = True
+                    state.close_socket_on_stop = True
+        if states:
+            await asyncio.gather(
+                *(self._stop_state(state, close_socket=True) for state in states),
+                return_exceptions=True,
+            )
 
     @property
     def client_count(self) -> int:
         return len(self._clients)
 
+    async def wait_until_idle(self, ws: Any | None = None, *, timeout: float = 1.0) -> None:
+        """Wait for queued sends; intended for deterministic tests and shutdown checks."""
+        async with self._lock:
+            if ws is None:
+                states = tuple(self._clients.values())
+            else:
+                state = self._clients.get(ws)
+                states = () if state is None else (state,)
+        if states:
+            await asyncio.wait_for(
+                asyncio.gather(*(state.queue.join() for state in states)),
+                timeout=timeout,
+            )
+
+    async def _send_text(self, ws: Any, text: str) -> None:
+        await asyncio.wait_for(
+            ws.send_text(text),
+            timeout=self.client_send_timeout_sec,
+        )
+
+    def _put_nowait(
+        self,
+        state: _ClientState,
+        text: str,
+        priority: int,
+        *,
+        completion: asyncio.Future | None = None,
+    ) -> None:
+        self._enqueue_sequence += 1
+        state.queue.put_nowait(_QueuedMessage(
+            priority=priority,
+            sequence=self._enqueue_sequence,
+            text=text,
+            completion=completion,
+        ))
+        state.queue_high_watermark = max(state.queue_high_watermark, state.queue.qsize())
+        self.client_queue_high_watermark = max(
+            self.client_queue_high_watermark,
+            state.queue_high_watermark,
+        )
+
+    @staticmethod
+    def _settle_completion(
+        item: _QueuedMessage,
+        error: BaseException | None = None,
+    ) -> None:
+        if item.completion is None or item.completion.done():
+            return
+        if error is None:
+            item.completion.set_result(None)
+        else:
+            item.completion.set_exception(error)
+
+    def _fail_pending(self, state: _ClientState, error: BaseException) -> None:
+        while True:
+            try:
+                item = state.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            self._settle_completion(item, error)
+            state.queue.task_done()
+
+    async def _close_socket(self, ws: Any) -> None:
+        close = getattr(ws, "close", None)
+        if not callable(close):
+            return
+        try:
+            result = close(code=1013)
+            if inspect.isawaitable(result):
+                await asyncio.wait_for(result, timeout=self.client_send_timeout_sec)
+        except Exception:
+            pass
+
+    async def _client_writer(self, state: _ClientState) -> None:
+        failure: BaseException | None = None
+        close_socket = False
+        cancelled = False
+        try:
+            while True:
+                item = await state.queue.get()
+                try:
+                    await self._send_text(state.ws, item.text)
+                except asyncio.CancelledError:
+                    self._settle_completion(
+                        item,
+                        RuntimeError("client writer cancelled"),
+                    )
+                    cancelled = True
+                    break
+                except Exception as exc:
+                    self._settle_completion(item, exc)
+                    failure = exc
+                    close_socket = True
+                    break
+                else:
+                    self._settle_completion(item)
+                finally:
+                    state.queue.task_done()
+        finally:
+            state.closing = True
+            async with self._lock:
+                if self._clients.get(state.ws) is state:
+                    self._clients.pop(state.ws, None)
+            pending_error = failure or RuntimeError("client writer stopped")
+            self._fail_pending(state, pending_error)
+            if close_socket or state.close_socket_on_stop:
+                await self._close_socket(state.ws)
+        if cancelled:
+            raise asyncio.CancelledError
+
+    async def _stop_state(self, state: _ClientState, *, close_socket: bool) -> None:
+        state.closing = True
+        state.close_socket_on_stop = state.close_socket_on_stop or close_socket
+        async with self._lock:
+            if self._clients.get(state.ws) is state:
+                self._clients.pop(state.ws, None)
+        task = state.writer_task
+        if task is not None and task is not asyncio.current_task() and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        elif task is None:
+            self._fail_pending(state, RuntimeError("client writer stopped"))
+            if close_socket:
+                await self._close_socket(state.ws)
+
+    async def _enqueue(self, text: str, priority: int) -> None:
+        overflow: list[_ClientState] = []
+        async with self._lock:
+            states = tuple(self._clients.values())
+            for state in states:
+                if state.closing:
+                    continue
+                try:
+                    self._put_nowait(state, text, priority)
+                except asyncio.QueueFull:
+                    state.closing = True
+                    state.close_socket_on_stop = True
+                    if self._clients.get(state.ws) is state:
+                        self._clients.pop(state.ws, None)
+                    overflow.append(state)
+        if overflow:
+            await asyncio.gather(
+                *(self._stop_state(state, close_socket=True) for state in overflow),
+                return_exceptions=True,
+            )
+
     async def _broadcast(self, msg: dict) -> None:
         text = json.dumps(msg, separators=(",", ":"))
-        async with self._lock:
-            dead = []
-            for ws in self._clients:
-                try:
-                    await ws.send_text(text)
-                except Exception:
-                    dead.append(ws)
-            for ws in dead:
-                self._clients.discard(ws)
+        if msg.get("type") == "MARKET_HEARTBEAT":
+            await self._enqueue(text, _HEARTBEAT_PRIORITY)
+            return
+        async with self._enqueue_lock:
+            await self._enqueue(text, _NORMAL_PRIORITY)
 
     async def on_trade(self, trade) -> None:
-        await self._broadcast(envelope("TICK", trade.event_time, self.symbol, {
+        published_at = datetime.now(timezone.utc)
+        event_time = trade.event_time.astimezone(timezone.utc)
+        source_age_ms = max(0, int((published_at - event_time).total_seconds() * 1000))
+        message = envelope("TICK", trade.event_time, self.symbol, {
             "trade_id": int(trade.trade_id),
             "price": d2s(trade.price),
             "quantity": d2s(trade.quantity),
             "side": trade.side,
             "tick_delta": d2s(getattr(trade, "tick_delta", None)),
             "tick_cvd": d2s(getattr(trade, "tick_cvd", None)),
-        }))
+            "published_time": published_at.isoformat(),
+            "source_age_ms": source_age_ms,
+        })
+        self._latest_tick_message = message
+        await self._broadcast(message)
+
+    async def on_spot_price(self, trade) -> None:
+        """Broadcast a display-only Binance Spot reference without analytics wiring."""
+        published_at = datetime.now(timezone.utc)
+        source_time = trade.source_time.astimezone(timezone.utc)
+        source_age_ms = max(
+            0,
+            int((published_at - source_time).total_seconds() * 1000),
+        )
+        message = envelope("SPOT_PRICE", source_time, self.symbol, {
+            "source": "BINANCE_SPOT",
+            "spot_symbol": trade.symbol,
+            "trade_id": int(trade.trade_id),
+            "price": d2s(trade.price),
+            "quantity": d2s(trade.quantity),
+            "event_time": source_time.isoformat(),
+            "received_time": trade.received_time.astimezone(timezone.utc).isoformat(),
+            "published_time": published_at.isoformat(),
+            "source_age_ms": source_age_ms,
+        })
+        self._latest_spot_message = message
+        await self._broadcast(message)
 
     async def on_tape_update(self, batch: TapeBatch) -> None:
         """Broadcast one ordered, bounded Time & Sales batch without caching it."""
@@ -398,12 +655,15 @@ class PushBroker:
         classification = None if result is None else str(result.classification)
         if classification not in {None, "BUY_ABSORPTION", "SELL_ABSORPTION"}:
             raise ValueError(f"unsupported absorption classification: {classification}")
-        message = envelope("ABSORPTION_STATE", event_time, self.symbol, {
+        payload = {
             "active": result is not None,
             "classification": classification,
             "strength": None if result is None else d2s(result.strength),
             "price_low": None if result is None else d2s(result.price_low),
             "price_high": None if result is None else d2s(result.price_high),
+            "aggression_qty": None if result is None else d2s(getattr(result, "aggression_qty", None)),
+            "threshold_qty": None if result is None else d2s(getattr(result, "threshold_qty", None)),
+            "distinct_prices": None if result is None else int(getattr(result, "distinct_prices", 0)),
             "observed_at": event_time.astimezone(timezone.utc).isoformat(),
             "expires_at": (
                 None
@@ -413,7 +673,14 @@ class PushBroker:
                 .isoformat()
             ),
             "window_sec": window_sec,
-        })
+        }
+        # Keep compatibility with older result objects used by integrations;
+        # enriched evidence fields are sent when the detector provides them.
+        if result is None or not hasattr(result, "aggression_qty"):
+            payload.pop("aggression_qty", None)
+            payload.pop("threshold_qty", None)
+            payload.pop("distinct_prices", None)
+        message = envelope("ABSORPTION_STATE", event_time, self.symbol, payload)
         self._latest_absorption_message = message
         await self._broadcast(message)
 
@@ -583,6 +850,16 @@ class PushBroker:
                 "poc_price": poc, "vah_price": vah, "val_price": val,
             },
         }))
+
+    async def send_market_heartbeat(self, event_time: datetime, payload: dict) -> None:
+        """Broadcast a non-cached delivery heartbeat on the normal client path."""
+        self.market_heartbeat_sequence += 1
+        body = dict(payload)
+        body["heartbeat_sequence"] = self.market_heartbeat_sequence
+        body["published_time"] = event_time.astimezone(timezone.utc).isoformat()
+        await self._broadcast(
+            envelope("MARKET_HEARTBEAT", event_time, self.symbol, body)
+        )
 
     async def send_health(self, event_time: datetime, payload: dict) -> None:
         """SelfMonitor v1 の HEALTH メッセージ (payload は直列化可能な dict)。"""

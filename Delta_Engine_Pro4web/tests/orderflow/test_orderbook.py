@@ -184,6 +184,34 @@ def test_ob_deterministic_replay() -> None:
     assert s1.asks == s2.asks
 
 
+def test_ob_snapshot_is_reused_until_an_accepted_state_change() -> None:
+    mgr = OrderBookStateManager("BTCUSDT")
+    mgr.apply(_snapshot(final_id=100))
+
+    first = mgr.snapshot()
+    again = mgr.snapshot()
+    assert first is again
+    assert first.ordered_bids == (
+        (D("99999.50"), D("1.250")),
+        (D("99999.00"), D("3.100")),
+    )
+    assert first.ordered_asks == (
+        (D("100000.00"), D("0.800")),
+        (D("100000.50"), D("2.400")),
+    )
+
+    result = mgr.apply(_diff(101, 105, bids=[("99999.50", "9.999")]))
+    assert result.applied is True
+    changed = mgr.snapshot()
+    assert changed is not first
+    assert changed.bids[D("99999.50")] == D("9.999")
+    assert first.bids[D("99999.50")] == D("1.250")
+
+    gap = mgr.apply(_diff(200, 205))
+    assert gap.gap_detected is True
+    assert mgr.snapshot() is None
+
+
 # ============================ query helpers ===================================
 def test_ob_query_missing_price_returns_zero() -> None:
     mgr = OrderBookStateManager("BTCUSDT")

@@ -4,8 +4,10 @@ import threading
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -26,6 +28,8 @@ def _make_mock_config():
     cfg.webapp.live_dom_depth_levels = 50
     cfg.webapp.book_update_interval_ms = 100
     cfg.webapp.book_stale_after_ms = 2000
+    cfg.webapp.market_heartbeat_interval_ms = 1000
+    cfg.webapp.market_heartbeat_timeout_ms = 3000
     cfg.webapp.tape_batch_interval_ms = 100
     cfg.webapp.tape_max_trades_per_message = 250
     cfg.webapp.tape_pending_capacity = 10000
@@ -70,6 +74,100 @@ def _make_mock_pipeline():
     p._last_fp_bar = None
     p.storage_writer = None
     return p
+
+
+def test_market_heartbeat_config_defaults_and_cross_field_fail_fast():
+    from src.config import ConfigValidationError, _validate
+
+    base = {
+        "market": {"tick_size": "0.1"},
+        "websocket": {
+            "url": "wss://example.test",
+            "subscribe_streams": ["btcusdt@aggTrade"],
+        },
+    }
+    config = _validate(base)
+    assert config.webapp.market_heartbeat_interval_ms == 1000
+    assert config.webapp.market_heartbeat_timeout_ms == 3000
+
+    invalid = {
+        **base,
+        "webapp": {
+            "market_heartbeat_interval_ms": 1000,
+            "market_heartbeat_timeout_ms": 2999,
+        },
+    }
+    with pytest.raises(
+        ConfigValidationError,
+        match=r"market_heartbeat_timeout_ms must be >= .*interval_ms \* 3",
+    ):
+        _validate(invalid)
+
+
+def test_market_heartbeat_payload_requires_subscribed_age_and_live_pipeline():
+    from src.acquisition.connector import ConnectionState
+    from webapp.main import _build_market_heartbeat_payload
+
+    received_at = datetime(2026, 8, 3, tzinfo=timezone.utc)
+    connector = SimpleNamespace(
+        state=ConnectionState.SUBSCRIBED,
+        last_message_received_at=received_at,
+        message_age_ms=lambda: 3000,
+    )
+    pipeline = SimpleNamespace(_connector=connector)
+    running = SimpleNamespace(done=lambda: False)
+
+    fresh = _build_market_heartbeat_payload(pipeline, running, 3000)
+    assert fresh == {
+        "mode": "live",
+        "upstream_state": "SUBSCRIBED",
+        "upstream_last_message_time": received_at.isoformat(),
+        "upstream_age_ms": 3000,
+        "upstream_fresh": True,
+        "pipeline_alive": True,
+    }
+
+    connector.message_age_ms = lambda: 3001
+    assert not _build_market_heartbeat_payload(pipeline, running, 3000)["upstream_fresh"]
+    connector.message_age_ms = lambda: 1
+    connector.state = ConnectionState.RECONNECTING
+    assert not _build_market_heartbeat_payload(pipeline, running, 3000)["upstream_fresh"]
+    connector.state = ConnectionState.SUBSCRIBED
+    dead = SimpleNamespace(done=lambda: True)
+    dead_payload = _build_market_heartbeat_payload(pipeline, dead, 3000)
+    assert not dead_payload["pipeline_alive"]
+    assert not dead_payload["upstream_fresh"]
+    missing = _build_market_heartbeat_payload(SimpleNamespace(), running, 3000)
+    assert missing["upstream_state"] == "DISCONNECTED"
+    assert missing["upstream_age_ms"] is None
+    assert not missing["upstream_fresh"]
+
+
+def test_market_heartbeat_loop_sends_immediately_and_is_cancellable():
+    from webapp.main import _market_heartbeat_loop
+
+    async def run():
+        sent = asyncio.Event()
+        broker = SimpleNamespace(send_market_heartbeat=AsyncMock(side_effect=lambda *_: sent.set()))
+        connector = SimpleNamespace(
+            state="SUBSCRIBED",
+            last_message_received_at=datetime.now(timezone.utc),
+            message_age_ms=lambda: 0,
+        )
+        heartbeat = asyncio.create_task(_market_heartbeat_loop(
+            broker,
+            SimpleNamespace(_connector=connector),
+            SimpleNamespace(done=lambda: False),
+            interval_ms=10000,
+            timeout_ms=3000,
+        ))
+        await asyncio.wait_for(sent.wait(), timeout=1)
+        heartbeat.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await heartbeat
+        assert broker.send_market_heartbeat.await_count == 1
+
+    asyncio.run(run())
 
 
 def test_health_ok():
@@ -508,7 +606,17 @@ def test_replay_worker_callbacks_reach_websocket_with_market_time():
         from webapp.main import app
         with TestClient(app) as client:
             with client.websocket_connect("/ws") as websocket:
-                assert websocket.receive_json()["type"] == "HELLO"
+                hello = websocket.receive_json()
+                assert hello["type"] == "HELLO"
+                assert hello["payload"]["market_mode"] == "replay"
+                assert hello["payload"]["market_heartbeat_interval_ms"] == 1000
+                assert hello["payload"]["market_heartbeat_timeout_ms"] == 3000
+                assert app.state.market_heartbeat_task is None
+                assert not any(
+                    task is app.state.market_heartbeat_task
+                    for task in app.state.tasks
+                    if task is not None
+                )
                 websocket.send_text("ready")
                 time.sleep(0.05)
                 gate.set()

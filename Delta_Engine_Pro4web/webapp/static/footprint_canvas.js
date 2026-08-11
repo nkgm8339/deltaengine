@@ -9,6 +9,7 @@
   const BUY = "#19C979";
   const SELL = "#FF4058";
   const POC = "#F4C542";
+  const POC_ROW_FILL = "rgba(244,197,66,.18)";
   const CYAN = "#25B7E8";
   const TEXT = "#F1F5FF";
   const SUB = "#C9D3EA";
@@ -229,6 +230,18 @@
     if (absolute >= 100) return amount.toFixed(0);
     if (absolute >= 10) return amount.toFixed(1);
     return amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  }
+
+  function pocFactText(bar, frame) {
+    const pocIndex = bar && bar.va ? bar.va.poc : null;
+    if (!finite(pocIndex) || !frame || !finite(frame.tick)) return "POC —";
+    let direction = "";
+    if (Array.isArray(frame.rows) && frame.rows.length) {
+      if (Number(pocIndex) > Number(frame.rows[0].index)) direction = "↑ ";
+      else if (Number(pocIndex) < Number(frame.rows[frame.rows.length - 1].index)) direction = "↓ ";
+    }
+    const price = Number(pocIndex) * Number(frame.tick);
+    return `POC ${direction}${exactValue(price)}`;
   }
 
   function exactValue(value) {
@@ -853,6 +866,18 @@
         ctx.beginPath(); ctx.moveTo(g.domMid, g.top); ctx.lineTo(g.domMid, g.bottom); ctx.stroke();
       }
       ctx.globalAlpha = 1;
+      if (frame.bars.some(bar => bar.va && finite(bar.va.poc))) {
+        ctx.save();
+        ctx.fillStyle = POC;
+        ctx.font = `900 10px ${FONT}`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText("POC", 4, 15);
+        ctx.strokeStyle = POC;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(31, 15); ctx.lineTo(g.axisWidth - 5, 15); ctx.stroke();
+        ctx.restore();
+      }
       if (frame.hiddenAbove) { ctx.textAlign = "left"; ctx.fillText(`▲ +${frame.hiddenAbove}`, 3, g.top + 5); }
       if (frame.hiddenBelow) { ctx.textAlign = "left"; ctx.fillText(`▼ +${frame.hiddenBelow}`, 3, g.bottom - 5); }
     }
@@ -976,7 +1001,11 @@
             ctx.moveTo(x + 1, boundaryY); ctx.lineTo(x + g.barWidth - 1, boundaryY); ctx.stroke();
           }
           if (row.index === bar.va.poc) {
-            ctx.strokeStyle = POC; ctx.lineWidth = 1.2; ctx.strokeRect(x + 1.5, y + 1.5, Math.max(0, g.barWidth - 3), Math.max(0, g.rowHeight - 3));
+            ctx.fillStyle = POC_ROW_FILL;
+            ctx.fillRect(x + 1, y + 1, Math.max(0, g.barWidth - 2), Math.max(1, g.rowHeight - 2));
+            ctx.strokeStyle = POC;
+            ctx.lineWidth = g.rowHeight >= 12 ? 2.5 : 1.75;
+            ctx.strokeRect(x + 1.5, y + 1.5, Math.max(0, g.barWidth - 3), Math.max(0, g.rowHeight - 3));
           }
           const flags = bar.flags.get(row.index) || {};
           if (flags.sell) { ctx.strokeStyle = flags.sellStack ? POC : "#FF7A8D"; ctx.lineWidth = flags.sellStack ? 2 : 1; ctx.strokeRect(x + 1.5, y + 1.5, Math.max(0, half - 3), Math.max(0, g.rowHeight - 3)); }
@@ -990,7 +1019,7 @@
           }
         }
         this.drawCandle(ctx, g, frame, bar, barIndex);
-        this.drawFacts(ctx, g, bar, barIndex);
+        this.drawFacts(ctx, g, frame, bar, barIndex);
         if (bar.live) { ctx.strokeStyle = CYAN; ctx.lineWidth = 1.5; ctx.strokeRect(x + 1, 0.5, Math.max(0, g.barWidth - 2), g.height - 1); }
       });
     }
@@ -1026,7 +1055,7 @@
       ctx.restore();
     }
 
-    drawFacts(ctx, g, bar, barIndex) {
+    drawFacts(ctx, g, frame, bar, barIndex) {
       const raw = bar.raw || {};
       const x = g.axisWidth + barIndex * g.barWidth;
       const center = x + g.barWidth / 2;
@@ -1047,7 +1076,13 @@
           ctx.fillText(`CVD Δ ${cvd} · OI Δ ${oi}`, center, g.bottom + 17);
           ctx.fillStyle = number(raw.events_count) > 0 ? POC : MUTED;
           ctx.fillText(`EVENTS ${number(raw.events_count) > 0 ? Math.round(number(raw.events_count)) : "—"}`, center, g.bottom + 30);
-        } else ctx.fillText(volumeText, center, g.bottom + 17);
+          ctx.fillStyle = POC;
+          ctx.fillText(pocFactText(bar, frame), center, g.bottom + 43, Math.max(1, g.barWidth - 4));
+        } else {
+          ctx.fillText(volumeText, center, g.bottom + 17);
+          ctx.fillStyle = POC;
+          ctx.fillText(pocFactText(bar, frame), center, g.bottom + 30, Math.max(1, g.barWidth - 4));
+        }
       } else {
         ctx.fillStyle = delta == null ? MUTED : delta >= 0 ? BUY : SELL;
         ctx.fillRect(x + 2, g.bottom + 5, Math.max(1, g.barWidth - 4), 3);
@@ -1324,7 +1359,7 @@
       const stepLabel = this.frame.requested === "AUTO"
         ? `AUTO → ${this.frame.multiplier} TICK` : `${this.frame.multiplier} TICK`;
       const p95Value = p95(this.renderTimes);
-      this.status.textContent = `DISPLAY STEP ${stepLabel} · ${this.frame.rows.length} PRICE ROWS · DPR ${dpr.toFixed(2)} · RENDER P95 ${p95Value.toFixed(2)}ms`;
+      this.status.textContent = `DISPLAY STEP ${stepLabel} · ${this.frame.rows.length} PRICE ROWS · POC GOLD · DPR ${dpr.toFixed(2)} · RENDER P95 ${p95Value.toFixed(2)}ms`;
       if (this.domStatus) {
         const book = this.frame.book;
         this.domStatus.textContent = book.synced
@@ -1348,6 +1383,7 @@
     imbalanceFlags,
     exactValue,
     bucketLabel,
+    pocFactText,
     priceDigits,
     jstClock,
     timeframeMilliseconds,

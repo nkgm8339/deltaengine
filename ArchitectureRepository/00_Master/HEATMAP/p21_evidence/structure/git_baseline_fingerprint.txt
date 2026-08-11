@@ -1,0 +1,14 @@
+Checkpoint: 2026-07-30 07:07:19 +09:00
+
+Fingerprint scope:
+- `git -c core.quotePath=false status --porcelain=v1 -uall`
+- approved output paths excluded:
+  - `ArchitectureRepository/00_Master/HEATMAP/p21_evidence/`
+  - `ArchitectureRepository/00_Master/HEATMAP/p21_evidence.zip`
+
+Filtered status line count: 70
+Filtered status SHA-256: 7221C4BB1B02C5C7D196EED5DB049713EB9E693DBC9DD4E8119A16B4D1A4C472
+`git diff --stat` SHA-256: 59259F9599FED4DC0E5678C494F77BF771BF0AED81DA5006126A6A0F34CC2036
+
+These values are compared again immediately before ZIP creation.
+

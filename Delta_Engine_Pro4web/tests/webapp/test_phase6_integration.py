@@ -203,6 +203,7 @@ def test_reconnect_replays_latest_book_not_tape_and_exposes_sequence_gap() -> No
                 side="BUY",
             ))
         assert await batcher.flush_once() is True
+        await broker.wait_until_idle(first_ws)
         await broker.unregister(first_ws)
 
         for trade_id in (3, 4):
@@ -225,6 +226,7 @@ def test_reconnect_replays_latest_book_not_tape_and_exposes_sequence_gap() -> No
             side="BUY",
         ))
         assert await batcher.flush_once() is True
+        await broker.wait_until_idle(reconnect_ws)
         assert batcher.accounting_balanced is True
 
     asyncio.run(run())

@@ -381,3 +381,144 @@ def test_set_params_updates_thresholds_without_touching_window() -> None:
     assert detector._window is window
     assert tuple(detector._window) == contents
     assert detector._window_start_snapshot is start_snapshot
+
+
+class _LegacyScanAbsorptionDetector(AbsorptionDetector):
+    """Reference implementation of the pre-optimization full-window scan."""
+
+    def _evaluate(self, current_snap):
+        agg_buy = D(0)
+        agg_sell = D(0)
+        distinct_prices = set()
+        for trade in self._window:
+            quantity = (
+                D(str(trade.quantity))
+                if not isinstance(trade.quantity, Decimal)
+                else trade.quantity
+            )
+            price = (
+                D(str(trade.price))
+                if not isinstance(trade.price, Decimal)
+                else trade.price
+            )
+            if trade.side == "BUY":
+                agg_buy += quantity
+            else:
+                agg_sell += quantity
+            distinct_prices.add(price)
+
+        if len(distinct_prices) > self._price_stall_ticks:
+            self.stall_condition_fails += 1
+            return None
+
+        vol_ref = self._volume_ref.current()
+        if vol_ref is None:
+            return None
+        threshold = vol_ref * self._volume_multiplier
+        buy_abs_cand = agg_sell >= threshold
+        sell_abs_cand = agg_buy >= threshold
+        if not buy_abs_cand and not sell_abs_cand:
+            self.aggression_condition_fails += 1
+            return None
+
+        window_start = self._window_start_snapshot
+        buy_replenished = buy_abs_cand and all(
+            current_snap.bid_quantity_at(price)
+            >= window_start.bid_quantity_at(price)
+            for price in distinct_prices
+        )
+        sell_replenished = sell_abs_cand and all(
+            current_snap.ask_quantity_at(price)
+            >= window_start.ask_quantity_at(price)
+            for price in distinct_prices
+        )
+        if not buy_replenished and not sell_replenished:
+            self.replenish_condition_fails += 1
+            return None
+
+        price_low = min(distinct_prices)
+        price_high = max(distinct_prices)
+        if buy_replenished and sell_replenished:
+            self.double_direction_events += 1
+            sell_replenished = False
+
+        if buy_replenished:
+            strength = min(agg_sell / threshold, D(1))
+            self.events_detected += 1
+            return AbsorptionResult(
+                classification="BUY_ABSORPTION",
+                strength=strength,
+                price_low=price_low,
+                price_high=price_high,
+            )
+        strength = min(agg_buy / threshold, D(1))
+        self.events_detected += 1
+        return AbsorptionResult(
+            classification="SELL_ABSORPTION",
+            strength=strength,
+            price_low=price_low,
+            price_high=price_high,
+        )
+
+
+def test_absorption_incremental_path_matches_legacy_scan_tick_by_tick() -> None:
+    """Incremental aggregates preserve every result and diagnostic counter."""
+    book_state = OrderBookStateManager("BTCUSDT")
+    book_state.apply(_make_snapshot())
+    volume_ref = _calibrated_volume_ref("10")
+    optimized = AbsorptionDetector(
+        window_sec=5,
+        price_stall_ticks=2,
+        volume_multiplier=D("2"),
+        volume_ref=volume_ref,
+        book_state=book_state,
+    )
+    reference = _LegacyScanAbsorptionDetector(
+        window_sec=5,
+        price_stall_ticks=2,
+        volume_multiplier=D("2"),
+        volume_ref=volume_ref,
+        book_state=book_state,
+    )
+
+    for index in range(240):
+        if index == 120:
+            optimized.set_params(price_stall_ticks=3, volume_multiplier=D("1.5"))
+            reference.set_params(price_stall_ticks=3, volume_multiplier=D("1.5"))
+        trade = _FakeTrade(
+            _T0 + timedelta(milliseconds=250 * index),
+            str(100 + index % 3),
+            str(1 + index % 4),
+            "BUY" if index % 5 in {1, 2} else "SELL",
+            trade_id=index,
+        )
+        optimized.observe_trade(trade)
+        reference.observe_trade(trade)
+
+        recomputed_buy = sum(
+            (item.quantity for item in optimized._window if item.side == "BUY"),
+            D(0),
+        )
+        recomputed_sell = sum(
+            (item.quantity for item in optimized._window if item.side != "BUY"),
+            D(0),
+        )
+        assert optimized._agg_buy == recomputed_buy
+        assert optimized._agg_sell == recomputed_sell
+        assert set(optimized._price_counts) == {
+            item.price for item in optimized._window
+        }
+        assert optimized.current() == reference.current()
+        assert (
+            optimized.events_detected,
+            optimized.aggression_condition_fails,
+            optimized.stall_condition_fails,
+            optimized.replenish_condition_fails,
+            optimized.double_direction_events,
+        ) == (
+            reference.events_detected,
+            reference.aggression_condition_fails,
+            reference.stall_condition_fails,
+            reference.replenish_condition_fails,
+            reference.double_direction_events,
+        )

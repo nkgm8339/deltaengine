@@ -1,0 +1,58 @@
+ M ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_IMPLEMENTATION_INSTRUCTION_V1_20260729.md
+ M ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_CHECKPOINT_20260729.md
+ M ArchitectureRepository/30_Modules/WebApp/Specifications/WebSocketPayload_Spec_v1.md
+ M Delta_Engine_Pro4web/docker-compose.yml
+ M Delta_Engine_Pro4web/src/acquisition/depth_history_recorder.py
+ M Delta_Engine_Pro4web/src/acquisition/receiver.py
+ M Delta_Engine_Pro4web/src/pipeline.py
+ M Delta_Engine_Pro4web/tests/acquisition/test_binance_rest.py
+ M Delta_Engine_Pro4web/tests/acquisition/test_depth_history_recorder.py
+ M Delta_Engine_Pro4web/tests/test_book_resync.py
+ M Delta_Engine_Pro4web/tests/test_live_pipeline.py
+ M Delta_Engine_Pro4web/tests/webapp/test_book_update.py
+ M Delta_Engine_Pro4web/webapp/main.py
+ M Delta_Engine_Pro4web/webapp/push_broker.py
+ M Delta_Engine_Pro4web/webapp/static/index.html
+ M Delta_Engine_Pro4web/webapp/static/time_sales.js
+?? "ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-a_PROJECT_MEMORY\350\252\255\345\217\226\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-b_\350\250\230\351\214\262\347\211\251\347\217\276\347\211\251\346\217\220\345\207\272\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-c_\345\210\235\346\234\237\345\220\214\346\234\237\350\252\277\346\237\273\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-d-1_\345\220\214\346\234\237state\343\203\236\343\202\267\343\203\263\345\256\237\350\243\205\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-d-2_manifest_\351\214\262\347\224\273\346\244\234\350\250\274\345\240\261\345\221\212.md"
+?? ArchitectureRepository/00_Master/HEATMAP/p21_evidence/
+?? ArchitectureRepository/00_Master/HEATMAP/tools_p20b/
+?? ArchitectureRepository/00_Master/HEATMAP/worktree_backup_pre_p21_20260730.patch
+?? ArchitectureRepository/00_Master/HEATMAP/worktree_status_pre_p21_20260730.txt
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_Heatmap_Phase1_\343\202\257\343\203\255\343\203\274\343\202\272\347\242\272\350\252\215_P1-3_\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_Heatmap_Phase1_\343\203\207\343\203\274\343\202\277\345\261\244_v1_P1-0_\346\217\220\345\207\272.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_Heatmap_Phase1_\345\256\237\350\243\205_P1-2_\343\203\251\343\202\244\343\203\226\345\256\237\350\250\230\351\214\262\347\242\272\350\252\215_\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_Heatmap_Phase1_\345\256\237\350\243\205_P1-2b_Tee\344\277\256\346\255\243\343\201\250snapshot\350\252\277\346\237\273_\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_Heatmap_\346\230\257\346\255\243_v2.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_Heatmap_\346\230\257\346\255\243_v2_\345\256\214\344\272\206\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_PROJECT_MEMORY_\345\267\256\345\210\206\347\242\272\350\252\215_v1_\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP/\346\214\207\347\244\272\346\233\270_Phase1_\346\227\242\345\255\230fail\347\217\276\347\211\251\346\217\220\345\207\272_v1_\345\240\261\345\221\212.md"
+?? "ArchitectureRepository/00_Master/HEATMAP_\346\214\207\347\244\272\346\233\270_v1.5.md"
+?? "ArchitectureRepository/00_Master/Heatmap\351\226\213\347\231\272_\345\274\225\343\201\215\347\266\231\343\201\216\346\233\270_20260729.md"
+?? ArchitectureRepository/00_Master/Instruction_Phase2-1_Reconstructor_v1.md
+?? ArchitectureRepository/00_Master/VWAP_CHART_RELATED_MODULE_INVENTORY_20260729.md
+?? ArchitectureRepository/00_Master/VWAP_INVESTIGATION_20260729/
+?? "ArchitectureRepository/00_Master/\343\203\210\343\203\252\343\202\254\343\203\274\344\275\234\346\210\220\346\214\207\347\244\272\346\233\270\347\276\244/DeltaEngine_\347\265\214\347\267\257\345\240\261\345\221\212_\347\254\2541\346\234\237-\347\254\2544\346\234\237_20260727.md"
+?? "ArchitectureRepository/00_Master/\343\203\210\343\203\252\343\202\254\343\203\274\344\275\234\346\210\220\346\214\207\347\244\272\346\233\270\347\276\244/HOOK_AND_LEGACY_STRATEGY_INVENTORY_20260727.md"
+?? "ArchitectureRepository/00_Master/\343\203\210\343\203\252\343\202\254\343\203\274\344\275\234\346\210\220\346\214\207\347\244\272\346\233\270\347\276\244/HOOK_AND_STRATEGY_CONTENT_GUIDE_20260727.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_Heatmap_Phase1_\343\202\257\343\203\255\343\203\274\343\202\272\347\242\272\350\252\215_P1-3.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_Heatmap_Phase1_\343\203\207\343\203\274\343\202\277\345\261\244_v1.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_Heatmap_Phase1_\345\256\237\350\243\205_P1-1_v1.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_PROJECT_MEMORY_\345\267\256\345\210\206\347\240\264\346\243\204_v1.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_PROJECT_MEMORY_\345\267\256\345\210\206\347\242\272\350\252\215_v1.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_Phase2-0-b_\350\250\230\351\214\262\347\211\251\347\217\276\347\211\251\346\217\220\345\207\272_v1.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_Phase2-0-c_\345\210\235\346\234\237\345\220\214\346\234\237\350\252\277\346\237\273_v1.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_Phase2-0-d-1_depth\345\220\214\346\234\237state\343\203\236\343\202\267\343\203\263_v1.md"
+?? "ArchitectureRepository/00_Master/\346\214\207\347\244\272\346\233\270_Phase2-0-d-2_manifest_\351\214\262\347\224\273\346\244\234\350\250\274_v1.md"
+?? Delta_Engine_Pro4web/phase0c_storage_sizing_20260728/
+?? Delta_Engine_Pro4web/src/acquisition/depth_sync.py
+?? Delta_Engine_Pro4web/tests/acquisition/test_depth_sync.py
+?? pytest-vwap-ui-elevated/
+?? vwap-audit.duckdb
+?? vwap_first100.jsonl
+?? vwap_restore_ws_capture.jsonl
+?? vwap_ws_capture.jsonl

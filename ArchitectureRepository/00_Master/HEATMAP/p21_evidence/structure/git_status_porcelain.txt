@@ -1,0 +1,63 @@
+Command:
+git -c core.quotePath=false status --porcelain=v1
+
+Note:
+The approved output paths `ArchitectureRepository/00_Master/HEATMAP/p21_evidence/`
+and `ArchitectureRepository/00_Master/HEATMAP/p21_evidence.zip` are omitted so
+this file represents the pre-existing repository state.
+
+ M ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_IMPLEMENTATION_INSTRUCTION_V1_20260729.md
+ M ArchitectureRepository/00_Master/ORDER_BOOK_HEATMAP_PHASE_H0_CHECKPOINT_20260729.md
+ M ArchitectureRepository/30_Modules/WebApp/Specifications/WebSocketPayload_Spec_v1.md
+ M Delta_Engine_Pro4web/docker-compose.yml
+ M Delta_Engine_Pro4web/src/acquisition/depth_history_recorder.py
+ M Delta_Engine_Pro4web/src/acquisition/receiver.py
+ M Delta_Engine_Pro4web/src/pipeline.py
+ M Delta_Engine_Pro4web/tests/acquisition/test_binance_rest.py
+ M Delta_Engine_Pro4web/tests/acquisition/test_depth_history_recorder.py
+ M Delta_Engine_Pro4web/tests/test_book_resync.py
+ M Delta_Engine_Pro4web/tests/test_live_pipeline.py
+ M Delta_Engine_Pro4web/tests/webapp/test_book_update.py
+ M Delta_Engine_Pro4web/webapp/main.py
+ M Delta_Engine_Pro4web/webapp/push_broker.py
+ M Delta_Engine_Pro4web/webapp/static/index.html
+ M Delta_Engine_Pro4web/webapp/static/time_sales.js
+?? ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-a_PROJECT_MEMORY読取報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-b_記録物現物提出報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-c_初期同期調査報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-d-1_同期stateマシン実装報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/Phase_2-0-d-2_manifest_録画検証報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/tools_p20b/
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_Heatmap_Phase1_クローズ確認_P1-3_報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_Heatmap_Phase1_データ層_v1_P1-0_提出.md
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_Heatmap_Phase1_実装_P1-2_ライブ実記録確認_報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_Heatmap_Phase1_実装_P1-2b_Tee修正とsnapshot調査_報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_Heatmap_是正_v2.md
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_Heatmap_是正_v2_完了報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_PROJECT_MEMORY_差分確認_v1_報告.md
+?? ArchitectureRepository/00_Master/HEATMAP/指示書_Phase1_既存fail現物提出_v1_報告.md
+?? ArchitectureRepository/00_Master/HEATMAP_指示書_v1.5.md
+?? ArchitectureRepository/00_Master/Heatmap開発_引き継ぎ書_20260729.md
+?? ArchitectureRepository/00_Master/VWAP_CHART_RELATED_MODULE_INVENTORY_20260729.md
+?? ArchitectureRepository/00_Master/VWAP_INVESTIGATION_20260729/
+?? ArchitectureRepository/00_Master/トリガー作成指示書群/DeltaEngine_経緯報告_第1期-第4期_20260727.md
+?? ArchitectureRepository/00_Master/トリガー作成指示書群/HOOK_AND_LEGACY_STRATEGY_INVENTORY_20260727.md
+?? ArchitectureRepository/00_Master/トリガー作成指示書群/HOOK_AND_STRATEGY_CONTENT_GUIDE_20260727.md
+?? ArchitectureRepository/00_Master/指示書_Heatmap_Phase1_クローズ確認_P1-3.md
+?? ArchitectureRepository/00_Master/指示書_Heatmap_Phase1_データ層_v1.md
+?? ArchitectureRepository/00_Master/指示書_Heatmap_Phase1_実装_P1-1_v1.md
+?? ArchitectureRepository/00_Master/指示書_PROJECT_MEMORY_差分破棄_v1.md
+?? ArchitectureRepository/00_Master/指示書_PROJECT_MEMORY_差分確認_v1.md
+?? ArchitectureRepository/00_Master/指示書_Phase2-0-b_記録物現物提出_v1.md
+?? ArchitectureRepository/00_Master/指示書_Phase2-0-c_初期同期調査_v1.md
+?? ArchitectureRepository/00_Master/指示書_Phase2-0-d-1_depth同期stateマシン_v1.md
+?? ArchitectureRepository/00_Master/指示書_Phase2-0-d-2_manifest_録画検証_v1.md
+?? Delta_Engine_Pro4web/phase0c_storage_sizing_20260728/
+?? Delta_Engine_Pro4web/src/acquisition/depth_sync.py
+?? Delta_Engine_Pro4web/tests/acquisition/test_depth_sync.py
+?? pytest-vwap-ui-elevated/
+?? vwap-audit.duckdb
+?? vwap_first100.jsonl
+?? vwap_restore_ws_capture.jsonl
+?? vwap_ws_capture.jsonl
+

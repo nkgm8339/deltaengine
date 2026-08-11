@@ -1,7 +1,7 @@
 # WebSocketPayload仕様_v1
 
 **Document ID**: REF-WSP-001
-**Version**: v1.3（payload `"v": 1`、additive extension）
+**Version**: v1.6（payload `"v": 1`、additive extension）
 **Status**: Fixed（追加fieldは§6.1に従いpayload v1を維持する）
 
 ---
@@ -45,13 +45,16 @@
 | type | 頻度 | 用途 |
 |---|---|---|
 | HELLO | 接続時1回 | バージョン・設定の握手 |
+| MARKET_HEARTBEAT | 1秒毎（liveのみ） | upstream／pipeline／browser delivery鮮度 |
 | TICK | 約定毎 | 価格・tick CVD |
+| SPOT_PRICE | 50ms最新値sampling | Binance Spot BTC/USDTの表示専用参照価格 |
 | CANDLE | バー確定毎 | Footprint / OrderBook / POC / VAH / VAL |
 | BAR_UPDATE | 設定間隔毎 | 形成中バー / Footprint / Session VWAP |
 | BOOK_UPDATE | 100ms sampling・状態変化時 | LIVE DOM最新同期Snapshot / Best Bid・Ask / Spread |
 | TAPE_UPDATE | 100ms batch | DataNormalizerが受理した約定のTime & Sales |
 | ANALYSIS | バー確定毎 | シグナル・スコア内訳・confluence・market_state |
 | FLOW | 検出毎 | Detector発火イベント（リアルタイム） |
+| ABSORPTION_STATE | 吸収状態の発生・更新・解除時 | tick-timeの現在吸収状態 |
 | LIQUIDATION | 発生毎 | 強制決済 |
 | OI | ポーリング毎 | Open Interest |
 | STATS | 5秒毎 | サーバー統計（Developer Overlay用） |
@@ -67,23 +70,106 @@
   "server": "DeltaEngine WebApp",
   "payload_version": 1,
   "bar_timeframe": "1m",
-  "signal_enabled": true
+  "signal_enabled": true,
+  "market_mode": "live",
+  "market_heartbeat_interval_ms": 1000,
+  "market_heartbeat_timeout_ms": 3000
 }
 ```
 
 UIは `payload_version` 不一致の場合、Warningバナーを表示したうえで描画を継続する（§6.2 の段階的縮退に従う。全面停止はしない）。
 
+- `market_mode`は`live`または`replay`。`replay`ではlive heartbeat timeoutを起動しない。
+- heartbeat interval／timeoutはserver設定の正本値。UIへ同じ値をhard-codeしない。
+- timeoutはintervalの3倍以上でなければserver startupをfail fastとする。
+
 ## 4.2 TICK
 
 ```json
 {
+  "trade_id": 987654321,
   "price": "63988.5",
   "quantity": "0.012",
   "side": "BUY",
   "tick_delta": "0.012",
-  "tick_cvd": "15.303"
+  "tick_cvd": "15.303",
+  "published_time": "2026-08-02T03:41:53.050000+00:00",
+  "source_age_ms": 50
 }
 ```
+
+- `published_time`: PushBrokerが当該TICK messageを生成したUTC時刻。reconnect cache再送時も再生成しない。
+- `source_age_ms`: `published_time - exchange event time` の非負ミリ秒整数。
+- serverは最新TICK 1件だけをcacheし、新規／再接続browserへ他のrealtime cacheより先に、client登録前に送る。
+- UIは`published_time`または`source_age_ms`の欠落・不正、transport ageが2秒超、source ageが5秒超の場合、
+  価格を消して`STALE`とし、live decision表示をfail closedにする。
+- TICKは約定eventでありheartbeatではない。受理TICKがない時間だけで`STALE`へ遷移してはならない。
+- 接続後はfresh `MARKET_HEARTBEAT`、続いてfresh TICKを受理した場合だけ`LIVE`とする。
+- heartbeat由来の`STALE`からは、fresh heartbeatだけで価格を再表示せず、その後のfresh TICKを必須とする。
+- 古いcache、鮮度metadata不正、heartbeat timeoutはWebSocket切断条件ではない。同一接続を維持する。
+- transport再接続は実際のWebSocket close／error時だけ行う。鮮度guardからtransportを操作してはならない。
+- serverはclient集合のlock保持中にnetwork sendをawaitしない。client送信は0.5秒でtimeoutし、遅いclientだけを配信集合から除外する。
+
+### 4.2.1 MARKET_HEARTBEAT（v1.6 additive）
+
+```json
+{
+  "v": 1,
+  "type": "MARKET_HEARTBEAT",
+  "time": "2026-08-03T00:00:00.000000+00:00",
+  "symbol": "BTCUSDT",
+  "payload": {
+    "mode": "live",
+    "heartbeat_sequence": 123,
+    "published_time": "2026-08-03T00:00:00.000000+00:00",
+    "upstream_state": "SUBSCRIBED",
+    "upstream_last_message_time": "2026-08-02T23:59:59.950000+00:00",
+    "upstream_age_ms": 50,
+    "upstream_fresh": true,
+    "pipeline_alive": true
+  }
+}
+```
+
+- `heartbeat_sequence`はserver process lifecycle内で1から開始し、送信ごとに1増加する。
+- live送信間隔は1000ms、browser timeoutは3000ms。値はHELLOから受け取る。
+- `upstream_age_ms`はExchangeConnectorの最終raw frame受信からのmonotonic差分でserverが算出する。
+  browser wall clockとの絶対時刻比較に使用してはならない。
+- `upstream_fresh=true`は次のAND条件だけである。
+  - `mode=live`
+  - connector stateが`SUBSCRIBED`
+  - `upstream_age_ms`が非nullかつ0以上3000以下
+  - pipeline taskがalive
+- heartbeatはTICK／BOOK／Tapeと同じ`PushBroker._broadcast()`経路を通す。
+- heartbeatをreconnect cacheへ保存しない。`_latest_heartbeat_message`を作成しない。
+- browserはheartbeat受信間隔をmonotonic clockだけで測る。1回のdropではSTALEにしない。
+- heartbeat timeout、`upstream_fresh=false`、`pipeline_alive=false`でもbrowserからWebSocketをcloseしない。
+- replayではlive heartbeat taskを起動せず、live heartbeatを受理しない。
+- decision price freshnessはHeatmap BOOK freshnessおよびTape transport stateから独立する。
+  `HEATMAP_UI.setConnected()`と`TAPE_UI.setConnected()`はactual WebSocket open／closeだけで操作する。
+- decision priceがSTALEでも`BOOK_UPDATE`をHeatmapへ、`TAPE_UPDATE`をTape storeへ渡す。
+
+### 4.2.2 SPOT_PRICE（additive display-only）
+
+```json
+{
+  "source": "BINANCE_SPOT",
+  "spot_symbol": "BTCUSDT",
+  "trade_id": 123456,
+  "price": "63449.33",
+  "quantity": "0.002",
+  "event_time": "2026-08-02T06:00:00.123000+00:00",
+  "received_time": "2026-08-02T06:00:00.150000+00:00",
+  "published_time": "2026-08-02T06:00:00.151000+00:00",
+  "source_age_ms": 28
+}
+```
+
+- sourceはBinance Spot raw trade stream `btcusdt@trade`。`trade_id=t`、`price=p`を加工せず保持する。
+- 本messageは現物とUSD-M Perpetualのbasisを同一画面で確認する表示専用参照値。
+- Order Flow、DOM、Tape、OI、Flow Price Response、Hook、Strategyの入力へ使用してはならない。
+- serverは最新1件だけをreconnect cacheする。UIは独立freshness guardを使用し、Spot更新が5秒ない場合はSpot価格とbasisだけを消去する。
+- Spot reference停止はUSD-M主価格や分析経路を停止させない。
 
 ## 4.3 CANDLE
 
@@ -146,10 +232,12 @@ UIは `payload_version` 不一致の場合、Warningバナーを表示したう�
 - 軽量化のため`orderbook`を含めない
 - `source_trade_id`／`source_event_time`は当該形成中snapshotのsource境界
 
-### 4.3.2 BOOK_UPDATE（v1.2 additive）
+### 4.3.2 BOOK_UPDATE（v1.4 additive）
 
 ```json
 {
+  "book_stream_id": "5d7a1360-737c-42ad-8fe6-0204a422cd2d",
+  "book_sequence": 12345,
   "event_time": "2026-07-28T10:00:00.100000+00:00",
   "projection_time": "2026-07-28T10:00:00.200000+00:00",
   "last_update_id": 123456789,
@@ -170,6 +258,8 @@ UIは `payload_version` 不一致の場合、Warningバナーを表示したう�
 
 | field | 型 | 契約 |
 |---|---|---|
+| book_stream_id | string | PushBroker／server lifecycleごとのUUID。WebSocket reconnectでは不変、server restartで変更 |
+| book_sequence | int | 同一`book_stream_id`内で1開始、emitted `BOOK_UPDATE`ごとに1増加 |
 | event_time | string \| null | 最新受理Snapshot／DIFFのsource time。ISO8601 UTC |
 | projection_time | string | server投影時刻。ISO8601 UTC |
 | last_update_id | int \| null | 投影元Order Bookの最終update ID |
@@ -203,6 +293,10 @@ Fail-closed契約:
 - serverは100msごとに最新状態だけをsampleし、状態fingerprintが変わった場合だけ送る。
   全Snapshotをbrowser向けqueueへ積まない。
 - serverは接続ごとに最新の`BOOK_UPDATE` 1件だけを再送する。
+- `book_sequence`は`SYNCED`とfail-closed stateの両方を連番対象とする。
+- payload validationで送信を拒否したprojectionはsequenceを消費しない。
+- reconnect cacheは元messageと同じ`book_stream_id`／`book_sequence`を再送し、再採番しない。
+- exchange `last_update_id`はbrowser delivery sequenceではない。欠番検出へ流用しない。
 - replay modeではlive `BOOK_UPDATE` projectorを起動しない。
 
 ## 4.4 ANALYSIS
@@ -262,6 +356,50 @@ Fail-closed契約:
 - **v1のcategory**: `IMBALANCE`（stacked検出時）/ `ABSORPTION`（検出時）の2種のみ（既存Detectorに限定）
 - `DELTA / EXHAUSTION / ICEBERG` は**予約値**。対応Detector実装後の仕様改訂（v2）で追加する。UIは未知categoryを白色・"UNKNOWN"バッジで描画してよい（前方互換）
 - strength: Imbalance = min(stacked_count / stack_ref, 1)、Absorption = AbsorptionResult.strength
+
+### 4.5.1 ABSORPTION_STATE（v1.5 additive）
+
+`AbsorptionDetector`は受理約定ごとに10秒windowを更新する。bar close時だけ送る
+`ANALYSIS.absorption`では短時間の発生と解除を取りこぼすため、常設`ABSORPTION`パネルは
+本messageを現在状態の正本とする。`ANALYSIS.absorption`は旧client互換のため残す。
+
+active:
+
+```json
+{
+  "active": true,
+  "classification": "BUY_ABSORPTION",
+  "strength": "0.82",
+  "price_low": "118245.1",
+  "price_high": "118245.1",
+  "observed_at": "2026-07-31T02:23:10.123000+00:00",
+  "expires_at": "2026-07-31T02:23:20.123000+00:00",
+  "window_sec": 10
+}
+```
+
+clear:
+
+```json
+{
+  "active": false,
+  "classification": null,
+  "strength": null,
+  "price_low": null,
+  "price_high": null,
+  "observed_at": "2026-07-31T02:23:11.000000+00:00",
+  "expires_at": null,
+  "window_sec": 10
+}
+```
+
+- `BUY_ABSORPTION`: aggressive SELLをBID側が吸収している観測状態。
+- `SELL_ABSORPTION`: aggressive BUYをASK側が吸収している観測状態。
+- serverは検出発生、内容更新、activeからinactiveへの解除時だけ配信し、
+  非活性の全約定を配信しない。
+- serverは接続ごとに最新message 1件を再送する。
+- UIはWebSocket disconnect、symbol変更、`active:false`で即時clearする。
+- UIは`expires_at <= market time`でもfail closedでclearし、server停止前のactive表示を残さない。
 
 ## 4.6 LIQUIDATION
 

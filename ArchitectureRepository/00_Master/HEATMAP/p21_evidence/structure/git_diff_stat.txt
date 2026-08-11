@@ -1,0 +1,21 @@
+Command:
+git diff --stat
+
+ ...ATMAP_IMPLEMENTATION_INSTRUCTION_V1_20260729.md |  33 +-
+ ...ER_BOOK_HEATMAP_PHASE_H0_CHECKPOINT_20260729.md |  22 +-
+ .../Specifications/WebSocketPayload_Spec_v1.md     |  10 +-
+ Delta_Engine_Pro4web/docker-compose.yml            |   1 +
+ .../src/acquisition/depth_history_recorder.py      | 183 +++++++++-
+ Delta_Engine_Pro4web/src/acquisition/receiver.py   |   4 +
+ Delta_Engine_Pro4web/src/pipeline.py               | 377 +++++++++++++++++----
+ .../tests/acquisition/test_binance_rest.py         |  77 ++---
+ .../acquisition/test_depth_history_recorder.py     | 231 ++++++++++++-
+ Delta_Engine_Pro4web/tests/test_book_resync.py     | 281 ++++++++-------
+ Delta_Engine_Pro4web/tests/test_live_pipeline.py   | 139 +++++++-
+ .../tests/webapp/test_book_update.py               | 117 +++++++
+ Delta_Engine_Pro4web/webapp/main.py                |  15 +-
+ Delta_Engine_Pro4web/webapp/push_broker.py         |  17 +-
+ Delta_Engine_Pro4web/webapp/static/index.html      | 115 ++++++-
+ Delta_Engine_Pro4web/webapp/static/time_sales.js   |   6 +
+ 16 files changed, 1368 insertions(+), 260 deletions(-)
+

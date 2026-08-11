@@ -1,0 +1,11 @@
+Directly relevant test files copied:
+
+Delta_Engine_Pro4web/tests/acquisition/test_binance_rest.py
+Delta_Engine_Pro4web/tests/acquisition/test_depth_history_recorder.py
+Delta_Engine_Pro4web/tests/acquisition/test_depth_sync.py
+Delta_Engine_Pro4web/tests/orderflow/test_orderbook.py
+Delta_Engine_Pro4web/tests/test_book_resync.py
+Delta_Engine_Pro4web/tests/test_live_pipeline.py
+
+Protected `Delta_Engine_Pro4web/tests/webapp/test_book_update.py` was not copied.
+

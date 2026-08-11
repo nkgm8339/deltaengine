@@ -29,6 +29,25 @@ def _levels(
     return tuple(sorted(parsed, key=lambda row: row[0], reverse=reverse)[:limit])
 
 
+def _snapshot_levels(
+    snapshot: Any,
+    side: str,
+    *,
+    reverse: bool,
+    limit: int,
+) -> tuple[Level, ...]:
+    cached = getattr(snapshot, f"ordered_{side}", None)
+    if cached is None:
+        return _levels(getattr(snapshot, side), reverse=reverse, limit=limit)
+    selected: list[Level] = []
+    for price, quantity in cached:
+        if price > ZERO and quantity > ZERO:
+            selected.append((price, quantity))
+            if len(selected) == limit:
+                break
+    return tuple(selected)
+
+
 def _median_quantity(levels: tuple[Level, ...]) -> Decimal:
     return median([quantity for _price, quantity in levels]) if levels else ZERO
 
@@ -117,8 +136,12 @@ class DomFeatureCache:
             self.stale_frames += 1
             return None
 
-        bids = _levels(snapshot.bids, reverse=True, limit=self.depth_levels)
-        asks = _levels(snapshot.asks, reverse=False, limit=self.depth_levels)
+        bids = _snapshot_levels(
+            snapshot, "bids", reverse=True, limit=self.depth_levels
+        )
+        asks = _snapshot_levels(
+            snapshot, "asks", reverse=False, limit=self.depth_levels
+        )
         if not bids or not asks or bids[0][0] >= asks[0][0]:
             self.invalid_frames += 1
             self.reset()

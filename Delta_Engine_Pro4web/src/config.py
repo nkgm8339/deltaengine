@@ -260,6 +260,8 @@ SCHEMA: dict[str, dict[str, Field]] = {
     "queue": {
         "default_depth": Field(v_int(lo=1), 10000),
         "overflow_policy": Field(v_nonempty_str, "drop_oldest_log"),  # (impl) no enum in spec
+        "pipeline_chunk_max_events": Field(v_int(lo=1), 32),
+        "pipeline_chunk_max_wall_ms": Field(v_int(lo=1), 50),
     },
     "database": {
         "parquet_path": Field(v_nonempty_str, "data/parquet"),
@@ -328,6 +330,8 @@ SCHEMA: dict[str, dict[str, Field]] = {
         "live_dom_depth_levels": Field(v_int(lo=1), 50),
         "book_update_interval_ms": Field(v_int(lo=10), 100),
         "book_stale_after_ms": Field(v_int(lo=100), 2000),
+        "market_heartbeat_interval_ms": Field(v_int(lo=1), 1000),
+        "market_heartbeat_timeout_ms": Field(v_int(lo=1), 3000),
         "tape_batch_interval_ms": Field(v_int(lo=10), 100),
         "tape_max_trades_per_message": Field(v_int(lo=1), 250),
         "tape_pending_capacity": Field(v_int(lo=1), 10000),
@@ -456,6 +460,21 @@ def _validate(raw: Any) -> ConfigNode:
             else:
                 section_result[key] = field.default
         result[section] = section_result
+
+    webapp = result.get("webapp", {})
+    heartbeat_interval = webapp.get("market_heartbeat_interval_ms")
+    heartbeat_timeout = webapp.get("market_heartbeat_timeout_ms")
+    if (
+        isinstance(heartbeat_interval, int)
+        and not isinstance(heartbeat_interval, bool)
+        and isinstance(heartbeat_timeout, int)
+        and not isinstance(heartbeat_timeout, bool)
+        and heartbeat_timeout < heartbeat_interval * 3
+    ):
+        problems.append(
+            "webapp.market_heartbeat_timeout_ms must be >= "
+            "webapp.market_heartbeat_interval_ms * 3"
+        )
 
     if problems:
         raise ConfigValidationError(problems)

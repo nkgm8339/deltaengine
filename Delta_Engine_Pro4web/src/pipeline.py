@@ -1366,6 +1366,10 @@ class LivePipeline:
 
         out_q = BoundedEventQueue(self.queue_depth, self.overflow_policy, name="ws_out")
         norm_q = BoundedEventQueue(self.queue_depth, self.overflow_policy, name="receiver_out")
+        # Runtime/API observability for the two authoritative ingress boundaries.
+        # These are read-only references; queue ownership remains unchanged.
+        self.ws_queue = out_q
+        self.receiver_queue = norm_q
 
         connector = ExchangeConnector(
             url=self.ws_url,

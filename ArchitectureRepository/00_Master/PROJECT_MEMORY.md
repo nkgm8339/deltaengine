@@ -1,6 +1,6 @@
 # DeltaEngine プロジェクト記憶
 
-最終更新: 2026-07-29
+最終更新: 2026-08-10
 
 ## 最重要の記憶
 
@@ -1235,3 +1235,491 @@ root response安定化のためのrestartは別承認境界である。
 - `ArchitectureRepository/00_Master/ハイライト/指示書_TimeAndSales_DOM約定価格ハイライト_v1_20260731.md`
 - `ArchitectureRepository/00_Master/ハイライト/実装_CHECKPOINT_TimeAndSales_DOM約定価格ハイライト_v1_20260731.md`
 - `ArchitectureRepository/00_Master/ハイライト/実装報告_TimeAndSales_DOM約定価格ハイライト_v1_20260731.md`
+
+## ABSORPTIONリアルタイム表示修正・production activation（2026-07-31）
+
+ユーザーがABSORPTION表示を見たことがないと指摘し、runtimeとsourceを監査した。
+検出器は約7時間・696,274約定で49回判定していたが、tickごとの10秒吸収状態を
+1分足確定時の`ANALYSIS`だけで画面へ渡していたため、足確定前に解除された状態を
+常設パネルが取りこぼしていた。
+
+- additive `ABSORPTION_STATE` WebSocket messageを追加
+- 検出発生、内容更新、activeからinactiveへの解除時だけ即時送信
+- 最新状態をbrokerにcacheし、再接続browserへ復元
+- disconnect、symbol変更、market-time expiryで画面をclear
+- 旧`ANALYSIS.absorption`は旧runtime／client互換fallbackとして維持
+- 吸収判定条件、Flow Price Response、3段チャート、Footprint、Hook、Strategy、
+  executionは変更なし
+- host全体回帰 **773 passed, 1 baseline failure, 1 skipped**
+- baseline failureは既存Heatmap layout selectorと旧testの不一致で新規failure 0
+- image内吸収／PushBroker対象 **46 passed**
+- production実Edgeで表示、解除、live WebSocket継続、browser error 0を確認
+
+production image:
+
+`sha256:8ce357d152858978082bc77df63f42758b543809f5d19b0673e39d04d54ab166`
+
+production container:
+
+`57f61a2f26f18d5c89b60fd0c802ef4754ec06c2404d35a1218c9a684b7b633b`
+
+restart後はhealth全check GREEN、Tape drop 0／balanced、Book SYNCED、Storage pending 0、
+Footprint failure 0、重大runtime errorなし。旧imageは
+`deltaengine-absorption-base:20260731-1248`
+（`sha256:8649d8716d0acdd53e5e7ccd4f1a64947232f5fbcc5ada2b790da107f75494b7`）
+としてrollback用に保持した。
+
+詳細checkpoint:
+
+- `ArchitectureRepository/00_Master/ABSORPTION_REALTIME_DISPLAY_FIX_CHECKPOINT_20260731.md`
+
+## Fabio大口観測技法の一次資料調査・説明修正（2026-08-10 07:28 JST引継ぎ）
+
+### このエージェントが現在達成すべき仕事
+
+現在の仕事は、Fabio本人の大口観測技法を一次資料から完成形で抜き出し、
+初見の読み手にも最初から分かる説明として完成させることだけである。
+
+過去の別作業を現在のFabio調査へ混ぜず、ユーザーから新しい明示指示がない作業を
+現在の計画、成果物、次工程として開始も提案もしない。
+
+Fabio本人の公式公開動画を調べ、Fabioがorder flow上の大きな参加を、何のデータから、
+どの画面で、どの順番で、どの価格結果と照合して判断しているかを再構成する。
+
+単語や動画断片を並べることが仕事ではない。初めてDeepChartsを見る読み手が、画面で
+起きた出来事とFabioの判断までを最初から追える一つの説明へ仕上げることが仕事である。
+
+必須作業:
+
+1. 公式`Fabervaale ENG`と`Fabervaale`の公開動画カタログを対象にする。
+2. 大口観測に直接関係する動画と区間を漏れなく特定する。
+3. 各区間について、動画名、時刻、画面表示、数値の単位、データの発生源、
+   Fabio本人の発言、直後のprice resultを記録する。
+4. `DeepCharts / DeepDOM`、`Deep Trades / Big Trades`、約定データ、板データ、
+   marker、contracts、aggressive / passive、effort / result、absorption、reload、
+   iceberg、delta、CVD、footprintを、正体と所属から順に定義する。
+5. 大きなaggressive execution、反対側のpassive absorption、同一価格での反復、
+   reload / icebergによる小分け執行について、Fabioが実際に示した事例を時系列で説明する。
+6. VWAP、POC、VAH、VAL、LVN、Initial Balance、previous swing等のlocation情報と、
+   大口参加のevidenceを明確に分離する。
+7. Fabio動画内の事実、画面から直接読める事実、DeepCharts公式製品仕様、
+   動画・仕様からは確定できない事項を、見出しと文章の双方で分離する。
+8. unsupported inference、分析者の意見、独自分類、曖昧な指示語、未定義語を全文から除く。
+9. すべてのclaimを公式動画URLとtimestampへ戻してユーザーが検証できるようにする。
+
+現在の成果物:
+
+- `ArchitectureRepository/00_Master/FABIO_LARGE_PARTICIPANT_OBSERVATION_RESEARCH_20260810.md`
+- ユーザーへの説明は、この文書を読まなくても理解できるself-containedな内容にする。
+
+現在の仕事の完成条件:
+
+- 一文目で対象の正体と分類が分かる。
+- 読み手が事前にDeep Tradesやorder flowを知っていることを前提にしない。
+- 各数値がprice、contracts、delta、ratio、約定済み数量、未約定板数量のどれか明記される。
+- 各判断について「何が表示されたか→市場で何が起きたか→価格はどうなったか→
+  Fabioは何と判断したか」が連続している。
+- Fabioが述べていないthreshold、色設定、注文方向、identity、parent-order関係を補完しない。
+- ユーザーが指摘した雑な説明順、前提省略、説明者だけが分かる用語列挙が残っていない。
+- 文書全体を再監査し、source-only extractionとして提出できる。
+
+### 今回の本質的な目的
+
+ユーザーが求めている本質は、利益予測や後続価格の的中率ではなく、order flow上で
+大口が実際に参加した場所と、その参加の足跡を見つけることである。
+
+- 大口を一人、単一口座、または「大口対小口」と仮定しない。
+- 大口は親注文を小口へ分割しても、同一価格での反復約定、reload、iceberg、
+  累積したaggression、価格結果との不一致などの足跡を残し得る。
+- VWAP、POC、VAH、VAL、LVN、Initial Balance、previous swing等は監視場所であり、
+  それ自体を大口判断にしてはならない。
+- 大口発見が一次目的であり、その後に利益が出たかは二次的な検査である。
+
+### ユーザーが指定した資料境界
+
+Fabio Valentini / Fabervaale本人の公開動画から、本人が何を見てどう判断したかを
+事実として抜く。分析者の意見、推測、一般論、独自分類をFabioの技法へ混ぜない。
+
+要求される記録単位は次の四点である。
+
+1. 公式動画名
+2. 正確な時刻
+3. 画面に表示された数値または挙動
+4. Fabio本人がその場で述べた判断
+
+公式製品仕様を補足する場合は、Fabioの動画内発言と明確に分離し、DeepCharts公式資料
+であることを明示する。第三者の解説や無断転載は一次証拠として使わない。
+
+### 公式公開カタログと直接監査範囲
+
+2026-08-10時点で公式カタログを再取得した。
+
+- `Fabervaale ENG`: 13本
+- `Fabervaale`: 57本
+- 合計: 70本
+
+直接監査した公式動画は10本。
+
+- `Pz8f0wWW12M` The Only Orderflow Guide You'll Ever Need
+- `FawPrRUGNpk` The Only Liquidity Guide You'll Ever Need
+- `Khgj5q1-ln8` My Signature Orderflow Model
+- `cUTsoU-15Tc` The Simplest Orderflow Trading Model
+- `06R-ebyOhDI` How To Find The BEST Entry Zones
+- `0jM5Y31YJak` My Top 3 Trades from the Competition
+- `o-w5Gxss6T0` 3 Order-flow Trading Tricks Exposed!
+- `fZlNGWvd2Ko` My Best Trading Session of the Month
+- `YG_CzO8qWRk` Fondamenti di Orderflow
+- `ZrfwJBaI07Y` Analisi Volumetrica Pratica
+
+全10 IDが公式70本カタログ内に存在することと、記録時刻が各動画尺内であることを確認済み。
+
+### Deep Tradesの正体を説明する際の最優先事項
+
+必ず最初の一文で次を述べる。
+
+> Deep Tradesは、DeepCharts / DeepDOMという取引分析ソフトの中で使う
+> インジケーター（チャート表示機能）である。
+
+独立したサービス、注文種別、取引所データの名称ではない。
+
+説明階層:
+
+```text
+DeepCharts / DeepDOM
+└─ 取引・チャート分析ソフト
+   └─ Deep Trades
+      └─ 条件に合う大きな約定を選別してチャートへ表示するインジケーター
+```
+
+Fabioは`Pz8f0wWW12M` 37:16-37:50で、Deep Tradesはexecuted ordersをsizeで
+filterし、big market participantsだけを見たいと説明している。
+
+2026-08-10に確認したDeepCharts公式仕様では、Deep Trades / Big Tradesは次を持つ。
+
+- DeepDOM版input: `Volume`, `Order`, `Iceberg`, `Aggregate Trades`
+- `Aggregate Trades`: 同じ価格・短時間の複数の小口約定を一つの大きなtradeへ集約
+- Min / Max filter
+- Big Trades版filter mode: ManualまたはAutomatic
+- Automatic: symbolの価格挙動とvolatilityからthresholdを動的計算
+- marker type: Circle, Square, Diamond, Text
+- Ask / Bid colorは利用者が設定可能
+
+公式資料:
+
+- `https://www.deepcharts.com/helpcenter/deepdom/article/deep-trades-deepdom`
+- `https://www.deepcharts.com/helpcenter/article/big-trades`
+
+したがって、Fabio動画の円形表示はDeep Tradesそのものではなく、選択可能なCircle marker
+である。以前「バブル」とだけ呼んだ説明は不適切であり撤回済み。
+
+### 色に関する重要な訂正
+
+以前、画面の色だけから「緑=aggressive buy」「紫=aggressive sell」と断定した。
+これはFabioの該当動画内で色設定または凡例を確認せずに行った補完であり、撤回する。
+
+DeepCharts公式仕様ではAsk Color / Bid Colorを利用者が変更できる。したがって、
+動画内の緑・紫の色相だけでは売買側を確定できない。設定画面、凡例、またはFabio本人の
+明言が必要。研究文書には、色から売買側を補完しないことを明記した。
+
+### `72・61・60・62`の確定事実
+
+出典: `Pz8f0wWW12M` 37:50-38:21。
+
+- Deep Trades画面の上側に囲った価格帯で、円形markerに`72・61・60・62`を表示。
+- 数字はFabioがcontracts単位のexecuted effortとして読み上げた値。
+- `72・61`は帯の下側付近、`60・62`は帯の上側付近で重なっている。
+- 4件が完全に同一tickという意味ではなく、Fabioは囲ったhorizontal areaとして扱う。
+- 単純合計は`255`だが、Fabioの口頭表現は「約300 contracts」。
+- 255を約300と丸めたのか、近接表示まで含めたかは本人が説明していない。
+- Fabioはaggressive sellersが強いaggressionとprice resultを示す一方、先のeffortは
+  absorptionされたと判断。
+- 各markerの正確な売買側、単一元注文かaggregateか、同一主体かは設定未公開のため
+  確定しない。
+
+### `105・101`の確定事実
+
+出典: `Pz8f0wWW12M` 39:06-39:34。
+
+- 下側に囲ったhorizontal levelのwickへ`105`のexecuted orderを表示。
+- Fabioはaggressive ordersがrejectedされ、resultを得ず、completely absorbedと説明。
+- marketは同じlevelを複数回試して失敗。
+- 最後の試行は`101 contracts`で、同じhorizontal levelで再び結果を得なかった。
+- `105`と`101`は異なる時刻の別表示。累計、残量、差分ではない。
+- 該当markerは画面上で紫だが、色設定を確認していないため、色だけから売買側を断定しない。
+
+### 分割された大口注文に直接関係するFabio動画事実
+
+`FawPrRUGNpk` 09:58-10:25:
+
+- 板に見える数量は`8 contracts`。
+- 売り手が消費するたび、同じ価格へ`8`がreloadされる。
+- Fabioは数百回reloadされ、表示8でも実際には`400`または`500 contracts`を
+  表し得る例として説明。
+- 専用iceberg indicatorは同じprice levelをreloadするalgorithmic activityを検出。
+- `8`が常に400/500を意味するとは述べていない。
+
+`FawPrRUGNpk` 08:50-09:58:
+
+- compression中、bidに突然`110 contracts`。周囲は`8・12・29・40`等。
+- Fabioはbid reloadと呼び、大きな者がそのlevelでfillを望む情報と説明。
+- 直後にspoofingを警告。板表示だけで実際に約定する大口注文とは確定しない。
+
+### 他toolの役割を混同しない
+
+- Big Trades / Deep Trades: size等で絞った約定済みデータの表示。
+- Delta: 買い成行約定量と売り成行約定量の差。大口identity filterではない。
+- CVD: deltaの時間累積。`0jM5Y31YJak`でFabio自身がCVD先行だけでは不十分と述べ、
+  Big Tradesとprice confirmationを追加。
+- Footprint: 各priceのexecuted Bid / Ask。色はaggression、candleはresultとFabioが説明。
+- `ZrfwJBaI07Y` 09:17-09:31の`300% / 400%`はfootprint imbalanceの
+  short / long aggression比率例であり、Big Tradesのcontracts thresholdではない。
+- DOM / heatmap: まだ約定していないresting limit liquidity。
+- reload / iceberg: resting quantityが消費された後に同じpriceへ補充される動作。
+- price result: 約定後に実際にpriceが同方向へ進んだか。
+
+### ユーザーが要求する説明品質・順序
+
+ユーザーは、説明者が自分の頭の中だけで前提を補い、用語を並べて理解した気になる説明を
+明確に拒否している。単語一個の定義漏れではなく、説明全体の順序と前提省略が問題。
+
+以後、必ず次の順で説明する。
+
+1. それは何かを、最初の一文で分類まで含めて断定する。
+2. どの製品、画面、仕組みに属するか。
+3. 入力データは何か。そのデータはどこから来るか。
+4. 何を処理するか。
+5. 何を出力するか。画面の各表示項目は何か。
+6. Fabioがその出力をどう読むか。
+7. 動画の具体例を、出来事の時間順で説明する。
+8. その資料だけでは何が分からないか。
+
+禁止事項:
+
+- 正体を説明する前に機能の細部や数値例へ入らない。
+- 未定義の`bubble`, `aggression`, `absorption`, `result`, `contracts`等を使わない。
+- 読み手が動画画面を見ていると仮定しない。
+- 色、形、上下位置から売買側や主体を勝手に補完しない。
+- 「これ」「その帯」「同じlevel」等の指示語だけで対象を済ませない。
+- 数値がprice、数量、delta、ratio、未約定板のどれかを必ず明示する。
+- 一件のdisplay markerを一人の大口または一つのparent orderと呼ばない。
+- Fabio本人の発言、画面観察、DeepCharts公式仕様、分析者推測を同じ文へ混ぜない。
+
+### 撤回済みの内容
+
+- 以前のFabio調査文書に書いたanalyst-created A-E classification。
+- price-direction hit rateを一次目的にした検証。
+- VWAP / POC等を大口判断として扱う説明。
+- Deep Tradesの色相だけから売買側を断定した説明。
+- Deep Tradesの円形markerを、定義せず「bubble」と呼んだ説明。
+
+### 現在のファイル状態（2026-08-10 08:20 JST更新）
+
+- ArchitectureRepository/00_Master/FABIO_LARGE_PARTICIPANT_OBSERVATION_RESEARCH_20260810.md
+  - Fabioの判断と根拠を中心に全面改稿し、公式動画との再照合を完了した。
+  - 現在545行、SHA-256
+    6D071E07BC7F3242AB237061404BFB700E91B991CE25E621FE53E9C2948171A5。
+- ArchitectureRepository/00_Master/DIRECTIONAL_PRESSURE_VALIDATION_CHECKPOINT_20260810.md
+  - 公式動画再監査、変更範囲、検証結果、次の再開位置を逐次記録済み。
+- 完成済みFlow Price Response、3段chart、production runtimeは変更していない。
+
+### Context clear後の再開位置
+
+1. このPROJECT_MEMORY.mdを全文読む。
+2. FABIO_LARGE_PARTICIPANT_OBSERVATION_RESEARCH_20260810.mdを読む。
+3. Fabioの判断を説明する場合は「表示された規模／挙動 → price result →
+   Fabioの判断 → トレード行動」の順にする。
+4. 現在の仕事はFabio本人の公開技法の抽出と説明だけである。過去の別作業を
+   現在の計画、成果物、次工程として持ち込まない。
+
+## Fabioが捉える「大口」の最優先定義（2026-08-10 08:20 JSTユーザー確定）
+
+### 現在の一番の任務
+
+一番の任務は、Fabio本人の公式動画から、Fabioが相場を動かす規模を何の痕跡から認識し、
+その規模が価格結果を得たか、反対側に吸収されたかをどう判断し、トレードへ接続したかを
+読み取って書くことである。
+
+製品仕様、venue、一般用語、独自検出案、身元を特定できないという注意は二次的であり、
+Fabioの判断と直接根拠より前へ出さない。
+
+### 「大口」は一人の犯人ではない
+
+- 一人の人物、単一口座、特定企業、単一parent orderを探す仕事ではない。
+- CME、Binanceその他の市場データに発注者名は書かれていない。
+- 観測対象は、相場を動かせる規模の注文活動、または大きな攻撃を受け止めて価格を
+  動かさない規模の市場状態である。
+- 大きな攻撃が価格を動かした場合も、大きな攻撃が反対側に止められた場合も、
+  相場を動かす規模の力が現れている。
+- 同じ価格への反復攻撃と失敗、同程度のeffortに対する非対称なresult、少ないeffortでの
+  大きなresult、reload／icebergによる累積執行も、その規模を読む痕跡である。
+
+Fabioの中心原理は本人が述べるlaw of effort and resultである。
+
+- effort: 入った注文量、攻撃量、反復した執行
+- result: その注文活動が価格へ与えた実際の影響
+
+Fabioはeffortだけを見て方向を決めない。pressure、Big Trades、Delta／CVD、Footprint、
+DOM／icebergの表示をprice resultと照合し、どちらがbattleに勝ったか、path of least
+resistanceがどちらかを判断する。その判断からentry、scale、re-entry、break-even、
+trail、profit taking、exitを行う。
+
+### 2026-08-10の完成成果物
+
+- ArchitectureRepository/00_Master/FABIO_LARGE_PARTICIPANT_OBSERVATION_RESEARCH_20260810.md
+  - 道具中心の説明から、Fabioの判断と根拠を中心に全面改稿した。
+  - 各主要例を「表示された規模／挙動 → price result → Fabioの判断 →
+    entryまたはrisk management」の順で記録した。
+  - 公式9動画を直接根拠、公式イタリア語1動画をimbalance境界の補助根拠として使用した。
+  - 545行、SHA-256
+    6D071E07BC7F3242AB237061404BFB700E91B991CE25E621FE53E9C2948171A5。
+
+### 今後の禁止事項
+
+- Deep Tradesのmarker一件を一人の大口として説明しない。
+- 「誰が出した注文か」をFabioの大口観測の中心問題にしない。
+- contracts数、色、locationだけで大口または方向を確定しない。
+- Fabioが見たeffortとprice resultを分断しない。
+- Fabioの判断より先に製品仕様や一般用語を長く説明しない。
+- 旧analyst A-E分類、price hit rate、独自thresholdをFabioの技法として復活させない。
+
+### Context clear後の再開位置
+
+Fabio調査を再開する場合は、上記完成成果物を読み、必ず次の問いから始める。
+
+> どの規模の活動が表示され、価格はどう反応し、その結果Fabioはどちらが相場を
+> 動かしていると判断し、どのトレード行動を取ったか。
+
+## Fabio公式動画70本全件監査（2026-08-10 10:10 JST）
+
+### 完了範囲
+
+- 公式Fabervaale ENG 13本、Fabervaale 57本、合計70本のURL母集団を確定。
+- 70本全てのYouTube公式自動字幕を取得。通常経路の429はYouTube
+  timedtext JSON3の代替transportで解消した。
+- 70本全文を、英語／イタリア語のaggression、absorption、effort/result、
+  Big/Deep Trades、reload、iceberg、contracts、participants、filter、session、
+  volatility等で走査し、該当発言の前後文脈を動画別に再確認。
+- 一次発言を大口認識への直接性と判断への接続性で順位付け。
+  動画そのものの人気度や重要度順ではない。
+- 70本全てを1行ずつ記録し、直接証拠、補助証拠、直接発言なしを明示。
+- 完成済みFlow Price Response、3段chart、production runtime、コード、設定は
+  一切変更していない。
+
+### 70本監査で最も直接的に確定したFabio発言
+
+`YG_CzO8qWRk` 05:30-06:26:
+
+- 注文の90-95%がalgorithmicであっても、単一algorithmが方向を決めるとは考えない。
+- 方向は、aggressive ordersの方向圧力とpassive ordersの吸収の相互作用が作る。
+- それがどのalgorithmかは問わず、市場でedgeを得られるかを見る。
+
+`fHxfr7aU7PA` 136:59-137:39 および `h8LWAU01598` 08:49-09:44:
+
+- `institutional`というラベルだけでは意味がない。
+- 個人一人や個々のstopが市場を動かすのではない。
+- 方向を催化するのは、市場を動かせる規模の注文・流動性のclusterである。
+- composite operatorは「市場を動かす側」を一体として考える模型であり、
+  単独の実在犯を指すものではない。
+
+これにより、ユーザーが示した「大口を一人の犯人として捉えず、相場が動く
+規模の状況として捉える」という観点は、Fabio本人の直接発言で裏付けられた。
+
+### 新たな完成成果物
+
+- `ArchitectureRepository/00_Master/FABIO_OFFICIAL_VIDEO_CATALOG_70_20260810.md`
+  - 公式70本のタイトルとURL。ENG 13、ITA 57、unique ID 70。
+- `ArchitectureRepository/00_Master/FABIO_70_VIDEO_LARGE_PARTICIPANT_AUDIT_20260810.md`
+  - 70本全件表、Fabio発言の重要度順、判断と根拠、確定可能／不可能の境界。
+  - 282行、39,401 bytes、SHA-256
+    `B4C8A61E2AB7B33E796267F57FD75F2E513D7E170F2BF188DEC9C4AECB3E744E`。
+
+### 重要な訂正
+
+- 特定BTC数量の固定thresholdはユーザーの定義ではない。
+- 既存codeまたは過去の分析仮説に関する論点を、ユーザーの定義として引用しない。
+- 本監査の主題はFabioの判断と一次根拠。DeltaEngineとの理論統合は二次工程である。
+
+### Context clear後の再開位置
+
+1. `FABIO_70_VIDEO_LARGE_PARTICIPANT_AUDIT_20260810.md`を主研究文書として読む。
+2. 公式URLの確認は`FABIO_OFFICIAL_VIDEO_CATALOG_70_20260810.md`を使う。
+3. Fabioの技法を説明するときは、主体同定ではなく、
+   `aggressive/passive interaction -> effort/result -> control -> trade action`の順にする。
+4. 閾値や実装案をFabio本人の発言として補完しない。
+
+## Fabio研究の具体証拠化（2026-08-10 10:41 JST）
+
+### ユーザ指摘と成果物の訂正
+
+ユーザは、70本の索引と一般化された「aggression / absorption / effort-result」だけを
+成果物とするのは、具体的な判断材料にならないと指摘した。この指摘は妥当である。
+
+`FABIO_70_VIDEO_LARGE_PARTICIPANT_AUDIT_20260810.md`は全70本の証拠索引として残すが、
+今後の主成果物は次とする。
+
+- `ArchitectureRepository/00_Master/FABIO_CONCRETE_LARGE_PARTICIPANT_EVIDENCE_20260810.md`
+  - 表示数値・発生順序・price result・Fabioの判断・trade actionが揃う16事例。
+  - 各事例を`displayed value / behavior -> price result -> Fabio judgment -> trade action ->
+    確定可能な大口兆候 -> 確定不可能`の順で記録。
+  - 395行、21,549 bytes、SHA-256
+    `5B3D98EC77321B9591F1FCF1C6FEFB99F68229E3C967FA46873A6F5B49BD11AE`。
+
+### 台帳の上位具体証拠
+
+1. `Pz8f0wWW12M` 37:31-38:43  
+   `72・61・60・62 contracts`のeffortが上方resultを得ず、反対のsellersだけが
+   下方resultを得た。Fabioはshortをbuildし、約3分後にrisk-freeへ移行。
+2. `Pz8f0wWW12M` 39:06-40:31  
+   同じ下側levelで`105 contracts`、複数回の再攻撃、最後に`101 contracts`が
+   すべて下方resultを得なかった。Fabioはlong側のabsorptionと判断し、
+   breakout後にbreak-even、その後aggressionでtrail。
+3. `0jM5Y31YJak` 02:05-06:52  
+   CVDの大きな下方pressureだけでは入らず、Big Tradesとprice follow-throughでshort。
+   Big Tradesがpriceを下へpushしなくなったところでexit、再確認でre-entry。
+4. `FawPrRUGNpk` 09:56-10:25  
+   表示`8 contracts`が消費のたびに同priceへreload。Fabioは累積`400 / 500 contracts`に
+   なり得るiceberg例と説明。
+5. `o-w5Gxss6T0` 02:03-03:09  
+   `2,800 total / +599 delta`、下側`332`、後の`4,600 total / +812 delta`を、
+   上下のabsorption、level protection、最終breakoutと時系列で照合。
+
+### 今後の必須の説明形式
+
+Fabioの大口判断を説明するときは、「攻撃が動いた／動かなかった」という
+一般論だけで済ませない。少なくとも次の五点を一組にする。
+
+1. 動画URLと時刻。
+2. 画面に出た数値・marker・注文挙動。
+3. 直後のprice result。
+4. Fabioの判断。
+5. Fabioが実際に取ったentry / scale / break-even / trail / exit。
+
+抽象的な統合は、この事実セットを提示した後にだけ行う。
+
+## Fabio大口規模の選別方法・問1限定完了（2026-08-11 00:26 JST）
+
+ユーザーは、Fabio調査checkpointの4問を一括で進めず、まず問1
+「通常注文と大口規模をどう選別するのか」だけを行うよう明示した。
+
+完成成果物:
+
+- `ArchitectureRepository/00_Master/FABIO_LARGE_PARTICIPANT_QUESTION1_SELECTION_20260811.md`
+
+問1で確定したFabio本人の公開方法:
+
+- Deep Tradesのsize filterで小さいexecuted ordersを外し、大きな個別約定候補を残す。
+- side filterは買い側／売り側の表示を分けるもので、規模判定そのものではない。
+- 当日のvolumeが多い場合はより大きいfilterを使う。全商品共通の固定contracts thresholdと計算式は公開されていない。
+- Footprint／Delta／CVDは、単一の大口注文ではなくprice levelまたは時間窓の累積participation／pressureを拾う。
+- 小さい表示quantityでも、同じprice levelで消費とreloadが反復すればhidden cumulative size候補になる。
+- DOMの突出quantityは未約定の流動性候補であり、executed large activityと混同しない。
+- VSA／Weis Wave型比較はbar／swing単位の相対participationを拾う。
+- Profile、VWAP等のlocationは観測場所の優先順位であり、大口sizeの認定条件ではない。
+
+検証結果は198行、13,405 bytes、SHA-256
+`3685A2EC6AF8D1DD7A5616FF0052082664426B68C9CB2A8BEDAB2DBB3751410F`。
+引用した公式動画8本は公式70本カタログ内に存在し、missing 0。
+
+問2「候補の確定」、問3「吸収側規模」、問4「継続・消失」は未着手である。
+ユーザーの新しい明示指示があるまで進めない。コード、設定、runtime、完成済み
+Flow Price Response、3段チャート、Hook、Strategy、発注機能は変更していない。

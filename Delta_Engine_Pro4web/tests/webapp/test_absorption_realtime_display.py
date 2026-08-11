@@ -57,6 +57,7 @@ def test_broker_broadcasts_active_and_clear_and_caches_latest_state() -> None:
             _result(),
             window_sec=10,
         )
+        await broker.wait_until_idle(first_ws)
         assert first_sent[-1]["type"] == "ABSORPTION_STATE"
         assert first_sent[-1]["payload"] == {
             "active": True,
@@ -75,6 +76,7 @@ def test_broker_broadcasts_active_and_clear_and_caches_latest_state() -> None:
 
         clear_time = _utc("2026-07-31T02:23:11")
         await broker.on_absorption_state(clear_time, None, window_sec=10)
+        await broker.wait_until_idle()
         assert first_sent[-1]["payload"]["active"] is False
         assert first_sent[-1]["payload"]["classification"] is None
         assert first_sent[-1]["payload"]["expires_at"] is None

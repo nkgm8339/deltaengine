@@ -35,6 +35,8 @@ normalizer:
 queue:
   default_depth: 10000
   overflow_policy: drop_oldest_log
+  pipeline_chunk_max_events: 32
+  pipeline_chunk_max_wall_ms: 50
 
 database:
   parquet_path: data_05M/parquet
@@ -85,6 +87,8 @@ webapp:
   live_dom_depth_levels: 50
   book_update_interval_ms: 100
   book_stale_after_ms: 2000
+  market_heartbeat_interval_ms: 1000
+  market_heartbeat_timeout_ms: 3000
   tape_batch_interval_ms: 100
   tape_max_trades_per_message: 250
   tape_pending_capacity: 10000

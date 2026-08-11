@@ -9,6 +9,7 @@ use an injected no-op sleep so tests are fast and deterministic.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src.acquisition.connector import ConnectionState, ExchangeConnector
@@ -57,6 +58,32 @@ def test_queue_overflow_drops_oldest_and_counts() -> None:
     assert q.overflow_count == 1
 
 
+def test_queue_stats_expose_capacity_and_dropped_event_kind() -> None:
+    async def scenario():
+        q = BoundedEventQueue(maxsize=2, name="receiver_out")
+        await q.put({"stream": "x", "data": {"e": "aggTrade"}})
+        await q.put({"stream": "x", "data": {"e": "depthUpdate"}})
+        await q.put({"stream": "x", "data": {"e": "forceOrder"}})
+        items = _drain(q)
+        return q.stats_snapshot(), items
+
+    stats, items = asyncio.run(scenario())
+    assert [item["data"]["e"] for item in items] == [
+        "depthUpdate",
+        "forceOrder",
+    ]
+    assert stats == {
+        "name": "receiver_out",
+        "maxsize": 2,
+        "qsize": 0,
+        "high_watermark": 2,
+        "put_count": 3,
+        "get_count": 2,
+        "overflow_count": 1,
+        "dropped_by_kind": {"trade": 1},
+    }
+
+
 def test_queue_fifo_order() -> None:
     async def scenario():
         q = BoundedEventQueue(maxsize=10)
@@ -87,6 +114,103 @@ def test_connector_reconnects_then_delivers_in_order() -> None:
     assert ConnectionState.RECONNECTING in conn.state_history
     assert ConnectionState.SUBSCRIBED in conn.state_history
     assert conn.state is ConnectionState.DISCONNECTED
+
+
+def test_connector_records_raw_frame_observability_before_queue_put() -> None:
+    async def scenario():
+        wall = datetime(2026, 8, 3, tzinfo=timezone.utc)
+        monotonic = 100.25
+        observed = {}
+
+        class ObservingOut:
+            async def put(self, message):
+                observed["message"] = message
+                observed["wall"] = conn.last_message_received_at
+                observed["monotonic"] = conn.last_message_received_monotonic
+
+        conn = ExchangeConnector(
+            url="wss://x",
+            subscribe_streams=["s"],
+            out_queue=ObservingOut(),
+            connect=FlakyConnect(fail_times=0, messages=[{"t": 1}]),
+            reconnect=False,
+            treat_stream_end_as_disconnect=False,
+            wall_clock=lambda: wall,
+            monotonic_clock=lambda: monotonic,
+        )
+        await conn.run()
+        return conn, observed
+
+    conn, observed = asyncio.run(scenario())
+    assert observed == {
+        "message": {"t": 1},
+        "wall": datetime(2026, 8, 3, tzinfo=timezone.utc),
+        "monotonic": 100.25,
+    }
+    assert conn.messages_out == 1
+
+
+def test_connector_queue_wait_does_not_shift_receive_timestamp() -> None:
+    async def scenario():
+        wall = [datetime(2026, 8, 3, tzinfo=timezone.utc)]
+        monotonic = [10.0]
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        class BlockingOut:
+            async def put(self, _message):
+                entered.set()
+                await release.wait()
+
+        conn = ExchangeConnector(
+            url="wss://x",
+            subscribe_streams=["s"],
+            out_queue=BlockingOut(),
+            connect=FlakyConnect(fail_times=0, messages=[{"t": 1}]),
+            reconnect=False,
+            treat_stream_end_as_disconnect=False,
+            wall_clock=lambda: wall[0],
+            monotonic_clock=lambda: monotonic[0],
+        )
+        task = asyncio.create_task(conn.run())
+        await entered.wait()
+        received_wall = conn.last_message_received_at
+        received_monotonic = conn.last_message_received_monotonic
+        wall[0] += timedelta(seconds=30)
+        monotonic[0] += 30.0
+        release.set()
+        await task
+        return conn, received_wall, received_monotonic
+
+    conn, received_wall, received_monotonic = asyncio.run(scenario())
+    assert received_wall == datetime(2026, 8, 3, tzinfo=timezone.utc)
+    assert received_monotonic == 10.0
+    assert conn.last_message_received_at == received_wall
+    assert conn.last_message_received_monotonic == received_monotonic
+
+
+def test_connector_message_age_uses_only_monotonic_clock() -> None:
+    async def scenario():
+        wall = [datetime(2026, 8, 3, tzinfo=timezone.utc)]
+        monotonic = [50.0]
+        out = BoundedEventQueue(maxsize=10)
+        conn = ExchangeConnector(
+            url="wss://x",
+            subscribe_streams=["s"],
+            out_queue=out,
+            connect=FlakyConnect(fail_times=0, messages=[{"t": 1}]),
+            reconnect=False,
+            treat_stream_end_as_disconnect=False,
+            wall_clock=lambda: wall[0],
+            monotonic_clock=lambda: monotonic[0],
+        )
+        assert conn.message_age_ms() is None
+        await conn.run()
+        wall[0] += timedelta(hours=5)
+        monotonic[0] += 0.375
+        return conn.message_age_ms()
+
+    assert asyncio.run(scenario()) == 375
 
 
 def test_connector_gives_up_after_max_retries() -> None:

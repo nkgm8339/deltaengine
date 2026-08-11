@@ -59,6 +59,20 @@ def test_book_and_tape_messages_are_wired_without_using_latest_tick_as_tape() ->
     assert "TAPE_UI" not in tick_body
 
 
+def test_dom_tape_link_keeps_highlighting_without_shipping_debug_overlay() -> None:
+    html = HTML_PATH.read_text(encoding="utf-8")
+    tape = TAPE_PATH.read_text(encoding="utf-8")
+
+    assert "function refreshDomPriceLink()" in html
+    assert "if(!TAPE_UI||S.domLinkedPrice==null)return;" in html
+    assert "if(!Number.isFinite(price)||price<=0)return;" in html
+    assert "TAPE_UI.linkedKeys.add(trade.key)" in html
+    assert "domTapeDiagnostic" not in html
+    assert "domtapediagnostic" not in html
+    assert "[DOM->T&S]" not in html
+    assert "[DOM->T&S]" not in tape
+
+
 def test_canvas_uses_one_geometry_for_footprint_and_live_dom_dirty_layer() -> None:
     source = CANVAS_PATH.read_text(encoding="utf-8")
 

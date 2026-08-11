@@ -45,7 +45,12 @@ def _base_dict() -> dict:
             "dedup_window": 10000,
             "reorder_tolerance_ms": 500,
         },
-        "queue": {"default_depth": 10000, "overflow_policy": "drop_oldest_log"},
+        "queue": {
+            "default_depth": 10000,
+            "overflow_policy": "drop_oldest_log",
+            "pipeline_chunk_max_events": 32,
+            "pipeline_chunk_max_wall_ms": 50,
+        },
         "database": {
             "parquet_path": "data/parquet",
             "duckdb_path": "data/duckdb/orderflow.duckdb",
@@ -107,6 +112,8 @@ def test_shipped_config_is_valid() -> None:
     ]
     assert config.database.flush_interval_sec == 5
     assert config.normalizer.live_reorder_tolerance_ms == 0
+    assert config.queue.pipeline_chunk_max_events == 32
+    assert config.queue.pipeline_chunk_max_wall_ms == 50
     assert config.webapp.tick_push_interval_ms == 50
     assert config.webapp.bar_update_interval_sec == pytest.approx(0.2)
     assert config.webapp.live_dom_depth_levels == 50
@@ -156,6 +163,8 @@ def test_optional_sections_default(tmp_path: Path) -> None:
     config = load_config(_write(tmp_path, data))
     assert config.signal.confidence_threshold == pytest.approx(0.6)
     assert config.queue.overflow_policy == "drop_oldest_log"
+    assert config.queue.pipeline_chunk_max_events == 32
+    assert config.queue.pipeline_chunk_max_wall_ms == 50
     assert config.calibration.cvd_slope_ref is None
     assert config.flow_response.enabled is True
     assert config.flow_response.baseline_window_sec == 1800
@@ -250,6 +259,22 @@ def test_bool_not_accepted_as_int(tmp_path: Path) -> None:
 def test_negative_flush_interval_rejected(tmp_path: Path) -> None:
     data = _base_dict()
     data["database"]["flush_interval_sec"] = 0
+    with pytest.raises(ConfigValidationError):
+        load_config(_write(tmp_path, data))
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["pipeline_chunk_max_events", "pipeline_chunk_max_wall_ms"],
+)
+@pytest.mark.parametrize("value", [0, -1, True])
+def test_pipeline_chunk_budget_must_be_positive_integer(
+    tmp_path: Path,
+    key: str,
+    value: object,
+) -> None:
+    data = _base_dict()
+    data["queue"][key] = value
     with pytest.raises(ConfigValidationError):
         load_config(_write(tmp_path, data))
 

@@ -53,6 +53,7 @@ from webapp.book_projection import (
 from webapp.tape import TapeBatcher
 from webapp.oi_poller import oi_polling_loop
 from webapp.hfm_quote_tailer import hfm_quote_tail_loop
+from webapp.spot_price_stream import spot_price_stream_loop
 from webapp.heatmap_replay_task import ensure_replay_source, heatmap_replay_loop
 from webapp.history import (
     query_combined_context_events,
@@ -98,6 +99,74 @@ def _build_broker(config, persistent_writer=None) -> PushBroker:
         live_dom_depth_levels=w.live_dom_depth_levels,
         persistent_writer=persistent_writer,
     )
+
+
+def _build_market_heartbeat_payload(
+    pipeline: Any,
+    pipeline_task: Any,
+    timeout_ms: int,
+) -> dict[str, Any]:
+    connector = getattr(pipeline, "_connector", None)
+    state_value = "DISCONNECTED"
+    upstream_age_ms = None
+    upstream_last_message_time = None
+    if connector is not None:
+        raw_state = getattr(connector, "state", None)
+        candidate_state = getattr(raw_state, "value", raw_state)
+        if isinstance(candidate_state, str) and candidate_state:
+            state_value = candidate_state
+        age_reader = getattr(connector, "message_age_ms", None)
+        if callable(age_reader):
+            try:
+                candidate_age = age_reader()
+            except Exception:
+                candidate_age = None
+            if (
+                isinstance(candidate_age, (int, float))
+                and not isinstance(candidate_age, bool)
+                and candidate_age >= 0
+            ):
+                upstream_age_ms = int(candidate_age)
+        candidate_time = getattr(connector, "last_message_received_at", None)
+        if isinstance(candidate_time, datetime):
+            upstream_last_message_time = candidate_time.astimezone(
+                timezone.utc
+            ).isoformat()
+
+    pipeline_alive = not pipeline_task.done()
+    upstream_fresh = bool(
+        pipeline_alive
+        and state_value == "SUBSCRIBED"
+        and upstream_age_ms is not None
+        and upstream_age_ms <= timeout_ms
+    )
+    return {
+        "mode": "live",
+        "upstream_state": state_value,
+        "upstream_last_message_time": upstream_last_message_time,
+        "upstream_age_ms": upstream_age_ms,
+        "upstream_fresh": upstream_fresh,
+        "pipeline_alive": pipeline_alive,
+    }
+
+
+async def _market_heartbeat_loop(
+    broker: PushBroker,
+    pipeline: Any,
+    pipeline_task: Any,
+    *,
+    interval_ms: int,
+    timeout_ms: int,
+) -> None:
+    while True:
+        published_at = datetime.now(timezone.utc)
+        payload = _build_market_heartbeat_payload(
+            pipeline,
+            pipeline_task,
+            timeout_ms,
+        )
+        await broker.send_market_heartbeat(published_at, payload)
+        await asyncio.sleep(interval_ms / 1000.0)
 
 
 def _chart_session_vwap(pipeline: Any) -> tuple[Decimal | None, str | None]:
@@ -396,6 +465,20 @@ async def lifespan(app: FastAPI):
         pipeline_task = asyncio.create_task(
             pipeline.run_async(raw_recorder=_raw_tap)
         )
+    market_heartbeat_task = (
+        None
+        if config.replay.enabled
+        else asyncio.create_task(
+            _market_heartbeat_loop(
+                broker,
+                pipeline,
+                pipeline_task,
+                interval_ms=config.webapp.market_heartbeat_interval_ms,
+                timeout_ms=config.webapp.market_heartbeat_timeout_ms,
+            )
+        )
+    )
+    app.state.market_heartbeat_task = market_heartbeat_task
     tape_task = asyncio.create_task(tape_batcher.run())
 
     app.state.heatmap_replay_failed = False
@@ -465,6 +548,26 @@ async def lifespan(app: FastAPI):
     hfm_task = None
     if not config.replay.enabled:
         hfm_task = asyncio.create_task(hfm_quote_tail_loop(on_hfm_quote))
+
+    spot_reference_enabled = (
+        os.getenv("BINANCE_SPOT_REFERENCE_ENABLED", "false").lower() == "true"
+    )
+    spot_stream_task = None
+    spot_push_task = None
+    if spot_reference_enabled and not config.replay.enabled:
+        spot_url = os.getenv("BINANCE_SPOT_STREAM_URL", "").strip() or None
+        spot_push_pump = LatestValuePump(
+            broker.on_spot_price,
+            config.webapp.tick_push_interval_ms / 1000.0,
+        )
+        spot_stream_task = asyncio.create_task(
+            spot_price_stream_loop(
+                spot_push_pump.publish,
+                config.market.symbol,
+                url=spot_url,
+            )
+        )
+        spot_push_task = asyncio.create_task(spot_push_pump.run())
 
     async def _stats_loop():
         while True:
@@ -617,6 +720,8 @@ async def lifespan(app: FastAPI):
     tasks = [pipeline_task, stats_task]
     if market_push_task is not None:
         tasks.append(market_push_task)
+    if market_heartbeat_task is not None:
+        tasks.append(market_heartbeat_task)
     if book_projection_task is not None:
         tasks.append(book_projection_task)
     if heatmap_replay_task is not None:
@@ -626,6 +731,10 @@ async def lifespan(app: FastAPI):
         tasks.append(oi_task)
     if hfm_task is not None:
         tasks.append(hfm_task)
+    if spot_stream_task is not None:
+        tasks.append(spot_stream_task)
+    if spot_push_task is not None:
+        tasks.append(spot_push_task)
     if health_task is not None:
         tasks.append(health_task)
     app.state.tasks = tasks
@@ -638,6 +747,8 @@ async def lifespan(app: FastAPI):
         for t in app.state.tasks:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await t
+        with contextlib.suppress(Exception):
+            await broker.close()
         if hook_capture is not None:
             with contextlib.suppress(Exception):
                 await asyncio.to_thread(hook_capture.close)
@@ -678,6 +789,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
             "payload_version": PAYLOAD_VERSION,
             "bar_timeframe": config.market.bar_timeframe,
             "signal_enabled": config.signal.enabled,
+            "market_mode": "replay" if config.replay.enabled else "live",
+            "market_heartbeat_interval_ms": config.webapp.market_heartbeat_interval_ms,
+            "market_heartbeat_timeout_ms": config.webapp.market_heartbeat_timeout_ms,
         },
     })
     await broker.register(ws)
@@ -948,6 +1062,15 @@ async def api_stats(request: Request):
     ab = getattr(pipeline, "absorption_detector", None)
     if ab is not None:
         stats["absorption_events"] = ab.events_detected
+    for attribute, prefix in (
+        ("ws_queue", "ws_queue"),
+        ("receiver_queue", "receiver_queue"),
+    ):
+        queue = getattr(pipeline, attribute, None)
+        snapshot = getattr(queue, "stats_snapshot", None)
+        if callable(snapshot):
+            for key, value in snapshot().items():
+                stats[f"{prefix}_{key}"] = value
     storage = getattr(pipeline, "storage_writer", None)
     if storage is not None:
         stats["storage_queue_pending"] = getattr(storage, "pending", 0)

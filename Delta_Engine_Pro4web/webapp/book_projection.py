@@ -160,8 +160,18 @@ def build_book_projection(
             age_ms=age_ms,
         )
 
-    raw_bids = tuple(snapshot.bids.items())
-    raw_asks = tuple(snapshot.asks.items())
+    cached_bids = getattr(snapshot, "ordered_bids", None)
+    cached_asks = getattr(snapshot, "ordered_asks", None)
+    raw_bids = (
+        tuple(cached_bids)
+        if cached_bids is not None
+        else tuple(sorted(snapshot.bids.items(), key=lambda level: level[0], reverse=True))
+    )
+    raw_asks = (
+        tuple(cached_asks)
+        if cached_asks is not None
+        else tuple(sorted(snapshot.asks.items(), key=lambda level: level[0]))
+    )
     if any(
         not price.is_finite()
         or not quantity.is_finite()
@@ -187,8 +197,8 @@ def build_book_projection(
             age_ms=age_ms,
         )
 
-    bids = tuple(sorted(raw_bids, key=lambda level: level[0], reverse=True))
-    asks = tuple(sorted(raw_asks, key=lambda level: level[0]))
+    bids = raw_bids
+    asks = raw_asks
     best_bid = bids[0][0]
     best_ask = asks[0][0]
     if best_bid == best_ask:

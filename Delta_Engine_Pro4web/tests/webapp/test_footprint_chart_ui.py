@@ -61,6 +61,7 @@ def test_canvas_layers_preserve_footprint_meanings_and_completed_chart_geometry(
     assert 'const BUY = "#19C979"' in source
     assert 'const SELL = "#FF4058"' in source
     assert 'const POC = "#F4C542"' in source
+    assert 'const POC_ROW_FILL = "rgba(244,197,66,.18)"' in source
     assert "bucketLevels" in source
     assert "valueArea" in source
     assert "imbalanceFlags" in source
@@ -71,6 +72,9 @@ def test_canvas_layers_preserve_footprint_meanings_and_completed_chart_geometry(
     assert "OI Δ" in source
     assert "EVENTS" in source
     assert "bar.va.vah" in source and "bar.va.val" in source
+    assert 'ctx.fillText("POC", 4, 15)' in source
+    assert "pocFactText(bar, frame" in source
+    assert "POC GOLD" in source
     assert "bucketLabel(hit.row, this.frame)" in source
     assert "exactValue(hit.level.bid)" in source
     assert "EXCHANGE BAR_TIME" in source
@@ -139,3 +143,30 @@ process.stdout.write(JSON.stringify({buy:flags.get(1002).buy,sell:flags.get(1000
         encoding="utf-8",
     )
     assert json.loads(result.stdout) == {"buy": True, "sell": False}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
+def test_poc_fact_remains_visible_and_reports_when_price_row_is_offscreen() -> None:
+    script = r"""
+const f=require(process.argv[1]);
+const frame={tick:0.1,rows:[{index:1002},{index:1001},{index:1000}]};
+const text={
+  visible:f.pocFactText({va:{poc:1001}},frame),
+  above:f.pocFactText({va:{poc:1005}},frame),
+  below:f.pocFactText({va:{poc:998}},frame),
+  missing:f.pocFactText({va:{poc:null}},frame)
+};
+process.stdout.write(JSON.stringify(text));
+"""
+    result = subprocess.run(
+        [shutil.which("node"), "-e", script, str(JS_PATH)],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert json.loads(result.stdout) == {
+        "visible": "POC 100.1",
+        "above": "POC ↑ 100.5",
+        "below": "POC ↓ 99.8",
+        "missing": "POC —",
+    }
