@@ -331,3 +331,14 @@
 - 未完了: 工程6のmain commit、commit hashを含むcompletion report、工程7 activation。
 - blockerの限定範囲: 工程6 blockerなし。工程7だけ最終Manual Min／Maxまたはactive calibration versionとactivation mode、production backup／migration／enable／30分soakの明示承認待ち。
 - 次の再開位置: 工程6変更を明示pathだけstageしてcommitし、そのhashをcompletion reportへ記録する。
+
+## 2026-08-12 06:51:47 JST 工程6完了checkpoint
+
+- 承認範囲: userの`GO`で工程6まで完了。工程7 production activationは未実施。
+- 完了済み: 工程6 source／test／tool／machine evidenceをcommit `2ad12d057311ffe0a079f08708d85a7481298a08`へ固定した。完了報告は`BIG_TRADES_V2_PHASE6_EVIDENCE_20260812/PHASE6_COMPLETION_REPORT.md`。
+- 未完了: 工程7のproduction parameter確定、backup／restore実測、migration、enable、30分soak、production 3件照合。
+- 変更file: 工程6main commitは42 file。完了reportと本checkpoint最終追記だけを別docs commitへ固定する。
+- 検証結果: 296／296 contract、target 497／497、repository 1,129 pass／既知failure 1／skip 1、新規failure 0。全performance budget、120秒soak、restart、backfill dry-run、3 lineage traceはPASS。
+- blockerの限定範囲: 工程6 blocker 0。工程7だけproduction Manual Min／Maxまたはactive calibration versionとactivation modeの明示値待ち。
+- production状態: `big_trades.enabled=false`、production mutation 0、container restart 0。
+- 次の再開位置: userが工程7のproduction値とactivationを明示承認した場合、§66.1のbranch／HEAD／restore tag／dirty state再確認から開始する。
