@@ -604,6 +604,9 @@ def _ordered_book_levels(
     side: str,
     limit: int,
 ) -> tuple[tuple[Decimal, Decimal], ...]:
+    bounded = getattr(snapshot, f"best_{side}s", None)
+    if callable(bounded):
+        return tuple(bounded(limit))
     cached = getattr(snapshot, f"ordered_{side}s", None)
     if cached is not None:
         return tuple(cached[:limit])

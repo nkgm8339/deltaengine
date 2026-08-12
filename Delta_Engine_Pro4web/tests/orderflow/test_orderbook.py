@@ -199,6 +199,8 @@ def test_ob_snapshot_is_reused_until_an_accepted_state_change() -> None:
         (D("100000.00"), D("0.800")),
         (D("100000.50"), D("2.400")),
     )
+    assert first.best_bids(1) == first.ordered_bids[:1]
+    assert first.best_asks(1) == first.ordered_asks[:1]
 
     result = mgr.apply(_diff(101, 105, bids=[("99999.50", "9.999")]))
     assert result.applied is True
@@ -210,6 +212,42 @@ def test_ob_snapshot_is_reused_until_an_accepted_state_change() -> None:
     gap = mgr.apply(_diff(200, 205))
     assert gap.gap_detected is True
     assert mgr.snapshot() is None
+
+
+def test_ob_bounded_best_levels_are_exact_and_do_not_sort_the_full_book() -> None:
+    bids = {
+        D("1000") - D(index): D(index + 1)
+        for index in range(75)
+    }
+    asks = {
+        D("1001") + D(index): D(index + 1)
+        for index in range(75)
+    }
+    snap = OrderBookSnapshot("BTCUSDT", 1, bids, asks)
+    expected_bids = tuple(sorted(bids.items(), key=lambda row: row[0], reverse=True))
+    expected_asks = tuple(sorted(asks.items(), key=lambda row: row[0]))
+
+    assert snap.best_bids(50) == expected_bids[:50]
+    assert snap.best_asks(50) == expected_asks[:50]
+    assert "ordered_bids" not in snap.__dict__
+    assert "ordered_asks" not in snap.__dict__
+    assert snap.top_bids is snap.top_bids
+    assert snap.top_asks is snap.top_asks
+
+    assert snap.best_bids(51) == expected_bids[:51]
+    assert snap.best_asks(51) == expected_asks[:51]
+    assert "ordered_bids" in snap.__dict__
+    assert "ordered_asks" in snap.__dict__
+
+
+@pytest.mark.parametrize("method_name", ("best_bids", "best_asks"))
+def test_ob_bounded_best_levels_reject_non_positive_limit(method_name: str) -> None:
+    snap = OrderBookSnapshot("BTCUSDT", 1, {D("100"): D("1")}, {})
+    method = getattr(snap, method_name)
+
+    for limit in (0, -1):
+        with pytest.raises(ValueError, match="limit must be >= 1"):
+            method(limit)
 
 
 # ============================ query helpers ===================================

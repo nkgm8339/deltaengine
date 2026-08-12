@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from itertools import chain
 from typing import Any, Awaitable, Callable
 
 logger = logging.getLogger("webapp.book_projection")
@@ -160,24 +161,12 @@ def build_book_projection(
             age_ms=age_ms,
         )
 
-    cached_bids = getattr(snapshot, "ordered_bids", None)
-    cached_asks = getattr(snapshot, "ordered_asks", None)
-    raw_bids = (
-        tuple(cached_bids)
-        if cached_bids is not None
-        else tuple(sorted(snapshot.bids.items(), key=lambda level: level[0], reverse=True))
-    )
-    raw_asks = (
-        tuple(cached_asks)
-        if cached_asks is not None
-        else tuple(sorted(snapshot.asks.items(), key=lambda level: level[0]))
-    )
     if any(
         not price.is_finite()
         or not quantity.is_finite()
         or price <= 0
         or quantity <= 0
-        for price, quantity in raw_bids + raw_asks
+        for price, quantity in chain(snapshot.bids.items(), snapshot.asks.items())
     ):
         return _closed_projection(
             projection_time=projected_at,
@@ -186,6 +175,34 @@ def build_book_projection(
             sync_state="INVALID",
             depth_levels=depth_levels,
             age_ms=age_ms,
+        )
+
+    bounded_bids = getattr(snapshot, "best_bids", None)
+    bounded_asks = getattr(snapshot, "best_asks", None)
+    if callable(bounded_bids):
+        raw_bids = tuple(bounded_bids(depth_levels))
+    else:
+        cached_bids = getattr(snapshot, "ordered_bids", None)
+        raw_bids = (
+            tuple(cached_bids[:depth_levels])
+            if cached_bids is not None
+            else tuple(sorted(
+                snapshot.bids.items(),
+                key=lambda level: level[0],
+                reverse=True,
+            )[:depth_levels])
+        )
+    if callable(bounded_asks):
+        raw_asks = tuple(bounded_asks(depth_levels))
+    else:
+        cached_asks = getattr(snapshot, "ordered_asks", None)
+        raw_asks = (
+            tuple(cached_asks[:depth_levels])
+            if cached_asks is not None
+            else tuple(sorted(
+                snapshot.asks.items(),
+                key=lambda level: level[0],
+            )[:depth_levels])
         )
     if not raw_bids or not raw_asks:
         return _closed_projection(

@@ -89,6 +89,20 @@ def test_dom_feature_cache_rejects_invalid_stale_crossed_and_future_data():
         )
 
 
+def test_dom_bounded_levels_preserve_positive_filtering_and_fill_depth():
+    cache = DomFeatureCache(depth_levels=2)
+    result = _frame(
+        cache,
+        1,
+        [("102", "0"), ("101", "1"), ("100", "2")],
+        [("103", "0"), ("104", "1"), ("105", "2")],
+    )
+
+    assert result is not None
+    assert result.current.bids == ((D("101"), D("1")), (D("100"), D("2")))
+    assert result.current.asks == ((D("104"), D("1")), (D("105"), D("2")))
+
+
 def test_dom_wall_pull_spoof_suspect_and_tracking_candidates_cover_a01_a04_a19_a24():
     cache = DomFeatureCache(depth_levels=10)
     wall = DomWallDetector()

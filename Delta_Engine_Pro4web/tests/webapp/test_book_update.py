@@ -12,7 +12,12 @@ from uuid import UUID
 
 import pytest
 
-from src.orderflow.orderbook import BookLevel, OrderBookStateManager, OrderBookUpdate
+from src.orderflow.orderbook import (
+    BookLevel,
+    OrderBookSnapshot,
+    OrderBookStateManager,
+    OrderBookUpdate,
+)
 from webapp.book_projection import (
     BookProjection,
     LatestBookProjectionPump,
@@ -198,6 +203,40 @@ def test_projection_is_sorted_and_bounded_to_top_50_levels_per_side() -> None:
     assert projection.bids[-1][0] == D("95.1")
     assert projection.asks[0][0] == D("100.1")
     assert projection.asks[-1][0] == D("105.0")
+
+
+def test_projection_rejects_invalid_level_beyond_the_bounded_window() -> None:
+    bids = {
+        D("100") - D(index) / D("10"): D("1")
+        for index in range(60)
+    }
+    bids[D("1")] = D("-1")
+    asks = {
+        D("100.1") + D(index) / D("10"): D("1")
+        for index in range(60)
+    }
+    snapshot = OrderBookSnapshot(
+        symbol="BTCUSDT",
+        last_update_id=11,
+        bids=bids,
+        asks=asks,
+        event_time=T0,
+    )
+    book_state = MagicMock()
+    book_state.snapshot.return_value = snapshot
+    book_state.last_event_time = T0
+    book_state.age_ms.return_value = 0
+    book_state.is_synchronized = True
+
+    projection = build_book_projection(
+        book_state,
+        depth_levels=50,
+        now_monotonic=2.0,
+        projection_time=T0,
+    )
+
+    assert projection.sync_state == "INVALID"
+    assert projection.bids == projection.asks == ()
 
 
 def test_latest_pump_is_100ms_read_only_and_suppresses_unchanged_state() -> None:

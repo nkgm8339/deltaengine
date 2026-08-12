@@ -36,6 +36,18 @@ def _snapshot_levels(
     reverse: bool,
     limit: int,
 ) -> tuple[Level, ...]:
+    bounded = getattr(snapshot, f"best_{side}", None)
+    if callable(bounded):
+        selected = tuple(
+            (decimal_value(price, "level price"), decimal_value(qty, "level quantity"))
+            for price, qty in bounded(limit)
+        )
+        if all(price > ZERO and qty > ZERO for price, qty in selected):
+            return selected
+        # Preserve the original positive-level filtering semantics. A non-positive
+        # level inside the bounded window may hide a valid deeper level, so the
+        # full mapping is consulted only for this invalid-data fallback.
+        return _levels(getattr(snapshot, side), reverse=reverse, limit=limit)
     cached = getattr(snapshot, f"ordered_{side}", None)
     if cached is None:
         return _levels(getattr(snapshot, side), reverse=reverse, limit=limit)

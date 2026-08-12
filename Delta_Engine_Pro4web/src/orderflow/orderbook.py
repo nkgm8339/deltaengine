@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from functools import cached_property
+from heapq import nlargest, nsmallest
 from typing import Callable, Optional
 
 logger = logging.getLogger("orderflow.orderbook")
@@ -31,6 +32,7 @@ logger = logging.getLogger("orderflow.orderbook")
 ERROR_OUT_OF_ORDER = "E3004"   # reused per decision 1
 
 _ZERO = Decimal(0)
+_TOP_LEVEL_CACHE_SIZE = 50
 
 
 # ---------------------------------------------------------------------------
@@ -92,6 +94,46 @@ class OrderBookSnapshot:
     def ordered_asks(self) -> tuple[tuple[Decimal, Decimal], ...]:
         """All ask levels in best-to-worst order, computed once per snapshot."""
         return tuple(sorted(self.asks.items(), key=lambda row: row[0]))
+
+    @cached_property
+    def top_bids(self) -> tuple[tuple[Decimal, Decimal], ...]:
+        """Bounded best-bid cache for live consumers using at most 50 levels."""
+        ordered = self.__dict__.get("ordered_bids")
+        if ordered is not None:
+            return ordered[:_TOP_LEVEL_CACHE_SIZE]
+        return tuple(nlargest(
+            _TOP_LEVEL_CACHE_SIZE,
+            self.bids.items(),
+            key=lambda row: row[0],
+        ))
+
+    @cached_property
+    def top_asks(self) -> tuple[tuple[Decimal, Decimal], ...]:
+        """Bounded best-ask cache for live consumers using at most 50 levels."""
+        ordered = self.__dict__.get("ordered_asks")
+        if ordered is not None:
+            return ordered[:_TOP_LEVEL_CACHE_SIZE]
+        return tuple(nsmallest(
+            _TOP_LEVEL_CACHE_SIZE,
+            self.asks.items(),
+            key=lambda row: row[0],
+        ))
+
+    def best_bids(self, limit: int) -> tuple[tuple[Decimal, Decimal], ...]:
+        """Return exact best-first bids without sorting the full book for small views."""
+        if limit < 1:
+            raise ValueError("limit must be >= 1")
+        if limit <= _TOP_LEVEL_CACHE_SIZE:
+            return self.top_bids[:limit]
+        return self.ordered_bids[:limit]
+
+    def best_asks(self, limit: int) -> tuple[tuple[Decimal, Decimal], ...]:
+        """Return exact best-first asks without sorting the full book for small views."""
+        if limit < 1:
+            raise ValueError("limit must be >= 1")
+        if limit <= _TOP_LEVEL_CACHE_SIZE:
+            return self.top_asks[:limit]
+        return self.ordered_asks[:limit]
 
 
 @dataclass(frozen=True)
