@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "incident_id": "receiver-overflow-20260812-current-container",
+  "symbol": "BTCUSDT",
+  "expected_trade_count": 8676,
+  "excluded": {
+    "depth_messages": 412,
+    "older_container_trade_messages": 50,
+    "older_container_depth_messages": 1
+  },
+  "ranges": [
+    {"start_id": 7967218533, "end_id": 7967220148},
+    {"start_id": 7967220164, "end_id": 7967220769},
+    {"start_id": 7967220899, "end_id": 7967220967},
+    {"start_id": 7967221160, "end_id": 7967221200},
+    {"start_id": 7967221355, "end_id": 7967221363},
+    {"start_id": 7967223781, "end_id": 7967223909},
+    {"start_id": 7967223972, "end_id": 7967224141},
+    {"start_id": 7967224556, "end_id": 7967224711},
+    {"start_id": 7967224995, "end_id": 7967225055},
+    {"start_id": 7967229777, "end_id": 7967230833},
+    {"start_id": 7967230862, "end_id": 7967231072},
+    {"start_id": 7967231136, "end_id": 7967231384},
+    {"start_id": 7967231532, "end_id": 7967231758},
+    {"start_id": 7967231790, "end_id": 7967231957},
+    {"start_id": 7967232013, "end_id": 7967232322},
+    {"start_id": 7967232333, "end_id": 7967232544},
+    {"start_id": 7967232546, "end_id": 7967232663},
+    {"start_id": 7967232676, "end_id": 7967232743},
+    {"start_id": 7967236258, "end_id": 7967236412},
+    {"start_id": 7967236477, "end_id": 7967236580},
+    {"start_id": 7967236771, "end_id": 7967236864},
+    {"start_id": 7967574303, "end_id": 7967575014},
+    {"start_id": 7967575031, "end_id": 7967575598},
+    {"start_id": 7967575648, "end_id": 7967576423},
+    {"start_id": 7967576468, "end_id": 7967576798},
+    {"start_id": 7967576830, "end_id": 7967577178},
+    {"start_id": 7967946815, "end_id": 7967946912},
+    {"start_id": 7967946914, "end_id": 7967946925}
+  ]
+}

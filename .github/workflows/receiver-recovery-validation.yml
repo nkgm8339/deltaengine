@@ -1,0 +1,28 @@
+name: Receiver recovery targeted validation
+
+on:
+  push:
+    branches:
+      - codex/recovery-validation-20260813
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: Delta_Engine_Pro4web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: Delta_Engine_Pro4web/requirements.txt
+      - name: Install declared dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run receiver recovery production-gate tests only
+        run: python -m pytest -q tests/tools/test_recover_receiver_trades.py
