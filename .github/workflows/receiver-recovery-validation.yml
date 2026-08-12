@@ -1,9 +1,7 @@
 name: Receiver recovery targeted validation
 
 on:
-  push:
-    branches:
-      - codex/recovery-validation-20260813
+  workflow_dispatch:
 
 permissions:
   contents: read

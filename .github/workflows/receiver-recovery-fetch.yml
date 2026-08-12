@@ -1,0 +1,49 @@
+name: Receiver recovery archive fetch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/recovery-validation-20260813
+    paths:
+      - .github/workflows/receiver-recovery-fetch.yml
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-stage:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: Delta_Engine_Pro4web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: Delta_Engine_Pro4web/requirements.txt
+      - name: Install declared dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Fetch, verify, and stage the 2026-08-12 receiver gaps
+        run: >-
+          python tools/recover_receiver_trades.py fetch-archive-stage
+          --incident-manifest config/recovery/receiver_trade_gaps_20260812.json
+          --date 2026-08-12
+          --output "${{ runner.temp }}/receiver-trade-stage-20260812"
+          --accept-event-time-surrogate
+      - name: Record stage inventory
+        run: >-
+          python -c "import hashlib,json,pathlib;
+          p=pathlib.Path('${{ runner.temp }}/receiver-trade-stage-20260812');
+          print(json.dumps([{ 'name':f.name,'bytes':f.stat().st_size,'sha256':hashlib.sha256(f.read_bytes()).hexdigest() } for f in sorted(p.iterdir())],indent=2))"
+      - name: Upload immutable recovery stage
+        uses: actions/upload-artifact@v4
+        with:
+          name: receiver-trade-stage-20260812
+          path: ${{ runner.temp }}/receiver-trade-stage-20260812
+          if-no-files-found: error
+          retention-days: 14
