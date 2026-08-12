@@ -27,6 +27,7 @@ from typing import Any, Callable, Iterable, Sequence
 
 import duckdb
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -471,23 +472,20 @@ def _parquet_matches(
     files = _trade_parquet_files(parquet_root, symbol, stage_rows)
     if not files:
         return [], files
-    connection = duckdb.connect()
+    stage_ids = pa.array(
+        [int(row["trade_id"]) for row in stage_rows], type=pa.int64()
+    )
+    rows: list[dict[str, Any]] = []
     try:
-        rows = connection.execute(
-            """
-            SELECT p.event_time, p.trade_time, p.trade_id, p.symbol,
-                   p.price, p.quantity, p.side
-            FROM read_parquet(?) p
-            INNER JOIN read_parquet(?) s ON s.trade_id = p.trade_id
-            WHERE p.symbol = ?
-            """,
-            [[str(path) for path in files], str(stage_file), symbol],
-        ).fetchall()
+        for path in files:
+            table = pq.read_table(path, columns=TRADE_COLUMNS)
+            matching = table.filter(pc.is_in(table["trade_id"], value_set=stage_ids))
+            rows.extend(
+                row for row in matching.to_pylist() if row["symbol"] == symbol
+            )
     except Exception as exc:  # noqa: BLE001
         raise RecoveryError(f"cannot audit Parquet read-only: {exc}") from exc
-    finally:
-        connection.close()
-    return _tuples_to_rows(rows), files
+    return rows, files
 
 
 def _classify_existing(
