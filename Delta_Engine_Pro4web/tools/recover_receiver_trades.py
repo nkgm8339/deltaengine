@@ -9,16 +9,20 @@ acknowledgements; it never controls the production service itself.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import os
 import shutil
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -42,6 +46,7 @@ TRADE_COLUMNS = tuple(field.name for field in TRADES_SCHEMA)
 TRADE_COLUMN_SET = set(TRADE_COLUMNS)
 MAX_BINANCE_PAGE = 500
 DEFAULT_BASE_URL = "https://fapi.binance.com"
+DEFAULT_ARCHIVE_BASE_URL = "https://data.binance.vision/data/futures/um/daily/trades"
 
 
 class RecoveryError(RuntimeError):
@@ -175,6 +180,174 @@ def collect_rest_rows(
     if actual_ids != _expected_ids(spec):
         raise RecoveryError("collected trade IDs do not exactly match incident manifest")
     return collected
+
+
+def verify_archive_checksum(archive_path: Path, checksum_path: Path) -> str:
+    try:
+        fields = checksum_path.read_text(encoding="utf-8").strip().split()
+    except Exception as exc:  # noqa: BLE001
+        raise RecoveryError(f"cannot read archive checksum: {exc}") from exc
+    if not fields or len(fields[0]) != 64:
+        raise RecoveryError("invalid Binance archive checksum file")
+    expected = fields[0].lower()
+    if any(character not in "0123456789abcdef" for character in expected):
+        raise RecoveryError("invalid Binance archive checksum digest")
+    if len(fields) >= 2 and fields[-1].lstrip("*") != archive_path.name:
+        raise RecoveryError("Binance checksum filename does not match archive")
+    actual = sha256_file(archive_path)
+    if actual != expected:
+        raise RecoveryError(
+            f"Binance archive checksum mismatch: expected={expected} actual={actual}"
+        )
+    return actual
+
+
+def read_binance_trade_archive(
+    archive_path: Path, spec: IncidentSpec
+) -> list[dict[str, Any]]:
+    """Stream one official daily trades CSV and retain only configured IDs."""
+
+    selected: list[dict[str, Any]] = []
+    range_index = 0
+    previous_id: int | None = None
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            members = [
+                item for item in archive.infolist()
+                if not item.is_dir() and item.filename.lower().endswith(".csv")
+            ]
+            if len(members) != 1:
+                raise RecoveryError("Binance trade archive must contain exactly one CSV")
+            with archive.open(members[0], "r") as binary:
+                text = io.TextIOWrapper(binary, encoding="utf-8-sig", newline="")
+                for line_number, fields in enumerate(csv.reader(text), start=1):
+                    if not fields:
+                        continue
+                    try:
+                        trade_id = int(fields[0])
+                    except (TypeError, ValueError) as exc:
+                        if line_number == 1:
+                            continue
+                        raise RecoveryError(
+                            f"invalid archive trade ID at CSV line {line_number}"
+                        ) from exc
+                    if len(fields) < 6:
+                        raise RecoveryError(f"short archive row at CSV line {line_number}")
+                    if previous_id is not None and trade_id <= previous_id:
+                        raise RecoveryError(
+                            f"archive trade IDs are not strictly ascending at {trade_id}"
+                        )
+                    previous_id = trade_id
+                    while (
+                        range_index < len(spec.ranges)
+                        and trade_id > spec.ranges[range_index].end_id
+                    ):
+                        range_index += 1
+                    if range_index == len(spec.ranges):
+                        break
+                    current = spec.ranges[range_index]
+                    if trade_id < current.start_id:
+                        continue
+                    maker_text = fields[5].strip().lower()
+                    if maker_text not in {"true", "false"}:
+                        raise RecoveryError(
+                            f"invalid isBuyerMaker at CSV line {line_number}"
+                        )
+                    selected.append(
+                        {
+                            "id": trade_id,
+                            "price": fields[1],
+                            "qty": fields[2],
+                            "quoteQty": fields[3],
+                            "time": int(fields[4]),
+                            "isBuyerMaker": maker_text == "true",
+                        }
+                    )
+    except RecoveryError:
+        raise
+    except (OSError, UnicodeError, zipfile.BadZipFile, ValueError) as exc:
+        raise RecoveryError(f"cannot read Binance trade archive: {exc}") from exc
+    actual_ids = tuple(int(row["id"]) for row in selected)
+    if actual_ids != _expected_ids(spec):
+        raise RecoveryError(
+            f"archive does not exactly cover incident IDs: "
+            f"expected={spec.expected_trade_count} actual={len(actual_ids)}"
+        )
+    return selected
+
+
+def _download_file(
+    url: str,
+    target: Path,
+    *,
+    timeout_seconds: float,
+    max_retries: int,
+) -> None:
+    for attempt in range(max_retries + 1):
+        request = urllib.request.Request(url, headers={"User-Agent": "DeltaEngine-Recovery/1"})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                with target.open("wb") as output:
+                    shutil.copyfileobj(response, output, length=1024 * 1024)
+            return
+        except urllib.error.HTTPError as exc:
+            retryable = exc.code == 429 or 500 <= exc.code < 600
+            target.unlink(missing_ok=True)
+            if not retryable or attempt == max_retries:
+                raise RecoveryError(f"archive download HTTP error {exc.code}: {url}") from exc
+            retry_after = exc.headers.get("Retry-After")
+            time.sleep(float(retry_after) if retry_after else min(60.0, 2.0**attempt))
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            target.unlink(missing_ok=True)
+            if attempt == max_retries:
+                raise RecoveryError(
+                    f"archive download failed: {type(exc).__name__}: {url}"
+                ) from exc
+            time.sleep(min(60.0, 2.0**attempt))
+
+
+def fetch_archive_stage(
+    *,
+    spec: IncidentSpec,
+    archive_date: str,
+    output_dir: Path,
+    accept_event_time_surrogate: bool,
+    archive_base_url: str = DEFAULT_ARCHIVE_BASE_URL,
+    timeout_seconds: float = 60.0,
+    max_retries: int = 3,
+) -> dict[str, Any]:
+    try:
+        parsed_date = datetime.strptime(archive_date, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise RecoveryError("archive date must be YYYY-MM-DD") from exc
+    filename = f"{spec.symbol}-trades-{parsed_date.isoformat()}.zip"
+    archive_url = f"{archive_base_url.rstrip('/')}/{spec.symbol}/{filename}"
+    checksum_url = f"{archive_url}.CHECKSUM"
+    with tempfile.TemporaryDirectory(prefix="receiver-trade-archive-") as temporary:
+        temporary_root = Path(temporary)
+        archive_path = temporary_root / filename
+        checksum_path = temporary_root / f"{filename}.CHECKSUM"
+        _download_file(
+            checksum_url,
+            checksum_path,
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+        )
+        _download_file(
+            archive_url,
+            archive_path,
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+        )
+        archive_sha256 = verify_archive_checksum(archive_path, checksum_path)
+        raw_rows = read_binance_trade_archive(archive_path, spec)
+        return stage_rest_rows(
+            spec=spec,
+            raw_rows=raw_rows,
+            output_dir=output_dir,
+            source=f"BINANCE_PUBLIC_DATA:{archive_url}#sha256={archive_sha256}",
+            accept_event_time_surrogate=accept_event_time_surrogate,
+        )
 
 
 class BinanceHistoricalTradeFetcher:
@@ -851,6 +1024,15 @@ def main() -> int:
     fetch.add_argument("--max-retries", type=int, default=3)
     fetch.add_argument("--accept-event-time-surrogate", action="store_true")
 
+    archive = commands.add_parser("fetch-archive-stage")
+    archive.add_argument("--incident-manifest", type=Path, required=True)
+    archive.add_argument("--date", required=True)
+    archive.add_argument("--output", type=Path, required=True)
+    archive.add_argument("--archive-base-url", default=DEFAULT_ARCHIVE_BASE_URL)
+    archive.add_argument("--timeout-seconds", type=float, default=60.0)
+    archive.add_argument("--max-retries", type=int, default=3)
+    archive.add_argument("--accept-event-time-surrogate", action="store_true")
+
     bundle = commands.add_parser("build-bundle")
     bundle.add_argument("--stage", type=Path, required=True)
     bundle.add_argument("--source-db", type=Path, required=True)
@@ -896,6 +1078,19 @@ def main() -> int:
             output_dir=args.output,
             source="BINANCE_USDM_HISTORICAL_TRADES",
             accept_event_time_surrogate=args.accept_event_time_surrogate,
+        )
+        print(json.dumps(manifest, ensure_ascii=False))
+        return 0
+    if args.command == "fetch-archive-stage":
+        spec = load_incident_spec(args.incident_manifest)
+        manifest = fetch_archive_stage(
+            spec=spec,
+            archive_date=args.date,
+            output_dir=args.output,
+            accept_event_time_surrogate=args.accept_event_time_surrogate,
+            archive_base_url=args.archive_base_url,
+            timeout_seconds=args.timeout_seconds,
+            max_retries=args.max_retries,
         )
         print(json.dumps(manifest, ensure_ascii=False))
         return 0

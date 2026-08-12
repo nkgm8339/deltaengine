@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import zipfile
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -20,7 +22,9 @@ from tools.recover_receiver_trades import (
     canonicalize_rest_rows,
     collect_rest_rows,
     load_incident_spec,
+    read_binance_trade_archive,
     stage_rest_rows,
+    verify_archive_checksum,
 )
 
 
@@ -143,6 +147,31 @@ def test_canonical_mapping_requires_and_records_surrogate_semantics() -> None:
     assert sell["side"] == "SELL"
     assert buy["price"] == Decimal("120000.10")
     assert buy["quantity"] == Decimal("1.25000000")
+
+
+def test_official_archive_checksum_and_exact_range_extraction(tmp_path: Path) -> None:
+    archive_path = tmp_path / "BTCUSDT-trades-2026-08-12.zip"
+    csv_rows = ["id,price,qty,quoteQty,time,isBuyerMaker"]
+    csv_rows.extend(
+        f"{trade_id},120000.10,1.25,150000.125,{EVENT_MS + trade_id},"
+        f"{'true' if trade_id % 2 == 0 else 'false'}"
+        for trade_id in range(8, 15)
+    )
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("BTCUSDT-trades-2026-08-12.csv", "\n".join(csv_rows) + "\n")
+    digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+    checksum_path = tmp_path / f"{archive_path.name}.CHECKSUM"
+    checksum_path.write_text(f"{digest}  {archive_path.name}\n", encoding="utf-8")
+
+    assert verify_archive_checksum(archive_path, checksum_path) == digest
+    rows = read_binance_trade_archive(archive_path, _spec())
+    assert [row["id"] for row in rows] == [10, 11, 12]
+    assert rows[0]["isBuyerMaker"] is True
+    assert rows[1]["isBuyerMaker"] is False
+
+    checksum_path.write_text(f"{'0' * 64}  {archive_path.name}\n", encoding="utf-8")
+    with pytest.raises(RecoveryError, match="checksum mismatch"):
+        verify_archive_checksum(archive_path, checksum_path)
 
 
 def test_bundle_apply_and_repeat_are_idempotent(tmp_path: Path) -> None:
