@@ -1,0 +1,82 @@
+name: CPU clean candidate image
+
+on:
+  push:
+    branches:
+      - codex/cpu-validation-20260812
+    paths:
+      - .github/cpu-candidate/**
+      - .github/workflows/cpu-candidate-build.yml
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/nkgm8339/deltaengine-cpu-candidate:20260813-price-index-v1
+
+jobs:
+  build-verify-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate to GitHub Container Registry
+        run: echo "\${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "\${{ github.actor }}" --password-stdin
+      - name: Build only the clean candidate context
+        run: >-
+          docker build
+          --build-arg CANDIDATE_REVISION=\${GITHUB_SHA}
+          --tag \${IMAGE}
+          --file .github/cpu-candidate/Dockerfile
+          .github/cpu-candidate
+      - name: Verify source files and exact dependency lock
+        run: |
+          cd .github/cpu-candidate/runtime
+          find src webapp -type f -print0 | sort -z | xargs -0 sha256sum > "\${RUNNER_TEMP}/expected-source.sha256"
+          cd -
+          docker run --rm --entrypoint sh \${IMAGE} -lc "find /app/src /app/webapp -type f -print0 | sort -z | xargs -0 sha256sum" | sed 's#  /app/#  #' > "\${RUNNER_TEMP}/image-source.sha256"
+          diff -u "\${RUNNER_TEMP}/expected-source.sha256" "\${RUNNER_TEMP}/image-source.sha256"
+          sort .github/cpu-candidate/runtime/requirements.lock.txt > "\${RUNNER_TEMP}/expected-freeze.txt"
+          docker run --rm --entrypoint pip \${IMAGE} freeze --all | sort > "\${RUNNER_TEMP}/image-freeze.txt"
+          diff -u "\${RUNNER_TEMP}/expected-freeze.txt" "\${RUNNER_TEMP}/image-freeze.txt"
+          docker run --rm --entrypoint python \${IMAGE} -c "import src.orderflow.orderbook; import webapp.main; print('IMPORT_SMOKE_OK')"
+      - name: Run only the four CPU-related tests against candidate runtime
+        run: >-
+          docker run --rm
+          --volume "\${GITHUB_WORKSPACE}/Delta_Engine_Pro4web/tests:/app/tests:ro"
+          --workdir /app
+          --entrypoint python
+          \${IMAGE}
+          -m pytest -q
+          tests/orderflow/test_orderbook.py
+          tests/strategy_engine/test_snapshot_producer.py
+          tests/orderflow/test_stage2b_dom_detectors.py
+          tests/webapp/test_book_update.py
+      - name: Push verified candidate and record immutable digest
+        run: |
+          docker push \${IMAGE}
+          REPO_DIGEST="$(docker image inspect \${IMAGE} --format '{{index .RepoDigests 0}}')"
+          test -n "\${REPO_DIGEST}"
+          {
+            echo "candidate_revision=\${GITHUB_SHA}"
+            echo "candidate_tag=\${IMAGE}"
+            echo "candidate_repo_digest=\${REPO_DIGEST}"
+            echo "production_base_image=sha256:a27e727ebb5b8648ccd5dc1ebaf9f0543c3e9a9f2a61b24519d4df51c2dc51c1"
+            echo "python_base=python:3.12-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36"
+            echo "cpu_validation_run=31605823961"
+            echo "big_trades_activation=disabled"
+          } | tee "\${RUNNER_TEMP}/candidate-manifest.txt"
+      - name: Upload candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-clean-candidate-evidence
+          path: |
+            \${{ runner.temp }}/candidate-manifest.txt
+            \${{ runner.temp }}/expected-source.sha256
+            \${{ runner.temp }}/image-source.sha256
+            \${{ runner.temp }}/expected-freeze.txt
+            \${{ runner.temp }}/image-freeze.txt
+          if-no-files-found: warn
+          retention-days: 14

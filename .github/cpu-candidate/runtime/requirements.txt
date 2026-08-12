@@ -1,0 +1,25 @@
+# Runtime dependencies (kept minimal per implementation instruction §7)
+# PyYAML: parse the YAML configuration format (YAMLReference_v3.1).
+PyYAML>=6.0
+# pyarrow: canonical Parquet storage (ParquetSchema_v3.1 — Apache Parquet, Snappy).
+pyarrow>=14.0
+# duckdb: analytical database (DuckDBDDL_v3.1).
+duckdb>=1.0
+# websockets: Phase6 real WebSocket transport to Binance Futures (WebSocket_v3.2).
+# Auto ping/pong handling; the ExchangeConnector wraps it as a thin ConnectFn adapter.
+websockets>=12.0
+# Explicit CA bundle for public venue TLS on Windows hosts without an OpenSSL
+# default CA file (certificate verification remains enabled).
+certifi>=2024.2.2
+
+# aiohttp: HTTP client for REST depth snapshot (binance_rest.py).
+aiohttp>=3.9
+
+# Test dependency
+pytest>=8.0
+# httpx: FastAPI TestClient (tests/webapp/test_api.py) が要求
+httpx>=0.27
+
+# WebApp layer
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0

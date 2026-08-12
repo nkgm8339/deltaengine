@@ -1,9 +1,7 @@
 name: CPU bounded-book validation
 
 on:
-  push:
-    branches:
-      - codex/cpu-validation-20260812
+  workflow_dispatch:
 
 permissions:
   contents: read
