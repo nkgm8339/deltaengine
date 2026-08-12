@@ -670,17 +670,29 @@ def apply_merge_bundle(
         raise RecoveryError(f"DuckDB WAL exists; maintenance gate failed: {wal_path}")
     if backup.exists():
         raise RecoveryError(f"backup directory already exists: {backup}")
-    backup.mkdir(parents=True)
-    db_backup = backup / db_path.name
-    shutil.copy2(db_path, db_backup)
-    if sha256_file(db_path) != sha256_file(db_backup):
-        raise RecoveryError("DuckDB backup verification failed")
 
     published_now: list[Path] = []
     already_published: list[Path] = []
     connection: duckdb.DuckDBPyConnection | None = None
+    transaction_started = False
     committed = False
     try:
+        try:
+            connection = duckdb.connect(str(db_path))
+        except Exception as exc:  # noqa: BLE001
+            raise RecoveryError(
+                f"cannot acquire maintenance DuckDB lock: {exc}"
+            ) from exc
+        tables = {row[0] for row in connection.execute("SHOW TABLES").fetchall()}
+        if "trades" not in tables:
+            raise RecoveryError("DuckDB has no trades table")
+
+        backup.mkdir(parents=True)
+        db_backup = backup / db_path.name
+        shutil.copy2(db_path, db_backup)
+        if sha256_file(db_path) != sha256_file(db_backup):
+            raise RecoveryError("DuckDB backup verification failed")
+
         for item in manifest["files"]:
             if item["role"] != "PARQUET_PUBLISH":
                 continue
@@ -706,8 +718,8 @@ def apply_merge_bundle(
             if len(inserts) != 1:
                 raise RecoveryError("merge bundle has multiple DuckDB insert files")
             insert_path = bundle_dir.resolve() / inserts[0]["path"]
-            connection = duckdb.connect(str(db_path))
             connection.execute("BEGIN TRANSACTION")
+            transaction_started = True
             conflict_count = int(
                 connection.execute(
                     """
@@ -763,11 +775,12 @@ def apply_merge_bundle(
             if remaining:
                 raise RecoveryError(f"DuckDB apply verification missing={remaining}")
             connection.execute("COMMIT")
+            transaction_started = False
             committed = True
-            connection.close()
-            connection = None
         else:
             committed = True
+        connection.close()
+        connection = None
 
         receipt = {
             "artifact_type": "RECEIVER_TRADE_RECOVERY_APPLY_RECEIPT",
@@ -788,7 +801,7 @@ def apply_merge_bundle(
     except Exception:
         if connection is not None:
             try:
-                if not committed:
+                if transaction_started and not committed:
                     connection.execute("ROLLBACK")
             finally:
                 connection.close()
