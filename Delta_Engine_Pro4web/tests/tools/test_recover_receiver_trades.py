@@ -194,7 +194,7 @@ def test_bundle_apply_and_repeat_are_idempotent(tmp_path: Path) -> None:
     finally:
         connection.close()
     files = list(parquet_root.rglob("*.parquet"))
-    table = pq.read_table(files, schema=TRADES_SCHEMA)
+    table = pa.concat_tables([pq.read_table(path, schema=TRADES_SCHEMA) for path in files])
     assert sorted(table.column("trade_id").to_pylist()) == [10, 11, 12]
 
 

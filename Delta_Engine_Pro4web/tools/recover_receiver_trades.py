@@ -478,7 +478,7 @@ def _parquet_matches(
     rows: list[dict[str, Any]] = []
     try:
         for path in files:
-            table = pq.read_table(path, columns=TRADE_COLUMNS)
+            table = pq.read_table(path, columns=list(TRADE_COLUMNS))
             matching = table.filter(pc.is_in(table["trade_id"], value_set=stage_ids))
             rows.extend(
                 row for row in matching.to_pylist() if row["symbol"] == symbol
