@@ -34,7 +34,10 @@ jobs:
       - name: Compare legacy and bounded selection
         env:
           PYTHONPATH: .
-        run: python tools/cpu_orderbook_benchmark.py
+          BASELINE_ORDERBOOK_PATH: /tmp/baseline_orderbook.py
+        run: |
+          git show b4468fadc0052abe01d906146f0e7a0a7f9d9f82:Delta_Engine_Pro4web/src/orderflow/orderbook.py > /tmp/baseline_orderbook.py
+          python tools/cpu_orderbook_benchmark.py
       - name: Upload benchmark and profiles
         if: always()
         uses: actions/upload-artifact@v4

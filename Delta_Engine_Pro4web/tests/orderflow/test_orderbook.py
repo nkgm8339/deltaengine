@@ -240,6 +240,51 @@ def test_ob_bounded_best_levels_are_exact_and_do_not_sort_the_full_book() -> Non
     assert "ordered_asks" in snap.__dict__
 
 
+def test_ob_manager_precomputes_exact_bounded_levels_through_churn_and_resync() -> None:
+    bids = [
+        (str(D("1000") - D(index)), str(index + 1))
+        for index in range(75)
+    ]
+    asks = [
+        (str(D("1001") + D(index)), str(index + 1))
+        for index in range(75)
+    ]
+    mgr = OrderBookStateManager("BTCUSDT")
+    mgr.apply(_snapshot(final_id=100, bids=bids, asks=asks))
+
+    first = mgr.snapshot()
+    assert first is not None
+    assert first.best_bids(50) == first.ordered_bids[:50]
+    assert first.best_asks(50) == first.ordered_asks[:50]
+
+    mgr.apply(_diff(
+        101,
+        105,
+        bids=[("1000", "0"), ("1000.25", "7")],
+        asks=[("1001", "0"), ("1000.50", "8")],
+    ))
+    changed = mgr.snapshot()
+    assert changed is not None
+    expected_bids = tuple(sorted(changed.bids.items(), reverse=True)[:50])
+    expected_asks = tuple(sorted(changed.asks.items())[:50])
+    assert changed.best_bids(50) == expected_bids
+    assert changed.best_asks(50) == expected_asks
+    assert "ordered_bids" not in changed.__dict__
+    assert "ordered_asks" not in changed.__dict__
+    assert first.bids[D("1000")] == D("1")
+
+    assert mgr.apply(_diff(200, 205)).gap_detected is True
+    mgr.apply(_snapshot(
+        final_id=300,
+        bids=[("900", "1")],
+        asks=[("901", "2")],
+    ))
+    recovered = mgr.snapshot()
+    assert recovered is not None
+    assert recovered.best_bids(50) == ((D("900"), D("1")),)
+    assert recovered.best_asks(50) == ((D("901"), D("2")),)
+
+
 @pytest.mark.parametrize("method_name", ("best_bids", "best_asks"))
 def test_ob_bounded_best_levels_reject_non_positive_limit(method_name: str) -> None:
     snap = OrderBookSnapshot("BTCUSDT", 1, {D("100"): D("1")}, {})

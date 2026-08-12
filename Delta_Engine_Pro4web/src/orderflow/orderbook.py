@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import time
+from bisect import bisect_left, insort
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -165,6 +166,8 @@ class OrderBookStateManager:
         self._clock = clock
         self._bids: dict[Decimal, Decimal] = {}
         self._asks: dict[Decimal, Decimal] = {}
+        self._bid_prices: list[Decimal] = []
+        self._ask_prices: list[Decimal] = []
         self._last_update_id: Optional[int] = None
         self._last_event_time: Optional[datetime] = None
         self._last_applied_monotonic: Optional[float] = None
@@ -235,13 +238,22 @@ class OrderBookStateManager:
         if not self._initialized:
             return None
         if self._snapshot_cache is None:
-            self._snapshot_cache = OrderBookSnapshot(
+            snapshot = OrderBookSnapshot(
                 symbol=self.symbol,
                 last_update_id=self._last_update_id,  # type: ignore[arg-type]
                 bids=dict(self._bids),
                 asks=dict(self._asks),
                 event_time=self._last_event_time,
             )
+            object.__setattr__(snapshot, "top_bids", tuple(
+                (price, self._bids[price])
+                for price in reversed(self._bid_prices[-_TOP_LEVEL_CACHE_SIZE:])
+            ))
+            object.__setattr__(snapshot, "top_asks", tuple(
+                (price, self._asks[price])
+                for price in self._ask_prices[:_TOP_LEVEL_CACHE_SIZE]
+            ))
+            self._snapshot_cache = snapshot
         return self._snapshot_cache
 
     def bid_quantity_at(self, price: Decimal) -> Decimal:
@@ -262,6 +274,8 @@ class OrderBookStateManager:
         for level in update.asks:
             if level.quantity > _ZERO:
                 self._asks[level.price] = level.quantity
+        self._bid_prices = sorted(self._bids)
+        self._ask_prices = sorted(self._asks)
         self._last_update_id = update.final_update_id
         self._sync_id = None
         self._mark_applied(update)
@@ -293,8 +307,8 @@ class OrderBookStateManager:
         # batches can start at first_update_id > snap_id+1 due to connection timing).
         if self._sync_id is not None:
             self._sync_id = None
-            self._apply_levels(self._bids, update.bids)
-            self._apply_levels(self._asks, update.asks)
+            self._apply_levels(self._bids, self._bid_prices, update.bids)
+            self._apply_levels(self._asks, self._ask_prices, update.asks)
             self._last_update_id = update.final_update_id
             self._mark_applied(update)
             self.diffs_applied += 1
@@ -313,6 +327,8 @@ class OrderBookStateManager:
             prev_id = self._last_update_id
             self._bids = {}
             self._asks = {}
+            self._bid_prices = []
+            self._ask_prices = []
             self._last_update_id = None
             self._sync_id = None
             self._last_event_time = update.event_time
@@ -328,8 +344,8 @@ class OrderBookStateManager:
             return ApplyResult(applied=False, reinitialized=False, gap_detected=True)
 
         # Apply set-to-value semantics.
-        self._apply_levels(self._bids, update.bids)
-        self._apply_levels(self._asks, update.asks)
+        self._apply_levels(self._bids, self._bid_prices, update.bids)
+        self._apply_levels(self._asks, self._ask_prices, update.asks)
         self._last_update_id = update.final_update_id
         self._mark_applied(update)
         self.diffs_applied += 1
@@ -342,10 +358,20 @@ class OrderBookStateManager:
 
     @staticmethod
     def _apply_levels(
-        side: dict[Decimal, Decimal], levels: tuple[BookLevel, ...]
+        side: dict[Decimal, Decimal],
+        ordered_prices: list[Decimal],
+        levels: tuple[BookLevel, ...],
     ) -> None:
         for level in levels:
             if level.quantity == _ZERO:
-                side.pop(level.price, None)
+                if level.price not in side:
+                    continue
+                index = bisect_left(ordered_prices, level.price)
+                if index >= len(ordered_prices) or ordered_prices[index] != level.price:
+                    raise RuntimeError("order book price index is inconsistent")
+                side.pop(level.price)
+                ordered_prices.pop(index)
             else:
+                if level.price not in side:
+                    insort(ordered_prices, level.price)
                 side[level.price] = level.quantity
