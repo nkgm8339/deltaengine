@@ -3,7 +3,7 @@ FROM python:3.12-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142
 ARG CANDIDATE_REVISION
 
 LABEL org.opencontainers.image.source="https://github.com/nkgm8339/deltaengine"
-LABEL org.opencontainers.image.revision="\${CANDIDATE_REVISION}"
+LABEL org.opencontainers.image.revision="$CANDIDATE_REVISION"
 LABEL deltaengine.production_base_image="sha256:a27e727ebb5b8648ccd5dc1ebaf9f0543c3e9a9f2a61b24519d4df51c2dc51c1"
 LABEL deltaengine.cpu_validation_run="31605823961"
 LABEL deltaengine.big_trades_activation="disabled"

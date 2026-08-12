@@ -13,7 +13,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/nkgm8339/deltaengine-cpu-candidate:20260813-price-index-v1
+  IMAGE: ghcr.io/nkgm8339/deltaengine-cpu-candidate:20260813-price-index-v2
 
 jobs:
   build-verify-push:
